@@ -22,6 +22,7 @@ function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
 		self:SetModel( "models/thrusters/jetpack.mdl" )
+		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )
 		self:InitPhysics()
 	end
 end

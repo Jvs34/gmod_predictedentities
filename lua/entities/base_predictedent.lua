@@ -34,6 +34,7 @@ function ENT:Think()
 		self:HandlePrediction()
 	end
 end
+
 if SERVER then
 	function ENT:Use( activator )
 		if IsValid( activator ) and activator:IsPlayer() then
@@ -46,12 +47,7 @@ if SERVER then
 				return
 			end
 			
-			self:RemovePhysics()
-			self:SetParent( activator )
-			self:SetOwner( activator )
-			activator:SetNWEntity( self.SlotName , self )
-			self:SetControllingPlayer( activator )
-			self:OnAttach( self:GetControllingPlayer() )
+			self:Attach( activator )
 		end
 	end
 
@@ -75,23 +71,51 @@ if SERVER then
 	end
 	
 	function ENT:OnDrop( ply )
+		
+	end
 	
+	function ENT:Attach( activator )
+		self:RemovePhysics()
+		self:SetParent( activator )
+		self:SetOwner( activator )
+		activator:SetNWEntity( self.SlotName , self )
+		self:SetControllingPlayer( activator )
+		self:OnAttach( self:GetControllingPlayer() )
+		
+		--add a new undo history to the player that allows him to drop this entity
+		
+		undo.Create( self:GetClass() )
+			undo.SetPlayer( activator )
+			undo.AddFunction( function( tab , ent )
+				if IsValid( ent ) then
+					if ent:GetControllingPlayer() == tab.Owner then
+						ent:Drop()
+					end
+				end
+			end, self )
+			undo.SetCustomUndoText( "Dropped " .. self:GetClass() )
+		undo.Finish()
 	end
 	
 	function ENT:Drop()
 		self:SetParent( NULL )
 		self:SetOwner( NULL )
 		self:InitPhysics()
+		self:OnDrop( self:GetControllingPlayer() )
 		if IsValid( self:GetControllingPlayer() ) then
-			self:OnDrop( self:GetControllingPlayer() )
+			--TODO: remove the undo block, is this even possible without hacking around?
 			self:GetControllingPlayer():SetNWEntity( self.SlotName , NULL )
 		end
 		self:SetControllingPlayer( NULL )
 	end
 
-end
+	function ENT:OnControllerRemoved( ent )
+		if ent == self:GetControllingPlayer() then
+			self:Drop()
+		end
+	end
 
-if CLIENT then
+else
 
 	function ENT:HandlePrediction()
 		if LocalPlayer() == self:GetControllingPlayer() then
@@ -108,12 +132,6 @@ if CLIENT then
 		end
 	end
 	
-end
-
-function ENT:OnControllerRemoved( ent )
-	if ent == self:GetControllingPlayer() then
-		self:Drop()
-	end
 end
 
 function ENT:HandlePredictedThink( ply , mv )
