@@ -57,6 +57,8 @@ if SERVER then
 		self:SetMoveType( MOVETYPE_VPHYSICS )
 		self:SetSolid( SOLID_VPHYSICS )
 		self:PhysWake()
+		
+		self:OnInitPhysics()
 	end
 
 	function ENT:RemovePhysics()
@@ -64,6 +66,8 @@ if SERVER then
 		self:PhysicsDestroy()
 		self:SetMoveType( MOVETYPE_NONE )
 		self:SetSolid( SOLID_NONE )
+		
+		self:OnRemovePhysics()
 	end
 
 	function ENT:OnAttach( ply )
@@ -72,6 +76,16 @@ if SERVER then
 	
 	function ENT:OnDrop( ply )
 		
+	end
+	
+	--these two are not necessarely duplicates of the functions above because we may want to modify the mass as soon as the physobj gets created, and that also happens in initialize
+		
+	function ENT:OnInitPhysics()
+	
+	end
+	
+	function ENT:OnRemovePhysics()
+	
 	end
 	
 	function ENT:Attach( activator )
