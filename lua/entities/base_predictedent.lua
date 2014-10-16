@@ -10,7 +10,7 @@ end
 
 function ENT:Initialize()
 	hook.Add( "PlayerTick", self, self.HandlePredictedThink )
-	if ( SERVER ) then
+	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
 	else
 		self.IsPredictable = false
@@ -18,7 +18,7 @@ function ENT:Initialize()
 end
 
 function ENT:Think()
-	if ( SERVER ) then
+	if SERVER then
 		--check if this guy is still my parent and owner, maybe something is forcibly unparenting us from him, if so, drop
 		if IsValid( self:GetControllingPlayer() ) then
 			local ply = self:GetControllingPlayer()
@@ -36,13 +36,13 @@ function ENT:Think()
 end
 if SERVER then
 	function ENT:Use( activator )
-		if ( IsValid( activator ) and activator:IsPlayer() ) then
+		if IsValid( activator ) and activator:IsPlayer() then
 			
 			if IsValid( self:GetControllingPlayer() ) then
 				return
 			end
 			
-			if ( IsValid( activator:GetNWEntity( self.SlotName ) ) ) then
+			if IsValid( activator:GetNWEntity( self.SlotName ) ) then
 				return
 			end
 			
@@ -56,7 +56,7 @@ if SERVER then
 	end
 
 	function ENT:InitPhysics()
-		if ( self:GetSolid() == SOLID_VPHYSICS ) then return end
+		if self:GetSolid() == SOLID_VPHYSICS then return end
 		self:PhysicsInit( SOLID_VPHYSICS )
 		self:SetMoveType( MOVETYPE_VPHYSICS )
 		self:SetSolid( SOLID_VPHYSICS )
@@ -64,7 +64,7 @@ if SERVER then
 	end
 
 	function ENT:RemovePhysics()
-		if ( self:GetSolid() == SOLID_NONE ) then return end
+		if self:GetSolid() == SOLID_NONE then return end
 		self:PhysicsDestroy()
 		self:SetMoveType( MOVETYPE_NONE )
 		self:SetSolid( SOLID_NONE )
@@ -91,10 +91,10 @@ if SERVER then
 
 end
 
-if ( CLIENT ) then
+if CLIENT then
 
 	function ENT:HandlePrediction()
-		if ( LocalPlayer() == self:GetControllingPlayer() ) then
+		if LocalPlayer() == self:GetControllingPlayer() then
 			self:SetPredictionEnabled( true )
 		else
 			self:SetPredictionEnabled( false )
@@ -102,7 +102,7 @@ if ( CLIENT ) then
 	end
 
 	function ENT:SetPredictionEnabled( bool )
-		if ( bool ~= self.IsPredictable ) then
+		if bool ~= self.IsPredictable then
 			self:SetPredictable( bool )
 			self.IsPredictable = bool
 		end
@@ -111,15 +111,15 @@ if ( CLIENT ) then
 end
 
 function ENT:OnControllerRemoved( ent )
-	if ( ent == self:GetControllingPlayer() ) then
+	if ent == self:GetControllingPlayer() then
 		self:Drop()
 	end
 end
 
 function ENT:HandlePredictedThink( ply , mv )
-	if ( ply == self:GetControllingPlayer() ) then
+	if ply == self:GetControllingPlayer() then
 		local predictedent = ply:GetNWEntity( self.SlotName ) --or your prefered way to network it
-		if ( predictedent == self ) then
+		if predictedent == self then
 			self:PredictedThink( ply , mv )
 		end
 	end
