@@ -81,12 +81,12 @@ if SERVER then
 	function ENT:Drop()
 		self:SetParent( NULL )
 		self:SetOwner( NULL )
+		self:InitPhysics()
 		if IsValid( self:GetControllingPlayer() ) then
 			self:OnDrop( self:GetControllingPlayer() )
 			self:GetControllingPlayer():SetNWEntity( self.SlotName , NULL )
 		end
 		self:SetControllingPlayer( NULL )
-		self:InitPhysics()
 	end
 
 end
