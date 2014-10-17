@@ -202,7 +202,11 @@ if SERVER then
 else
 
 	function ENT:HandlePrediction()
-		self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
+		local bool = LocalPlayer() == self:GetControllingPlayer()
+		if self.IsPredictable ~= bool then
+			self:SetPredictable( bool )
+			self.IsPredictable = bool
+		end
 	end
 	
 end
