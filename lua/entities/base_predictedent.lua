@@ -4,8 +4,68 @@ ENT.Spawnable = false
 
 ENT.SlotName = "mypredictedent"	--change this to "predicted_<myentityname>", using the classname is also just fine
 
+--temporary system because willox is tired of the whole id offsets shenanigans, and so am I
+--should probably port this to the css weapon base as well
+
+ENT.DefinedDTVars = {
+	Entity = { 
+		MAX = GMOD_MAXDTVARS,
+	},
+	Float = { 
+		MAX = GMOD_MAXDTVARS,
+	},
+	Int = { 
+		MAX = GMOD_MAXDTVARS,
+	},
+	Bool = { 
+		MAX = GMOD_MAXDTVARS,
+	},
+	Vector = { 
+		MAX = GMOD_MAXDTVARS,
+	},
+	Angle = { 
+		MAX = GMOD_MAXDTVARS,
+	},
+	String = { 
+		MAX = 4,
+	},
+	
+	--[[
+	Entity = {
+		[0] = "ControllingPlayer",
+		[1] = "Target",
+	}
+	]]
+}
+
+function ENT:DefineNWVar( dttype , dtname )
+	if not self.DefinedDTVars[dttype] then
+		Error( "Wrong NWVar type " .. ( dttype or "nil" ) )
+		return
+	end
+	
+	local index = -1
+	local maxindex = self.DefinedDTVars[dttype].MAX
+	
+	for i = 0 , maxindex - 1 do
+		if not self.DefinedDTVars[dttype][i] then
+			index = i
+			break
+		end
+	end
+	
+	if index == -1 then
+		Error( "Not enough slots on "..dttype )
+		return
+	end
+	
+	self.DefinedDTVars[dttype][index] = dtname
+	
+	self:NetworkVar( dttype , index , dtname )	--LAAAZY
+end
+
 function ENT:SetupDataTables()
-	self:NetworkVar( "Entity" , 0 , "ControllingPlayer" )
+	self:DefineNWVar( "Entity" , "ControllingPlayer" )
 end
 
 function ENT:Initialize()

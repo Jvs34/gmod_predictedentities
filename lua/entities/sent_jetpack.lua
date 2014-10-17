@@ -42,11 +42,12 @@ end
 
 function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
-	self:NetworkVar( "Bool" , 0 , "Active" )
-	self:NetworkVar( "Float" , 0 , "Fuel" )
-	self:NetworkVar( "Float", 1 , "MaxFuel" )
-	self:NetworkVar( "Float" , 2 , "FuelDrain" ) --how many seconds it's gonna take to drain all the fuel
-	self:NetworkVar( "Float" , 3 , "FuelRecharge" ) --how many seconds it should take to fully recharge this
+	
+	self:DefineNWVar( "Bool" , "Active" )
+	self:DefineNWVar( "Float" , "Fuel" )
+	self:DefineNWVar( "Float" , "MaxFuel" )
+	self:DefineNWVar( "Float" , "FuelDrain" ) --how many seconds it's gonna take to drain all the fuel
+	self:DefineNWVar( "Float" , "FuelRecharge" ) --how many seconds it should take to fully recharge this
 end
 
 function ENT:HandleFuel( predicted )
@@ -85,19 +86,23 @@ function ENT:HandleSounds( predicted )
 		return
 	end
 	
-	if self:GetActive() then
+	--create the soundpatch if it doesn't exist, it might happen on the client sometimes since it's garbage collected and all
 	
+	if self:GetActive() then
+		
 	else
 	
 	end
 end
 
 function ENT:CanFly( owner , mv )
+	--To willox, change this if you want to have the hover mode
+	
 	if IsValid( owner ) then
-		return not owner:OnGround() and mv:KeyDown( IN_JUMP )
+		return not owner:OnGround() and mv:KeyDown( IN_JUMP ) and self:GetFuel() > 0
 	else
 		--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
-		return true
+		return self:GetFuel() > 0
 	end
 end
 
@@ -114,7 +119,6 @@ end
 
 function ENT:PredictedSetupMove( owner , movedata , usercmd )
 	self:SetActive( self:CanFly( owner , movedata ) )
-	
 end
 
 function ENT:PredictedThink( owner , movedata )
@@ -131,9 +135,8 @@ end
 
 function ENT:PredictedFinishMove( owner , movedata )
 	if self:GetActive() then
-	
+		--and here?
 	end
-	--and here?
 end
 
 --TODO:	use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
