@@ -5,6 +5,7 @@ DEFINE_BASECLASS( "base_predictedent" )
 ENT.Spawnable = true
 ENT.SlotName = "jetpack"
 ENT.RenderGroup = RENDERGROUP_BOTH
+ENT.PrintName = "Jetpack"
 
 sound.Add( {
 	name = "jetpack.thruster_loop",
@@ -101,7 +102,7 @@ function ENT:CanFly( owner , mv )
 	--To willox, change this if you want to have the hover mode
 	
 	if IsValid( owner ) then
-		return not owner:OnGround() and mv:KeyDown( IN_JUMP ) and self:GetFuel() > 0
+		return not owner:OnGround() and mv:KeyDown( IN_JUMP ) and owner:Alive() and self:GetFuel() > 0
 	else
 		--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
 		return self:GetFuel() > 0
@@ -130,14 +131,14 @@ end
 
 function ENT:PredictedMove( owner , movedata )
 	if self:GetActive() then
-	
+		--actually do the movement here
 	end
-	--actually do the movement here
+	
 end
 
 function ENT:PredictedFinishMove( owner , movedata )
 	if self:GetActive() then
-		--and here?
+		--and here
 	end
 end
 

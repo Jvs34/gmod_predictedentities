@@ -8,37 +8,6 @@ ENT.AttachesToPlayer = true
 --temporary system because willox is tired of the whole id offsets shenanigans, and so am I
 --should probably port this to the css weapon base as well
 
-ENT.DefinedDTVars = {
-	Entity = { 
-		MAX = GMOD_MAXDTVARS,
-	},
-	Float = { 
-		MAX = GMOD_MAXDTVARS,
-	},
-	Int = { 
-		MAX = GMOD_MAXDTVARS,
-	},
-	Bool = { 
-		MAX = GMOD_MAXDTVARS,
-	},
-	Vector = { 
-		MAX = GMOD_MAXDTVARS,
-	},
-	Angle = { 
-		MAX = GMOD_MAXDTVARS,
-	},
-	String = { 
-		MAX = 4,
-	},
-	
-	--[[
-	Entity = {
-		[0] = "ControllingPlayer",
-		[1] = "Target",
-	}
-	]]
-}
-
 function ENT:DefineNWVar( dttype , dtname )
 	if not self.DefinedDTVars[dttype] then
 		Error( "Wrong NWVar type " .. ( dttype or "nil" ) )
@@ -66,6 +35,31 @@ function ENT:DefineNWVar( dttype , dtname )
 end
 
 function ENT:SetupDataTables()
+	
+	self.DefinedDTVars = {
+		Entity = { 
+			MAX = GMOD_MAXDTVARS,
+		},
+		Float = { 
+			MAX = GMOD_MAXDTVARS,
+		},
+		Int = { 
+			MAX = GMOD_MAXDTVARS,
+		},
+		Bool = { 
+			MAX = GMOD_MAXDTVARS,
+		},
+		Vector = { 
+			MAX = GMOD_MAXDTVARS,
+		},
+		Angle = { 
+			MAX = GMOD_MAXDTVARS,
+		},
+		String = { 
+			MAX = 4,
+		},
+	}
+
 	self:DefineNWVar( "Entity" , "ControllingPlayer" )
 end
 
@@ -181,7 +175,7 @@ if SERVER then
 					end
 				end
 			end, self )
-			undo.SetCustomUndoText( "Dropped " .. self:GetClass() )
+			undo.SetCustomUndoText( "Dropped " .. ( self.PrintName or self:GetClass() ) )
 		undo.Finish()
 	end
 	
