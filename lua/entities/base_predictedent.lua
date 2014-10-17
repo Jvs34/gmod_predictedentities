@@ -163,6 +163,7 @@ if SERVER then
 			self:RemovePhysics()
 			self:SetParent( activator )
 			self:SetOwner( activator )
+			self:SetTransmitWithParent( true )
 		end
 		
 		activator:SetNWEntity( self.SlotName , self )
@@ -189,6 +190,7 @@ if SERVER then
 			self:SetParent( NULL )
 			self:SetOwner( NULL )
 			self:InitPhysics()
+			self:SetTransmitWithParent( false )
 		end
 		self:OnDrop( self:GetControllingPlayer() )
 		if IsValid( self:GetControllingPlayer() ) then
@@ -227,7 +229,7 @@ function ENT:HandlePredictedStartCommand( ply , cmd )
 	if ply == self:GetControllingPlayer() then
 		local predictedent = ply:GetNWEntity( self.SlotName )
 		if predictedent == self then
-			self:StartCommand( ply , cmd )
+			self:PredictedStartCommand( ply , cmd )
 		end
 	end
 end

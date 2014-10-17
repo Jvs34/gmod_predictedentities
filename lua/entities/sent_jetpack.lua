@@ -37,6 +37,8 @@ function ENT:Initialize()
 		self:SetFuel( self:GetMaxFuel() )
 		self:SetFuelDrain( 10 )
 		self:SetFuelRecharge( 20 )
+	else
+		hook.Add( "PostPlayerDraw" , self , self.DrawOnPlayer )
 	end
 end
 
@@ -75,7 +77,7 @@ function ENT:HandleFuel( predicted )
 		rechargerate = rechargerate * -1
 	end
 	
-	local clampedchargerate = math.Clamp( entity:GetFuel() + rechargerate , 0 , self:GetMaxFuel() )
+	local clampedchargerate = math.Clamp( self:GetFuel() + rechargerate , 0 , self:GetMaxFuel() )
 	self:SetFuel( clampedchargerate )
 	
 end
@@ -171,11 +173,13 @@ end
 if SERVER then
 	function ENT:OnAttach( ply )
 		self:SetActive( false )
+		self:SetNoDraw( true )
 	end
 	
 	function ENT:OnDrop( ply )
 		--surely don't want to keep the noises up
 		self:SetActive( false )
+		self:SetNoDraw( false )
 	end
 	
 else
@@ -195,13 +199,18 @@ else
 			return true
 		end
 	end
-
+	
+	function ENT:DrawOnPlayer( ply )
+		if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
+			self:Draw( STUDIO_RENDER )
+		end
+	end
+	
 	function ENT:Draw( flags )
 		if self:CanDraw() then
-			
 			--is this actually necessary due to CalcAbsolutePosition?
 			--that seems to trigger the calcabsoluteposition in the engine, but only if you call setpos here?
-			
+			--[[
 			if IsValid( self:GetControllingPlayer() ) then
 				local pos , ang = self:GetCustomParentOrigin( self:GetControllingPlayer() )
 				self:SetRenderOrigin( pos )
@@ -209,7 +218,7 @@ else
 			else
 				self:SetRenderOrigin( nil )
 				self:SetRenderAngles( nil )
-			end
+			end]]
 			
 			self:DrawModel()
 		end
