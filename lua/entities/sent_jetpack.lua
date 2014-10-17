@@ -76,6 +76,13 @@ function ENT:HandleFuel( predicted )
 	
 	if self:GetActive() then
 		rechargerate = rechargerate * -1
+	else
+		--can't recharge until our owner is on the ground!
+		if IsValid( self:GetControllingPlayer() ) then
+			if not self:GetControllingPlayer():OnGround() then
+				rechargerate = 0
+			end
+		end
 	end
 	
 	local clampedchargerate = math.Clamp( self:GetFuel() + rechargerate , 0 , self:GetMaxFuel() )
@@ -129,21 +136,39 @@ function ENT:PredictedThink( owner , movedata )
 	self:HandleSounds( true )
 end
 
-function ENT:PredictedMove( owner , movedata )
+function ENT:PredictedMove( owner , data )
 	if self:GetActive() then
-		--actually do the movement here
+		
+		--To Willox: REPLACE ME!
+		
+		local oldspeed=data:GetVelocity()
+		local sight=owner:EyeAngles()
+		local factor=1.5
+		local sidespeed=math.Clamp(data:GetSideSpeed(),-data:GetMaxClientSpeed()*factor,data:GetMaxClientSpeed()*factor)
+		local forwardspeed=math.Clamp(data:GetForwardSpeed(),-data:GetMaxClientSpeed()*factor,data:GetMaxClientSpeed()*factor)
+		local upspeed=data:GetVelocity().z
+		sight.pitch=0;
+		sight.roll=0;
+		sight.yaw=sight.yaw-90;
+		local upspeed=(sidespeed<=200 and forwardspeed<=100) and 22 or 12
+		
+		local moveang=Vector(sidespeed/70,forwardspeed/70,upspeed)
+		
+		moveang:Rotate(sight)
+		local horizontalspeed=moveang
+		data:SetVelocity(oldspeed+horizontalspeed)
 	end
 	
 end
 
 function ENT:PredictedFinishMove( owner , movedata )
 	if self:GetActive() then
-		--and here
+		
 	end
 end
 
---TODO:	use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
---		plus this is also called during that parenting position recompute, so it's perfect
+--use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
+--plus this is also called during that parenting position recompute, so it's perfect
 
 ENT.AttachmentInfo = {
 	BoneName = "ValveBiped.Bip01_Spine2",

@@ -71,8 +71,7 @@ function ENT:Initialize()
 	hook.Add( "FinishMove", self, self.HandlePredictedFinishMove )
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
-	else
-		self.IsPredictable = false
+		self:SetUseType( SIMPLE_USE )
 	end
 end
 
@@ -203,18 +202,7 @@ if SERVER then
 else
 
 	function ENT:HandlePrediction()
-		if LocalPlayer() == self:GetControllingPlayer() then
-			self:SetPredictionEnabled( true )
-		else
-			self:SetPredictionEnabled( false )
-		end
-	end
-
-	function ENT:SetPredictionEnabled( bool )
-		if bool ~= self.IsPredictable then
-			self:SetPredictable( bool )
-			self.IsPredictable = bool
-		end
+		self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
 	end
 	
 end
