@@ -3,6 +3,7 @@ DEFINE_BASECLASS( "base_entity" )
 ENT.Spawnable = false
 
 ENT.SlotName = "mypredictedent"	--change this to "predicted_<myentityname>", using the classname is also just fine
+ENT.AttachesToPlayer = true
 
 --temporary system because willox is tired of the whole id offsets shenanigans, and so am I
 --should probably port this to the css weapon base as well
@@ -84,10 +85,12 @@ end
 function ENT:Think()
 	if SERVER then
 		--check if this guy is still my parent and owner, maybe something is forcibly unparenting us from him, if so, drop
-		if IsValid( self:GetControllingPlayer() ) then
-			local ply = self:GetControllingPlayer()
-			if self:GetParent() ~= ply or self:GetOwner() ~= ply then
-				self:Drop()
+		if self.AttachesToPlayer then
+			if IsValid( self:GetControllingPlayer() ) then
+				local ply = self:GetControllingPlayer()
+				if self:GetParent() ~= ply or self:GetOwner() ~= ply then
+					self:Drop()
+				end
 			end
 		end
 	else
@@ -156,9 +159,12 @@ if SERVER then
 	end
 	
 	function ENT:Attach( activator )
-		self:RemovePhysics()
-		self:SetParent( activator )
-		self:SetOwner( activator )
+		if self.AttachesToPlayer then
+			self:RemovePhysics()
+			self:SetParent( activator )
+			self:SetOwner( activator )
+		end
+		
 		activator:SetNWEntity( self.SlotName , self )
 		self:SetControllingPlayer( activator )
 		self:OnAttach( self:GetControllingPlayer() )
@@ -179,9 +185,11 @@ if SERVER then
 	end
 	
 	function ENT:Drop()
-		self:SetParent( NULL )
-		self:SetOwner( NULL )
-		self:InitPhysics()
+		if self.AttachesToPlayer then
+			self:SetParent( NULL )
+			self:SetOwner( NULL )
+			self:InitPhysics()
+		end
 		self:OnDrop( self:GetControllingPlayer() )
 		if IsValid( self:GetControllingPlayer() ) then
 			--TODO: remove the undo block, is this even possible without hacking around?
