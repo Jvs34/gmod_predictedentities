@@ -9,7 +9,11 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Initialize()
+	hook.Add( "StartCommand", self, self.HandlePredictedStartCommand )
+	hook.Add( "SetupMove", self, self.HandlePredictedSetupMove )
+	hook.Add( "Move", self, self.HandlePredictedMove )
 	hook.Add( "PlayerTick", self, self.HandlePredictedThink )
+	hook.Add( "FinishMove", self, self.HandlePredictedFinishMove )
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
 	else
@@ -33,6 +37,9 @@ function ENT:Think()
 		--Ideally this would be handled on the callback of SetControllingPlayer clientside, but we don't have that yet
 		self:HandlePrediction()
 	end
+	
+	self:NextThink( CurTime() + engine.TickInterval() )
+	return true
 end
 
 if SERVER then
@@ -148,6 +155,33 @@ else
 	
 end
 
+function ENT:HandlePredictedStartCommand( ply , cmd )
+	if ply == self:GetControllingPlayer() then
+		local predictedent = ply:GetNWEntity( self.SlotName )
+		if predictedent == self then
+			self:StartCommand( ply , cmd )
+		end
+	end
+end
+
+function ENT:HandlePredictedSetupMove( ply , mv , cmd )
+	if ply == self:GetControllingPlayer() then
+		local predictedent = ply:GetNWEntity( self.SlotName )
+		if predictedent == self then
+			self:PredictedSetupMove( ply , mv , cmd )
+		end
+	end
+end
+
+function ENT:HandlePredictedMove( ply , mv )
+	if ply == self:GetControllingPlayer() then
+		local predictedent = ply:GetNWEntity( self.SlotName )
+		if predictedent == self then
+			self:PredictedMove( ply , mv )
+		end
+	end
+end
+
 function ENT:HandlePredictedThink( ply , mv )
 	if ply == self:GetControllingPlayer() then
 		local predictedent = ply:GetNWEntity( self.SlotName ) --or your prefered way to network it
@@ -157,7 +191,31 @@ function ENT:HandlePredictedThink( ply , mv )
 	end
 end
 
+function ENT:HandlePredictedFinishMove( ply , mv )
+	if ply == self:GetControllingPlayer() then
+		local predictedent = ply:GetNWEntity( self.SlotName )
+		if predictedent == self then
+			self:PredictedFinishMove( ply , mv )
+		end
+	end
+end
+
+function ENT:PredictedStartCommand( ply , cmd )
+
+end
+
+function ENT:PredictedSetupMove( ply , mv , cmd )
+
+end
+
+function ENT:PredictedMove( ply , mv , cmd )
+
+end
 
 function ENT:PredictedThink( ply , mv )
 	
+end
+
+function ENT:PredictedFinishMove( ply , mv , cmd )
+
 end
