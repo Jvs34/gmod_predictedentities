@@ -9,9 +9,9 @@ ENT.PrintName = "Jetpack"
 
 sound.Add( {
 	name = "jetpack.thruster_loop",
-	channel = CHAN_STATIC,
+	channel = CHAN_ITEM,
 	volume = 1.0,
-	level = 0.1,
+	level = 0.25,
 	sound = "^thrusters/jet02.wav"
 })
 
@@ -92,16 +92,22 @@ end
 
 function ENT:HandleSounds( predicted )
 	if not predicted and CLIENT then
-		--TODO: stop the sound the old controller had on the client
+		--stop the sound the old controller had on the client
+		if self.JetpackSound then
+			self.JetpackSound:Stop()
+		end
 		return
 	end
 	
 	--create the soundpatch if it doesn't exist, it might happen on the client sometimes since it's garbage collected and all
+	if not self.JetpackSound then
+		self.JetpackSound = CreateSound( self, "jetpack.thruster_loop" )
+	end
 	
 	if self:GetActive() then
-		
+		self.JetpackSound:PlayEx( 0.25 , 125 )
 	else
-	
+		self.JetpackSound:Stop()
 	end
 end
 
@@ -177,6 +183,12 @@ ENT.AttachmentInfo = {
 }
 
 function ENT:GetCustomParentOrigin( ply )
+	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
+	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
+	
+	if CLIENT and ply == LocalPlayer() and not ply:ShouldDrawLocalPlayer() then
+		ply:SetupBones()
+	end
 	local boneid = ply:LookupBone( self.AttachmentInfo.BoneName )
 	
 	if not boneid then return end
@@ -228,38 +240,103 @@ else
 	
 	function ENT:DrawOnPlayer( ply )
 		if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
-			self:Draw( STUDIO_RENDER )
+			self:DrawModel()
 		end
 	end
 	
 	function ENT:Draw( flags )
 		if self:CanDraw() then
-			--is this actually necessary due to CalcAbsolutePosition?
-			--that seems to trigger the calcabsoluteposition in the engine, but only if you call setpos here?
-			--[[
-			if IsValid( self:GetControllingPlayer() ) then
-				local pos , ang = self:GetCustomParentOrigin( self:GetControllingPlayer() )
-				self:SetRenderOrigin( pos )
-				self:SetRenderAngles( ang )
-			else
-				self:SetRenderOrigin( nil )
-				self:SetRenderAngles( nil )
-			end]]
-			
 			self:DrawModel()
+			if self:GetActive() then
+				self:DrawJetpackFire( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.25 )
+				self:DrawJetpackSmoke( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.2 )
+			end
 		end
 	end
 	
+	ENT.MatHeatWave		= Material( "sprites/heatwave" )
+	ENT.MatFire			= Material( "effects/fire_cloud1" )
+	
 	function ENT:DrawTranslucent( flags )
-		self:Draw( flags )
+		--self:Draw( flags )
 		
 		if self:CanDraw() and self:GetActive() then
 			--TODO: fire effects and smoke particles
+			--self:drawFire(self:GetPos(),self:GetAngles():Up(),0.2)
 		end
 	end
+	
+	
+	--copied straight from the thruster code
+	
+	function ENT:DrawJetpackFire( pos , normal , scale , vOffset2 )
+		local vOffset = pos or vector_origin
+		local vNormal = normal or vector_origin
+
+		local scroll = 1000 + (CurTime() * -10)
+		
+		local Scale = scale or 1
+		
+		render.SetMaterial( self.MatFire )
+		
+		render.StartBeam( 3 )
+			render.AddBeam( vOffset, 8 * Scale, scroll, Color( 0, 0, 255, 128) )
+			render.AddBeam( vOffset + vNormal * 60 * Scale, 32 * Scale, scroll + 1, Color( 255, 255, 255, 128) )
+			render.AddBeam( vOffset + vNormal * 148 * Scale, 32 * Scale, scroll + 3, Color( 255, 255, 255, 0) )
+		render.EndBeam()
+		
+		scroll = scroll * 0.5
+		
+		render.UpdateRefractTexture()
+		render.SetMaterial( self.MatHeatWave )
+		render.StartBeam( 3 )
+			render.AddBeam( vOffset, 8 * Scale, scroll, Color( 0, 0, 255, 128) )
+			render.AddBeam( vOffset + vNormal * 32 * Scale, 32 * Scale, scroll + 2, Color( 255, 255, 255, 255) )
+			render.AddBeam( vOffset + vNormal * 128 * Scale, 48 * Scale, scroll + 5, Color( 0, 0, 0, 0) )
+		render.EndBeam()
+		
+		
+		scroll = scroll * 1.3
+		render.SetMaterial( self.MatHeatWave )
+		render.StartBeam( 3 )
+			render.AddBeam( vOffset, 8 * Scale, scroll, Color( 0, 0, 255, 128) )
+			render.AddBeam( vOffset + vNormal * 60 * Scale, 16 * Scale, scroll + 1, Color( 255, 255, 255, 128) )
+			render.AddBeam( vOffset + vNormal * 148 * Scale, 16 * Scale, scroll + 3, Color( 255, 255, 255, 0) )
+		render.EndBeam()
+	end
+	
+	function ENT:DrawJetpackSmoke( pos , normal , scale )
+		
+		if not self.ParticleEmitter then 
+			self.ParticleEmitter = ParticleEmitter( pos )
+		end
+		
+		self.NextParticle = self.NextParticle or CurTime()
+		
+		
+		if self.NextParticle >= CurTime() then return end
+		self.NextParticle = CurTime() + 0.01
+		
+		local particle = self.ParticleEmitter:Add("particle/particle_noisesphere", pos )
+		if not particle then return end
+		particle:SetVelocity( normal * 100 )
+		particle:SetDieTime( 0.5 )
+		particle:SetStartAlpha( 255 )
+		particle:SetEndAlpha( 0 )
+		particle:SetStartSize( 4 )
+		particle:SetEndSize( 16 )
+		particle:SetRoll( math.Rand( -10,10  ) )
+		particle:SetRollDelta( math.Rand( -0.2, 0.2 ) )
+		particle:SetColor( 200 , 200 , 200 )
+		
+	end
+	
 end
 
 function ENT:OnRemove()
 	--TODO: remove the sounds on both client and server, in case we got removed while the player was using us
 	--happens during a mass cleanup
+	if self.JetpackSound then
+		self.JetpackSound:Stop()
+	end
 end
