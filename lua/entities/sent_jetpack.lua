@@ -4,8 +4,16 @@ DEFINE_BASECLASS( "base_predictedent" )
 
 ENT.Spawnable = true
 ENT.SlotName = "jetpack"
-ENT.RenderGroup = RENDERGROUP_BOTH
 ENT.PrintName = "Jetpack"
+
+--use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
+--plus this is also called during that parenting position recompute, so it's perfect
+
+ENT.AttachmentInfo = {
+	BoneName = "ValveBiped.Bip01_Spine2",
+	OffsetVec = Vector( 3 , -5.6 , 0 ),
+	OffsetAng = Angle( 180 , 90 , -90 ),
+}
 
 sound.Add( {
 	name = "jetpack.thruster_loop",
@@ -32,14 +40,14 @@ function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
 		self:SetModel( "models/thrusters/jetpack.mdl" )
-		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )
+		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--comment to reenable collisions with players and npcs
 		self:InitPhysics()
-		self:SetMaxFuel( 100 )
+		
+		self:SetMaxFuel( 100 )	--set this to -1 to disable the fuel drain
 		self:SetFuel( self:GetMaxFuel() )
 		self:SetFuelDrain( 10 )
 		self:SetFuelRecharge( 20 )
-	else
-		hook.Add( "PostPlayerDraw" , self , self.DrawOnPlayer )
+		hook.Add( "PostPlayerDeath" , self , self.ControllingPlayerDeath )
 	end
 end
 
@@ -47,10 +55,15 @@ function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
 	
 	self:DefineNWVar( "Bool" , "Active" )
+	self:DefineNWVar( "Bool" , "GoneApeshit" )	--set when the player using us dies while we're active
 	self:DefineNWVar( "Float" , "Fuel" )
-	self:DefineNWVar( "Float" , "MaxFuel" )
+	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
 	self:DefineNWVar( "Float" , "FuelDrain" ) --how many seconds it's gonna take to drain all the fuel
 	self:DefineNWVar( "Float" , "FuelRecharge" ) --how many seconds it should take to fully recharge this
+end
+
+function ENT:HandleFly( predicted , owner , movedata , usercmd )
+	self:SetActive( self:CanFly( owner , movedata ) )
 end
 
 function ENT:HandleFuel( predicted )
@@ -70,14 +83,26 @@ function ENT:HandleFuel( predicted )
 		ft = FrameTime()
 	end
 	
+	if self:GetMaxFuel() == -1 then
+		self:SetFuel( 1 )
+		return
+	end
+	
 	local rechargetime = self:GetActive() and self:GetFuelDrain() or self:GetFuelRecharge()
 	
 	local rechargerate = self:GetMaxFuel() / ( rechargetime / ft )
 	
 	if self:GetActive() then
 		rechargerate = rechargerate * -1
+		
+		if self:GetGoneApeshit() then
+			--drain twice as much fuel if we're going craaaazy
+			--no need to stop the recharge rate when we're not active, because then we're not crazy anymore
+			rechargerate = rechargerate * 2
+		end
 	else
 		--can't recharge until our owner is on the ground!
+		--prevents the player from tapping the jump button to fly and recharge at the same time
 		if IsValid( self:GetControllingPlayer() ) then
 			if not self:GetControllingPlayer():OnGround() then
 				rechargerate = 0
@@ -88,18 +113,23 @@ function ENT:HandleFuel( predicted )
 	local clampedchargerate = math.Clamp( self:GetFuel() + rechargerate , 0 , self:GetMaxFuel() )
 	self:SetFuel( clampedchargerate )
 	
+	--we exhausted all of our fuel, chill out
+	if self:GetFuel() <= 0 and self:GetGoneApeshit() then
+		self:SetGoneApeshit( false )
+	end
 end
 
 function ENT:HandleSounds( predicted )
 	if not predicted and CLIENT then
-		--stop the sound the old controller had on the client
+		--stop the sound the old controlling player had on the client
 		if self.JetpackSound then
 			self.JetpackSound:Stop()
 		end
 		return
 	end
 	
-	--create the soundpatch if it doesn't exist, it might happen on the client sometimes since it's garbage collected and all
+	--create the soundpatch if it doesn't exist, it might happen on the client sometimes since it's garbage collected
+	
 	if not self.JetpackSound then
 		self.JetpackSound = CreateSound( self, "jetpack.thruster_loop" )
 	end
@@ -116,16 +146,17 @@ function ENT:CanFly( owner , mv )
 	
 	if IsValid( owner ) then
 		return not owner:OnGround() and mv:KeyDown( IN_JUMP ) and owner:Alive() and self:GetFuel() > 0
-	else
-		--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
-		return self:GetFuel() > 0
 	end
+	
+	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
+	return self:GetFuel() > 0
 end
 
 function ENT:Think()
 	
 	--recharge while we're not being held by a player
 	if not IsValid( self:GetControllingPlayer() ) then
+		self:HandleFly( false )
 		self:HandleFuel( false )
 		self:HandleSounds( false )
 	end
@@ -134,7 +165,7 @@ function ENT:Think()
 end
 
 function ENT:PredictedSetupMove( owner , movedata , usercmd )
-	self:SetActive( self:CanFly( owner , movedata ) )
+	self:HandleFly( true , owner , movedata , usercmd )
 end
 
 function ENT:PredictedThink( owner , movedata )
@@ -146,6 +177,7 @@ function ENT:PredictedMove( owner , data )
 	if self:GetActive() then
 		
 		--To Willox: REPLACE ME!
+		--this is just some really shitty code I used years ago, can't even be arsed to do it properly
 		
 		local oldspeed=data:GetVelocity()
 		local sight=owner:EyeAngles()
@@ -153,9 +185,9 @@ function ENT:PredictedMove( owner , data )
 		local sidespeed=math.Clamp(data:GetSideSpeed(),-data:GetMaxClientSpeed()*factor,data:GetMaxClientSpeed()*factor)
 		local forwardspeed=math.Clamp(data:GetForwardSpeed(),-data:GetMaxClientSpeed()*factor,data:GetMaxClientSpeed()*factor)
 		local upspeed=data:GetVelocity().z
-		sight.pitch=0;
-		sight.roll=0;
-		sight.yaw=sight.yaw-90;
+		sight.pitch=0
+		sight.roll=0
+		sight.yaw=sight.yaw-90
 		local upspeed=(sidespeed<=200 and forwardspeed<=100) and 22 or 12
 		
 		local moveang=Vector(sidespeed/70,forwardspeed/70,upspeed)
@@ -173,80 +205,62 @@ function ENT:PredictedFinishMove( owner , movedata )
 	end
 end
 
---use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
---plus this is also called during that parenting position recompute, so it's perfect
-
-ENT.AttachmentInfo = {
-	BoneName = "ValveBiped.Bip01_Spine2",
-	OffsetVec = Vector( 3 , -5.6 , 0 ),
-	OffsetAng = Angle( 180 , 90 , -90 ),
-}
-
-function ENT:GetCustomParentOrigin( ply )
-	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
-	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
-	
-	if CLIENT and ply == LocalPlayer() and not ply:ShouldDrawLocalPlayer() then
-		ply:SetupBones()
-	end
-	local boneid = ply:LookupBone( self.AttachmentInfo.BoneName )
-	
-	if not boneid then return end
-	
-	local matrix = self:GetControllingPlayer():GetBoneMatrix( boneid )
-	
-	if not matrix then return end
-	
-	return LocalToWorld( self.AttachmentInfo.OffsetVec , self.AttachmentInfo.OffsetAng , matrix:GetTranslation() , matrix:GetAngles() )
-end
-
-function ENT:CalcAbsolutePosition( pos , ang )
-	if IsValid( self:GetControllingPlayer() ) then
-		return self:GetCustomParentOrigin( self:GetControllingPlayer() )
-	end
-end
-
 
 
 if SERVER then
+
+	function ENT:ControllingPlayerDeath( ply )
+		if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
+			self:Drop()
+		end
+	end
+	
 	function ENT:OnAttach( ply )
+		self:SetGoneApeshit( false )	--someone might be able to catch us midflight!
 		self:SetActive( false )
 		self:SetNoDraw( true )
 	end
 	
 	function ENT:OnDrop( ply )
-		--surely don't want to keep the noises up
-		self:SetActive( false )
+		if IsValid( ply ) and not ply:Alive() then
+			--when the player dies while still using us, keep us active and let us fly with physics until
+			--our fuel runs out
+			if self:GetActive() then
+				self:SetGoneApeshit( true )
+			end
+		else
+			self:SetActive( false )
+		end
 		self:SetNoDraw( false )
 	end
 	
+	function ENT:OnInitPhysics( physobj )
+		if IsValid( physobj ) then
+			self:SetMass( 150 )	--yo this thing is supposed to be heavy
+			self:StartMotionController()
+		end
+	end
+	
+	function ENT:PhysicsSimulate( physobj , delta )
+		if self:GetGoneApeshit() then
+			--TODO: apply a linear force, with an angular spin so that we fly in a corkscrew pattern
+			
+		end
+	end
+	
 else
-	--[[
-		NOTE:	since we're parenting ourselves to the player, internally the parent is going to be redrawn invisibly before we do,
-				so technically, it should be safe to draw ourselves attached to the player bones
-				
-				
-				
-				if this doesn't work, hook up PostPlayerDraw like I do for most of my stuff
-	]]
-	
-	function ENT:CanDraw()
-		if self:GetControllingPlayer() == LocalPlayer() then
-			return LocalPlayer():ShouldDrawLocalPlayer()
-		else
-			return true
-		end
-	end
-	
-	function ENT:DrawOnPlayer( ply )
-		if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
-			self:DrawModel()
-		end
-	end
 	
 	function ENT:Draw( flags )
 		if self:CanDraw() then
+			
 			self:DrawModel()
+			
+			--TODO:	create two phx wings and animate them when we switch from inactive to active
+			--		there's three options in how to go with it
+			--		1) linear movement from inside the jetpack, like buzz lightyears' wings
+			--		2) wings are always there but they expand up to the desired length with a bone matrix scale
+			--		3) the wings have only have an angular movement, this might look the best
+			
 			if self:GetActive() then
 				self:DrawJetpackFire( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.25 )
 				self:DrawJetpackSmoke( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.2 )
@@ -257,19 +271,9 @@ else
 	ENT.MatHeatWave		= Material( "sprites/heatwave" )
 	ENT.MatFire			= Material( "effects/fire_cloud1" )
 	
-	function ENT:DrawTranslucent( flags )
-		--self:Draw( flags )
-		
-		if self:CanDraw() and self:GetActive() then
-			--TODO: fire effects and smoke particles
-			--self:drawFire(self:GetPos(),self:GetAngles():Up(),0.2)
-		end
-	end
-	
-	
 	--copied straight from the thruster code
 	
-	function ENT:DrawJetpackFire( pos , normal , scale , vOffset2 )
+	function ENT:DrawJetpackFire( pos , normal , scale )
 		local vOffset = pos or vector_origin
 		local vNormal = normal or vector_origin
 
@@ -307,8 +311,12 @@ else
 	
 	function ENT:DrawJetpackSmoke( pos , normal , scale )
 		
-		if not self.ParticleEmitter then 
-			self.ParticleEmitter = ParticleEmitter( pos )
+		--would it be a good idea to actually just render the smoke in local positions and then manually
+		--draw it in relative positions? it's not gonna look realistic but I think it'd look better than
+		--how it is now
+		
+		if not self.JetpackParticleEmitter then 
+			self.JetpackParticleEmitter = ParticleEmitter( pos )
 		end
 		
 		self.NextParticle = self.NextParticle or CurTime()
@@ -317,7 +325,7 @@ else
 		if self.NextParticle >= CurTime() then return end
 		self.NextParticle = CurTime() + 0.01
 		
-		local particle = self.ParticleEmitter:Add("particle/particle_noisesphere", pos )
+		local particle = self.JetpackParticleEmitter:Add("particle/particle_noisesphere", pos )
 		if not particle then return end
 		particle:SetVelocity( normal * 100 )
 		particle:SetDieTime( 0.5 )

@@ -3,7 +3,8 @@ DEFINE_BASECLASS( "base_entity" )
 ENT.Spawnable = false
 
 ENT.SlotName = "mypredictedent"	--change this to "predicted_<myentityname>", using the classname is also just fine
-ENT.AttachesToPlayer = true
+ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, you'll have to handle positioning on the player on your own, see sent_jetpack
+ENT.RenderGroup = RENDERGROUP_OPAQUE
 
 --temporary system because willox is tired of the whole id offsets shenanigans, and so am I
 --should probably port this to the css weapon base as well
@@ -69,9 +70,12 @@ function ENT:Initialize()
 	hook.Add( "Move", self, self.HandlePredictedMove )
 	hook.Add( "PlayerTick", self, self.HandlePredictedThink )
 	hook.Add( "FinishMove", self, self.HandlePredictedFinishMove )
+	
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
 		self:SetUseType( SIMPLE_USE )
+	else
+		hook.Add( "PostPlayerDraw" , self , self.DrawOnPlayer )
 	end
 end
 
@@ -121,7 +125,7 @@ if SERVER then
 		self:SetSolid( SOLID_VPHYSICS )
 		self:PhysWake()
 		
-		self:OnInitPhysics()
+		self:OnInitPhysics( self:GetPhysicsObject() )
 	end
 
 	function ENT:RemovePhysics()
@@ -141,9 +145,10 @@ if SERVER then
 		
 	end
 	
-	--these two are not necessarely duplicates of the functions above because we may want to modify the mass as soon as the physobj gets created, and that also happens in initialize
+	--these two are not necessarely duplicates of the functions above because we may want to modify the mass 
+	--as soon as the physobj gets created, and that also happens in initialize
 		
-	function ENT:OnInitPhysics()
+	function ENT:OnInitPhysics( physobj )
 	
 	end
 	
@@ -179,17 +184,21 @@ if SERVER then
 	end
 	
 	function ENT:Drop()
+		
 		if self.AttachesToPlayer then
 			self:SetParent( NULL )
 			self:SetOwner( NULL )
 			self:InitPhysics()
 			self:SetTransmitWithParent( false )
 		end
+		
 		self:OnDrop( self:GetControllingPlayer() )
+		
 		if IsValid( self:GetControllingPlayer() ) then
 			--TODO: remove the undo block, is this even possible without hacking around?
 			self:GetControllingPlayer():SetNWEntity( self.SlotName , NULL )
 		end
+		
 		self:SetControllingPlayer( NULL )
 	end
 
@@ -209,6 +218,31 @@ else
 		end
 	end
 	
+	function ENT:DrawOnPlayer( ply )
+		if self.AttachesToPlayer then
+			if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
+				self:DrawModel()
+			end
+		end
+	end
+	
+	function ENT:CanDraw()
+		if not self.AttachesToPlayer then 
+			return true 
+		end
+		
+		if self:GetControllingPlayer() == LocalPlayer() then
+			return LocalPlayer():ShouldDrawLocalPlayer()
+		else
+			return true
+		end
+	end
+	
+	function ENT:Draw( flags )
+		if self:CanDraw() then
+			self:DrawModel()
+		end
+	end
 end
 
 function ENT:HandlePredictedStartCommand( ply , cmd )
@@ -274,4 +308,45 @@ end
 
 function ENT:PredictedFinishMove( ply , mv , cmd )
 
+end
+
+function ENT:GetCustomParentOrigin( ply )
+	
+	if not self.AttachmentInfo then
+		return
+	end
+	
+	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
+	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
+	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
+	--		I should probably move this to the base, in case the entity attaches to the player, less code to duplicate
+	
+	if CLIENT and ply == LocalPlayer() and not ply:ShouldDrawLocalPlayer() then
+		ply:SetupBones()
+	end
+	
+	local boneid = ply:LookupBone( self.AttachmentInfo.BoneName )
+	
+	if not boneid then 
+		return 
+	end
+	
+	local matrix = self:GetControllingPlayer():GetBoneMatrix( boneid )
+	
+	if not matrix then 
+		return
+	end
+	
+	return LocalToWorld( self.AttachmentInfo.OffsetVec , self.AttachmentInfo.OffsetAng , matrix:GetTranslation() , matrix:GetAngles() )
+end
+
+--if we're attached to a player, use custom origin from the function above
+--this is called shared, yes it's more expensive than source's normal parenting but it's worth it
+
+function ENT:CalcAbsolutePosition( pos , ang )
+	if self.AttachesToPlayer then
+		if IsValid( self:GetControllingPlayer() ) then
+			return self:GetCustomParentOrigin( self:GetControllingPlayer() )
+		end
+	end
 end
