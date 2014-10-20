@@ -133,13 +133,9 @@ end
 
 function ENT:HandleSounds( predicted )
 	if not predicted and CLIENT then
-		--stop the sound the old controlling player had on the client
-		
 		if self.JetpackSound then
-			self.JetpackSound:Stop()
 			self.JetpackSound = nil
 		end
-
 		return
 	end
 
@@ -150,20 +146,7 @@ function ENT:HandleSounds( predicted )
 	end
 
 	if self:GetActive() then
-		--this may actually be pretty bad for performance I believe, since every change to a soundpatch causes a net message to replay the sound
-		--with the new parameters
-		
-		--TODO: check netgraph when running this
-		
-		local randompitch = 0.25
-		
-		if predicted then
-			randompitch = util.SharedRandom( "JetpackSound", 0.25 , 0.40 )
-		else
-			randompitch = math.random( 0.25 , 0.40 )
-		end
-		
-		self.JetpackSound:PlayEx( randompitch  , 125 )
+		self.JetpackSound:PlayEx( 0.25  , 125 )
 	else
 		self.JetpackSound:Stop()
 	end
@@ -274,6 +257,7 @@ if SERVER then
 
 	function ENT:OnInitPhysics( physobj )
 		if IsValid( physobj ) then
+			physobj:SetMass( 75 )
 			self:StartMotionController()
 		end
 	end
@@ -285,7 +269,7 @@ if SERVER then
 	function ENT:PhysicsSimulate( physobj , delta )
 		if self:GetGoneApeshit() then
 			--TODO:apply an angular spin so that we fly in a corkscrew pattern
-			return vector_origin , Vector( 0 , 0 , -1000 ) * physobj:GetMass() , SIM_LOCAL_FORCE
+			return Vector( 0 , 30 , 10 ) * physobj:GetMass() , Vector( 0 , 0 , -1500 ) * physobj:GetMass() , SIM_LOCAL_FORCE
 		end
 	end
 	
@@ -302,7 +286,7 @@ if SERVER then
 			return
 		end
 		
-		local volume = speed * speed * ( 1 / ( 320 * 320 ) )
+		local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
 		if volume > 1 then
 			volume = 1
 		end
@@ -312,7 +296,7 @@ if SERVER then
 	end
 	
 	function ENT:CheckDetonate( data , physobj )
-		return self:GetActive() and self:GetGoneApeshit() and data.Speed > 800
+		return self:GetActive() and data.Speed > 500
 	end
 	
 	function ENT:Detonate()
@@ -327,7 +311,9 @@ if SERVER then
 		end
 		
 		util.BlastDamage( self , self , self:GetPos() , radius , dmg )
-		
+		local effect = EffectData()
+		effect:SetOrigin( self:GetPos() )
+		util.Effect( "Explosion" , effect )
 		
 		self:Remove()
 	end
@@ -379,7 +365,7 @@ else
 		if self.LastActive ~= self:GetActive() then
 			self.LastDirection = self:GetActive()
 			self:SetWingClosureStartTime( UnPredictedCurTime() )
-			self:SetWingClosureEndTime( UnPredictedCurTime() + 1 )
+			self:SetWingClosureEndTime( UnPredictedCurTime() + 0.25 )
 			self.LastActive = self:GetActive()
 		end
 		
@@ -408,6 +394,17 @@ else
 		end
 	end
 
+	ENT.JetpackWings = {
+		{
+			OffsetVec = Vector( 0 , -9 , 0 ),
+			OffsetAng = Angle( 0 , 0 , 90 ),
+		},
+		{
+			OffsetVec = Vector( 0 , 10 , 0 ),
+			OffsetAng = Angle( 180 , 0 , -90 ),
+		},
+	}
+	
 	function ENT:DrawWings()
 		--TODO: draw the wings with the offsets we've gotten from HandleWings
 
@@ -415,18 +412,24 @@ else
 		local ang = self:GetAngles()
 
 		--temporary offsets
-
+		local matrix = Matrix()
+		local dist = Lerp( self:GetWingClosure() , -15 , 0 )
+		matrix:SetTranslation( Vector( 0 ,0 , dist ) )
+		matrix:Scale( Vector( 1 , 1 , self:GetWingClosure() ) )
+		
 		if IsValid( self.LeftWing ) then
-			local gpos , gang = LocalToWorld( Vector( 0 , -9 * self:GetWingClosure(), 0 ) , Angle( 0 , 0 , 90 ) , pos , ang )
+			local gpos , gang = LocalToWorld( self.JetpackWings[1].OffsetVec , self.JetpackWings[1].OffsetAng , pos , ang )
 			self.LeftWing:SetRenderOrigin( gpos )
 			self.LeftWing:SetRenderAngles( gang )
+			self.LeftWing:EnableMatrix( "RenderMultiply" , matrix )
 			self.LeftWing:DrawModel()
 		end
 
 		if IsValid( self.RightWing ) then
-			local gpos , gang = LocalToWorld( Vector( 0 , 10 * self:GetWingClosure() , 0 ) , Angle( 180 , 0 , -90 ) , pos , ang )
+			local gpos , gang = LocalToWorld( self.JetpackWings[2].OffsetVec , self.JetpackWings[2].OffsetAng , pos , ang )
 			self.RightWing:SetRenderOrigin( gpos )
 			self.RightWing:SetRenderAngles( gang )
+			self.RightWing:EnableMatrix( "RenderMultiply" , matrix )
 			self.RightWing:DrawModel()
 		end
 	end
