@@ -6,6 +6,16 @@ ENT.SlotName = "mypredictedent"	--change this to "predicted_<myentityname>", usi
 ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, you'll have to handle positioning on the player on your own, see sent_jetpack
 ENT.RenderGroup = RENDERGROUP_OPAQUE
 
+
+--example attachment info table
+--[[
+ENT.AttachmentInfo = {
+	BoneName = "ValveBiped.Bip01_Spine2",
+	OffsetVec = Vector( 3 , -5.6 , 0 ),
+	OffsetAng = Angle( 180 , 90 , -90 ),
+}
+]]
+
 --temporary system because willox is tired of the whole id offsets shenanigans, and so am I
 --should probably port this to the css weapon base as well
 
@@ -14,49 +24,49 @@ function ENT:DefineNWVar( dttype , dtname )
 		Error( "Wrong NWVar type " .. ( dttype or "nil" ) )
 		return
 	end
-	
+
 	local index = -1
 	local maxindex = self.DefinedDTVars[dttype].MAX
-	
+
 	for i = 0 , maxindex - 1 do
 		if not self.DefinedDTVars[dttype][i] then
 			index = i
 			break
 		end
 	end
-	
+
 	if index == -1 then
 		Error( "Not enough slots on "..dttype )
 		return
 	end
-	
+
 	self.DefinedDTVars[dttype][index] = dtname
-	
+
 	self:NetworkVar( dttype , index , dtname )	--LAAAZY
 end
 
 function ENT:SetupDataTables()
-	
+
 	self.DefinedDTVars = {
-		Entity = { 
+		Entity = {
 			MAX = GMOD_MAXDTVARS,
 		},
-		Float = { 
+		Float = {
 			MAX = GMOD_MAXDTVARS,
 		},
-		Int = { 
+		Int = {
 			MAX = GMOD_MAXDTVARS,
 		},
-		Bool = { 
+		Bool = {
 			MAX = GMOD_MAXDTVARS,
 		},
-		Vector = { 
+		Vector = {
 			MAX = GMOD_MAXDTVARS,
 		},
-		Angle = { 
+		Angle = {
 			MAX = GMOD_MAXDTVARS,
 		},
-		String = { 
+		String = {
 			MAX = 4,
 		},
 	}
@@ -70,7 +80,7 @@ function ENT:Initialize()
 	hook.Add( "Move", self, self.HandlePredictedMove )
 	hook.Add( "PlayerTick", self, self.HandlePredictedThink )
 	hook.Add( "FinishMove", self, self.HandlePredictedFinishMove )
-	
+
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
 		self:SetUseType( SIMPLE_USE )
@@ -93,11 +103,11 @@ function ENT:Think()
 	else
 		--calling this in a non-predicted hook is perfectly fine, since we need the entity to enable prediction on its own
 		--even when controlling players change
-		
+
 		--Ideally this would be handled on the callback of SetControllingPlayer clientside, but we don't have that yet
 		self:HandlePrediction()
 	end
-	
+
 	self:NextThink( CurTime() + engine.TickInterval() )
 	return true
 end
@@ -105,57 +115,59 @@ end
 if SERVER then
 	function ENT:Use( activator )
 		if IsValid( activator ) and activator:IsPlayer() then
-			
-			if IsValid( self:GetControllingPlayer() ) then
+
+			if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self.SlotName ) ) then
 				return
 			end
-			
-			if IsValid( activator:GetNWEntity( self.SlotName ) ) then
-				return
-			end
-			
+
 			self:Attach( activator )
 		end
 	end
 
 	function ENT:InitPhysics()
-		if self:GetSolid() == SOLID_VPHYSICS then return end
+		if self:GetSolid() == SOLID_VPHYSICS then
+			return
+		end
+
 		self:PhysicsInit( SOLID_VPHYSICS )
 		self:SetMoveType( MOVETYPE_VPHYSICS )
 		self:SetSolid( SOLID_VPHYSICS )
 		self:PhysWake()
-		
+
 		self:OnInitPhysics( self:GetPhysicsObject() )
 	end
 
 	function ENT:RemovePhysics()
-		if self:GetSolid() == SOLID_NONE then return end
+		if self:GetSolid() == SOLID_NONE then
+			return
+		end
+
 		self:PhysicsDestroy()
 		self:SetMoveType( MOVETYPE_NONE )
 		self:SetSolid( SOLID_NONE )
-		
+
 		self:OnRemovePhysics()
 	end
 
 	function ENT:OnAttach( ply )
-		
+
 	end
-	
+
 	function ENT:OnDrop( ply )
-		
+
 	end
-	
-	--these two are not necessarely duplicates of the functions above because we may want to modify the mass 
+
+	--these two are not necessarely duplicates of the functions above because we may want to modify the mass
 	--as soon as the physobj gets created, and that also happens in initialize
-		
+
 	function ENT:OnInitPhysics( physobj )
-	
+
 	end
-	
+
 	function ENT:OnRemovePhysics()
-	
+
 	end
-	
+
 	function ENT:Attach( activator )
 		if self.AttachesToPlayer then
 			self:RemovePhysics()
@@ -163,13 +175,13 @@ if SERVER then
 			self:SetOwner( activator )
 			self:SetTransmitWithParent( true )
 		end
-		
+
 		activator:SetNWEntity( self.SlotName , self )
 		self:SetControllingPlayer( activator )
 		self:OnAttach( self:GetControllingPlayer() )
-		
+
 		--add a new undo history to the player that allows him to drop this entity
-		
+
 		undo.Create( self:GetClass() )
 			undo.SetPlayer( activator )
 			undo.AddFunction( function( tab , ent )
@@ -182,23 +194,23 @@ if SERVER then
 			undo.SetCustomUndoText( "Dropped " .. ( self.PrintName or self:GetClass() ) )
 		undo.Finish()
 	end
-	
+
 	function ENT:Drop()
-		
+
 		if self.AttachesToPlayer then
 			self:SetParent( NULL )
 			self:SetOwner( NULL )
 			self:InitPhysics()
 			self:SetTransmitWithParent( false )
 		end
-		
+
 		self:OnDrop( self:GetControllingPlayer() )
-		
+
 		if IsValid( self:GetControllingPlayer() ) then
 			--TODO: remove the undo block, is this even possible without hacking around?
 			self:GetControllingPlayer():SetNWEntity( self.SlotName , NULL )
 		end
-		
+
 		self:SetControllingPlayer( NULL )
 	end
 
@@ -209,7 +221,8 @@ if SERVER then
 	end
 
 else
-
+	
+	--TODO: when the player gets pushed with the new behaviour, change this to self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
 	function ENT:HandlePrediction()
 		local bool = LocalPlayer() == self:GetControllingPlayer()
 		if self.IsPredictable ~= bool then
@@ -217,7 +230,7 @@ else
 			self.IsPredictable = bool
 		end
 	end
-	
+
 	function ENT:DrawOnPlayer( ply )
 		if self.AttachesToPlayer then
 			if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
@@ -225,19 +238,19 @@ else
 			end
 		end
 	end
-	
+
 	function ENT:CanDraw()
-		if not self.AttachesToPlayer then 
-			return true 
+		if not self.AttachesToPlayer then
+			return true
 		end
-		
+
 		if self:GetControllingPlayer() == LocalPlayer() then
 			return LocalPlayer():ShouldDrawLocalPlayer()
 		else
 			return true
 		end
 	end
-	
+
 	function ENT:Draw( flags )
 		if self:CanDraw() then
 			self:DrawModel()
@@ -303,39 +316,43 @@ function ENT:PredictedMove( ply , mv , cmd )
 end
 
 function ENT:PredictedThink( ply , mv )
-	
+
 end
 
 function ENT:PredictedFinishMove( ply , mv , cmd )
 
 end
 
+--attaches the entity to the player depending on the attachmentinfo table
+--you can override this safely as long as you keep the part with ply:SetupBones()
+--although you generally should just use the attachemnt info table instea
+
 function ENT:GetCustomParentOrigin( ply )
-	
+
 	if not self.AttachmentInfo then
 		return
 	end
-	
+
 	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
 	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
 	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
-	
+
 	if CLIENT and ply == LocalPlayer() and not ply:ShouldDrawLocalPlayer() then
 		ply:SetupBones()
 	end
-	
+
 	local boneid = ply:LookupBone( self.AttachmentInfo.BoneName )
-	
-	if not boneid then 
-		return 
-	end
-	
-	local matrix = self:GetControllingPlayer():GetBoneMatrix( boneid )
-	
-	if not matrix then 
+
+	if not boneid then
 		return
 	end
-	
+
+	local matrix = self:GetControllingPlayer():GetBoneMatrix( boneid )
+
+	if not matrix then
+		return
+	end
+
 	return LocalToWorld( self.AttachmentInfo.OffsetVec , self.AttachmentInfo.OffsetAng , matrix:GetTranslation() , matrix:GetAngles() )
 end
 
@@ -348,4 +365,33 @@ function ENT:CalcAbsolutePosition( pos , ang )
 			return self:GetCustomParentOrigin( self:GetControllingPlayer() )
 		end
 	end
+end
+
+if SERVER then
+	
+	--can be either called manually or from the derma when the user uses the context menu
+	
+	concommand.Add( "drop_pe" , function( ply , cmd , args , fullstr )
+		
+		if not IsValid( ply ) then
+			return
+		end
+		
+		local nwslot = args[1]
+		
+		if not nwslot then
+			return
+		end
+		
+		local slotent = ply:GetNWEntity( nwslot )
+		
+		--user tried to drop an invalid or an entity which is not a predicted entity, or doesn't have a slot assigned
+		
+		if not IsValid( slotent ) or not slotent.SlotName then
+			return
+		end
+		
+		slotent:Drop()
+		
+	end)
 end
