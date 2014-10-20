@@ -7,7 +7,7 @@ ENT.SlotName = "jetpack"
 ENT.PrintName = "Jetpack"
 
 if CLIENT then
-	ENT.WingModel = Model( "models/error.mdl" )
+	ENT.WingModel = Model( "models/xqm/jettailpiece1.mdl" )
 end
 
 --use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
@@ -152,7 +152,7 @@ function ENT:CanFly( owner , mv )
 	--To willox, change this if you want to have the hover mode
 	
 	if IsValid( owner ) then
-		return not owner:OnGround() and mv:KeyDown( IN_JUMP ) and owner:Alive() and self:GetFuel() > 0
+		return owner:GetMoveType() == MOVETYPE_WALK and not owner:OnGround() and mv:KeyDown( IN_JUMP ) and owner:Alive() and self:GetFuel() > 0
 	end
 	
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
@@ -285,16 +285,18 @@ else
 			
 			if self:GetActive() then
 				self:DrawJetpackFire( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.25 )
-				self:DrawJetpackSmoke( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.2 )
 			end
+			
+			self:DrawJetpackSmoke( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.2 )
 		end
 	end
 	
 	function ENT:CreateWing()
-		--[[
-		local wing = ClientSideModel( self.WingModel )
 		
-		]]
+		local wing = ClientsideModel( self.WingModel )
+		wing:SetModelScale( 0.4 , 0 )
+		wing:SetNoDraw( true )
+		return wing
 	end
 	
 	function ENT:HandleWings()
@@ -317,7 +319,25 @@ else
 	
 	function ENT:DrawWings()
 		--TODO: draw the wings with the offsets we've gotten from HandleWings
-	
+		
+		local pos = self:GetPos()
+		local ang = self:GetAngles()
+		
+		--temporary offsets
+		
+		if IsValid( self.LeftWing ) then
+			local gpos , gang = LocalToWorld( Vector( 0 , -9 , 0 ) , Angle( 0 , 0 , 90 ) , pos , ang )
+			self.LeftWing:SetRenderOrigin( gpos )
+			self.LeftWing:SetRenderAngles( gang )
+			self.LeftWing:DrawModel()
+		end
+		
+		if IsValid( self.RightWing ) then
+			local gpos , gang = LocalToWorld( Vector( 0 , 10 , 0 ) , Angle( 180 , 0 , -90 ) , pos , ang )
+			self.RightWing:SetRenderOrigin( gpos )
+			self.RightWing:SetRenderAngles( gang )
+			self.RightWing:DrawModel()
+		end
 	end
 	
 	function ENT:RemoveWings()
@@ -379,25 +399,32 @@ else
 		
 		if not self.JetpackParticleEmitter then 
 			self.JetpackParticleEmitter = ParticleEmitter( pos )
+			self.JetpackParticleEmitter:SetNoDraw( true )
 		end
 		
 		self.NextParticle = self.NextParticle or CurTime()
 		
 		
-		if self.NextParticle >= CurTime() then return end
-		self.NextParticle = CurTime() + 0.01
 		
-		local particle = self.JetpackParticleEmitter:Add("particle/particle_noisesphere", pos )
-		if not particle then return end
-		particle:SetVelocity( normal * 100 )
-		particle:SetDieTime( 0.5 )
-		particle:SetStartAlpha( 255 )
-		particle:SetEndAlpha( 0 )
-		particle:SetStartSize( 4 )
-		particle:SetEndSize( 16 )
-		particle:SetRoll( math.Rand( -10,10  ) )
-		particle:SetRollDelta( math.Rand( -0.2, 0.2 ) )
-		particle:SetColor( 200 , 200 , 200 )
+		if self.NextParticle < CurTime() and self:GetActive() then
+			self.NextParticle = CurTime() + 0.01
+			
+			local particle = self.JetpackParticleEmitter:Add("particle/particle_noisesphere", pos )
+			if particle then
+				particle:SetVelocity( normal * 100 )
+				particle:SetDieTime( 0.5 )
+				particle:SetStartAlpha( 255 )
+				particle:SetEndAlpha( 0 )
+				particle:SetStartSize( 4 )
+				particle:SetEndSize( 16 )
+				particle:SetRoll( math.Rand( -10,10  ) )
+				particle:SetRollDelta( math.Rand( -0.2, 0.2 ) )
+				particle:SetColor( 200 , 200 , 200 )
+			end
+		end
+		
+		self.JetpackParticleEmitter:SetPos( pos )
+		self.JetpackParticleEmitter:Draw()
 		
 	end
 	
