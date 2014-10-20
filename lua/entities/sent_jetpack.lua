@@ -6,6 +6,10 @@ ENT.Spawnable = true
 ENT.SlotName = "jetpack"
 ENT.PrintName = "Jetpack"
 
+if CLIENT then
+	ENT.WingModel = Model( "models/error.mdl" )
+end
+
 --use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
 --plus this is also called during that parenting position recompute, so it's perfect
 
@@ -84,7 +88,8 @@ function ENT:HandleFuel( predicted )
 	end
 	
 	if self:GetMaxFuel() == -1 then
-		self:SetFuel( 1 )
+		self:SetFuel( 1 )	--can't be arsed to add a maxfuel == -1 check in canfly, so this is a workaround
+		self:SetGoneApeshit( false )
 		return
 	end
 	
@@ -159,6 +164,12 @@ function ENT:Think()
 		self:HandleFly( false )
 		self:HandleFuel( false )
 		self:HandleSounds( false )
+	end
+	
+	--animation related stuff should be fine to call here
+	
+	if CLIENT then
+		self:HandleWings()
 	end
 	
 	return BaseClass.Think( self )
@@ -255,6 +266,11 @@ else
 			
 			self:DrawModel()
 			
+			--always draw the wings, because we still need to do the open and close animations
+			--regardless if we're active or not
+			
+			self:DrawWings()
+			
 			--TODO:	create two phx wings and animate them when we switch from inactive to active
 			--		there's three options in how to go with it
 			--		1) linear movement from inside the jetpack, like buzz lightyears' wings
@@ -265,6 +281,46 @@ else
 				self:DrawJetpackFire( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.25 )
 				self:DrawJetpackSmoke( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.2 )
 			end
+		end
+	end
+	
+	function ENT:CreateWing()
+		--[[
+		local wing = ClientSideModel( self.WingModel )
+		
+		]]
+	end
+	
+	function ENT:HandleWings()
+		--TODO: handle the rotations or whatever on the wings that they should draw with
+		if not IsValid( self.LeftWing ) then
+			self.LeftWing = self:CreateWing()
+		end
+		
+		if not IsValid( self.RightWing ) then
+			self.RightWing = self:CreateWing()
+		end
+		
+		if self.LastActive ~= self:GetActive() then
+		
+		
+			self.LastActive = self:GetActive()
+		end
+		
+	end
+	
+	function ENT:DrawWings()
+		--TODO: draw the wings with the offsets we've gotten from HandleWings
+	
+	end
+	
+	function ENT:RemoveWings()
+		if IsValid( self.LeftWing ) then
+			self.LeftWing:Remove()
+		end
+		
+		if IsValid( self.RightWing ) then
+			self.RightWing:Remove()
 		end
 	end
 	
@@ -346,5 +402,9 @@ function ENT:OnRemove()
 	--happens during a mass cleanup
 	if self.JetpackSound then
 		self.JetpackSound:Stop()
+	end
+	
+	if CLIENT then
+		self:RemoveWings()
 	end
 end

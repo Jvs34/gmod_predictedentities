@@ -319,7 +319,6 @@ function ENT:GetCustomParentOrigin( ply )
 	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
 	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
 	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
-	--		I should probably move this to the base, in case the entity attaches to the player, less code to duplicate
 	
 	if CLIENT and ply == LocalPlayer() and not ply:ShouldDrawLocalPlayer() then
 		ply:SetupBones()
