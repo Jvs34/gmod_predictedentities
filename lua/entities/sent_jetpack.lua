@@ -129,7 +129,9 @@ function ENT:HandleSounds( predicted )
 		--stop the sound the old controlling player had on the client
 		if self.JetpackSound then
 			self.JetpackSound:Stop()
+			self.JetpackSound = nil
 		end
+		
 		return
 	end
 	
@@ -154,7 +156,11 @@ function ENT:CanFly( owner , mv )
 	end
 	
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
-	return self:GetFuel() > 0
+	if self:GetGoneApeshit() then
+		return self:GetFuel() > 0
+	end
+	
+	return false
 end
 
 function ENT:Think()
@@ -247,7 +253,7 @@ if SERVER then
 	
 	function ENT:OnInitPhysics( physobj )
 		if IsValid( physobj ) then
-			self:SetMass( 150 )	--yo this thing is supposed to be heavy
+			physobj:SetMass( 150 )	--yo this thing is supposed to be heavy
 			self:StartMotionController()
 		end
 	end
@@ -255,7 +261,7 @@ if SERVER then
 	function ENT:PhysicsSimulate( physobj , delta )
 		if self:GetGoneApeshit() then
 			--TODO: apply a linear force, with an angular spin so that we fly in a corkscrew pattern
-			
+			return vector_origin , Vector( 0 , 0 , -1000 ) * physobj:GetMass() , SIM_LOCAL_FORCE
 		end
 	end
 	
@@ -403,6 +409,8 @@ function ENT:OnRemove()
 	if self.JetpackSound then
 		self.JetpackSound:Stop()
 	end
+	
+	self:StopSound( "jetpack.thruster_loop" )
 	
 	if CLIENT then
 		self:RemoveWings()
