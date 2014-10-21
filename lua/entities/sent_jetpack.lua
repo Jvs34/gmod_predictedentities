@@ -49,13 +49,19 @@ function ENT:Initialize()
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--comment to reenable collisions with players and npcs
 		self:InitPhysics()
-
-		self:SetMaxFuel( 100 )	--set this to -1 to disable the fuel drain
+		
+		self:SetMaxHealth( 100 )
+		self:SetHealth( self:GetMaxHealth() )
+		
+		self:SetMaxFuel( 100 )	--set this to -1 to disable the fuel drain, in the end this only changes the damage during apeshit impacts
 		self:SetFuel( self:GetMaxFuel() )
-		self:SetFuelDrain( 10 )
-		self:SetFuelRecharge( 20 )
+		self:SetFuelDrain( 10 )	--drain in seconds
+		self:SetFuelRecharge( 15 )	--recharge in seconds
+		self:SetActive( false )
+		self:SetGoneApeshit( false )
 		hook.Add( "PostPlayerDeath" , self , self.ControllingPlayerDeath )
 	else
+		self.LastActive = false
 		self:SetWingClosure( 0 )
 		self:SetWingClosureStartTime( 0 )
 		self:SetWingClosureEndTime( 0 )
@@ -96,34 +102,33 @@ function ENT:HandleFuel( predicted )
 
 	if self:GetMaxFuel() == -1 then
 		self:SetFuel( 1 )	--can't be arsed to add a maxfuel == -1 check in canfly, so this is a workaround
-		self:SetGoneApeshit( false )
+		self:SetGoneApeshit( false )	--never go apeshit with infinite fuel, or we'll never stop
 		return
 	end
 
-	local rechargetime = self:GetActive() and self:GetFuelDrain() or self:GetFuelRecharge()
+	local fueltime = self:GetActive() and self:GetFuelDrain() or self:GetFuelRecharge()
 
-	local rechargerate = self:GetMaxFuel() / ( rechargetime / ft )
+	local fuelrate = self:GetMaxFuel() / ( fueltime / ft )
 
 	if self:GetActive() then
-		rechargerate = rechargerate * -1
+		fuelrate = fuelrate * -1
 
 		if self:GetGoneApeshit() then
 			--drain twice as much fuel if we're going craaaazy
 			--no need to stop the recharge rate when we're not active, because then we're not crazy anymore
-			rechargerate = rechargerate * 2
+			fuelrate = fuelrate * 2
 		end
 	else
 		--can't recharge until our owner is on the ground!
 		--prevents the player from tapping the jump button to fly and recharge at the same time
 		if IsValid( self:GetControllingPlayer() ) then
 			if not self:GetControllingPlayer():OnGround() then
-				rechargerate = 0
+				fuelrate = 0
 			end
 		end
 	end
 
-	local clampedchargerate = math.Clamp( self:GetFuel() + rechargerate , 0 , self:GetMaxFuel() )
-	self:SetFuel( clampedchargerate )
+	self:SetFuel( math.Clamp( self:GetFuel() + fuelrate , 0 , self:GetMaxFuel() ) )
 
 	--we exhausted all of our fuel, chill out
 	if self:GetFuel() <= 0 and self:GetGoneApeshit() then
@@ -169,7 +174,7 @@ end
 
 function ENT:Think()
 
-	--recharge while we're not being held by a player
+	--still act if we're not being held by a player
 	if not IsValid( self:GetControllingPlayer() ) then
 		self:HandleFly( false )
 		self:HandleFuel( false )
@@ -199,6 +204,7 @@ function ENT:PredictedMove( owner , data )
 
 		--To Willox: REPLACE ME!
 		--this is just some really shitty code I used years ago, can't even be arsed to recode it properly
+		--this was mainly based from the jetpack in natural selection 2, that's why it's so arcade-y
 
 		local oldspeed=data:GetVelocity()
 		local sight=owner:EyeAngles()
@@ -229,7 +235,33 @@ end
 
 
 if SERVER then
-
+	
+	function ENT:OnTakeDamage( dmginfo )
+		if self:IsEFlagSet( EFL_KILLME ) then
+			return
+		end
+		
+		local oldhealth = self:Health()
+		
+		local newhealth = math.Clamp( self:Health() - dmginfo:GetDamage() , 0 , self:GetMaxHealth() )
+		self:SetHealth( newhealth )
+		
+		if self:Health() <= 0 then
+			self:Drop()
+			self:Detonate()
+			return
+		end
+		
+		--roll a random, if we're not being held by a player and the random succeeds, go apeshit
+		
+		if dmginfo:GetDamage() > 50 and not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
+			local rand = math.random( 1 , 6 )
+			if rand <= 2 then
+				self:SetGoneApeshit( true )
+			end
+		end
+	end
+	
 	function ENT:ControllingPlayerDeath( ply )
 		if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
 			self:Drop()
@@ -240,6 +272,8 @@ if SERVER then
 		self:SetGoneApeshit( false )	--someone might be able to catch us midflight!
 		self:SetActive( false )
 		self:SetNoDraw( true )
+		
+		self:SetLagCompensated( false ) --in theory, we should be moved back with the player either way, so disable it
 	end
 
 	function ENT:OnDrop( ply )
@@ -253,6 +287,8 @@ if SERVER then
 			self:SetActive( false )
 		end
 		self:SetNoDraw( false )
+		
+		self:SetLagCompensated( true )
 	end
 
 	function ENT:OnInitPhysics( physobj )
@@ -275,7 +311,10 @@ if SERVER then
 	
 	function ENT:PhysicsCollide( data , physobj )
 		
-		if self:IsEFlagSet( EFL_KILLME ) then return end
+		--you never know!
+		if self:IsEFlagSet( EFL_KILLME ) then 
+			return 
+		end
 		
 		if self:CheckDetonate( data , physobj ) then
 			self:Detonate()
@@ -291,8 +330,8 @@ if SERVER then
 			volume = 1
 		end
 		
+		--TODO: find a better impact sound
 		self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
-		
 	end
 	
 	function ENT:CheckDetonate( data , physobj )
@@ -301,13 +340,13 @@ if SERVER then
 	
 	function ENT:Detonate()
 		--check how much fuel was left when we impacted
-		local dmg = 2 * self:GetFuel()
+		local dmg = 1.5 * self:GetFuel()
 		local radius = 2.5 * self:GetFuel()
-		--do a constant 50 damage for infinite fuel
 		
+		--do the full damage for infinite fuel
 		if self:GetMaxFuel() == -1 then
-			dmg = 50
-			radius = 250
+			dmg = dmg * 100
+			radius = radius * 100
 		end
 		
 		util.BlastDamage( self , self , self:GetPos() , radius , dmg )
@@ -324,28 +363,41 @@ else
 		if self:CanDraw() then
 
 			self:DrawModel()
-
-			--always draw the wings, because we still need to do the open and close animations
-			--regardless if we're active or not
-
+			
 			self:DrawWings()
-
-			--TODO:	create two phx wings and animate them when we switch from inactive to active
-			--		there's three options in how to go with it
-			--		1) linear movement from inside the jetpack, like buzz lightyears' wings
-			--		2) wings are always there but they expand up to the desired length with a bone matrix scale
-			--		3) the wings have only have an angular movement, this might look the best
-
-			if self:GetActive() then
-				self:DrawJetpackFire( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.25 )
+			
+			local atchpos , atchang = self:GetParticleOffset()
+			
+			local particlescale = self:GetParticleScale()
+			
+			--technically we shouldn't draw the fire from here, it should be done in drawtranslucent
+			--but since we draw from the player and he's not translucent this won't get called despite us being translucent
+			--might as well just set us to opaque
+			
+			if self:GetActive() then	-- and bit.band( flags , STUDIO_TRANSPARENCY ) ~= 0 then
+				self:DrawJetpackFire( atchpos , atchang , particlescale )
 			end
-
-			self:DrawJetpackSmoke( self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up() , 0.2 )
+			
+			self:DrawJetpackSmoke( atchpos , atchang , particlescale )
 		end
 	end
-
+	
+	--the less fuel we have, the smaller our particles will be
+	
+	function ENT:GetParticleScale()
+			
+		if self:GetMaxFuel() ~= -1 then
+			return Lerp( self:GetFuel() / self:GetMaxFuel() , 0.25 , 0.1 )
+		end
+		
+		return 0.25
+	end
+	
+	function ENT:GetParticleOffset()
+		return self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up()
+	end
+	
 	function ENT:CreateWing()
-
 		local wing = ClientsideModel( self.WingModel )
 		wing:SetModelScale( 0.4 , 0 )
 		wing:SetNoDraw( true )
@@ -353,7 +405,6 @@ else
 	end
 	
 	function ENT:HandleWings()
-		--TODO: handle the rotations or whatever on the wings that they should draw with
 		if not IsValid( self.LeftWing ) then
 			self.LeftWing = self:CreateWing()
 		end
@@ -383,7 +434,6 @@ else
 				starttime , endtime = endtime , starttime
 			end
 			
-			
 			self:SetWingClosure( math.TimeFraction( starttime , endtime , UnPredictedCurTime() ) )
 			
 			--we're done here, stop calculating the closure
@@ -393,7 +443,9 @@ else
 			end
 		end
 	end
-
+	
+	--hardcoded offsets for when the wings are fully deployed
+	
 	ENT.JetpackWings = {
 		{
 			OffsetVec = Vector( 0 , -9 , 0 ),
@@ -406,22 +458,20 @@ else
 	}
 	
 	function ENT:DrawWings()
-		--TODO: draw the wings with the offsets we've gotten from HandleWings
-
 		local pos = self:GetPos()
 		local ang = self:GetAngles()
 
-		--temporary offsets
-		local matrix = Matrix()
+		self.WingMatrix = self.WingMatrix or Matrix()
+		
 		local dist = Lerp( self:GetWingClosure() , -15 , 0 )
-		matrix:SetTranslation( Vector( 0 ,0 , dist ) )
-		matrix:Scale( Vector( 1 , 1 , self:GetWingClosure() ) )
+		self.WingMatrix:SetTranslation( Vector( 0 ,0 , dist ) )	--how far inside the jetpack we should go to hide our scaled down wings
+		self.WingMatrix:Scale( Vector( 1 , 1 , self:GetWingClosure() ) ) --our scale depends on the wing closure
 		
 		if IsValid( self.LeftWing ) then
 			local gpos , gang = LocalToWorld( self.JetpackWings[1].OffsetVec , self.JetpackWings[1].OffsetAng , pos , ang )
 			self.LeftWing:SetRenderOrigin( gpos )
 			self.LeftWing:SetRenderAngles( gang )
-			self.LeftWing:EnableMatrix( "RenderMultiply" , matrix )
+			self.LeftWing:EnableMatrix( "RenderMultiply" , self.WingMatrix )
 			self.LeftWing:DrawModel()
 		end
 
@@ -429,7 +479,7 @@ else
 			local gpos , gang = LocalToWorld( self.JetpackWings[2].OffsetVec , self.JetpackWings[2].OffsetAng , pos , ang )
 			self.RightWing:SetRenderOrigin( gpos )
 			self.RightWing:SetRenderAngles( gang )
-			self.RightWing:EnableMatrix( "RenderMultiply" , matrix )
+			self.RightWing:EnableMatrix( "RenderMultiply" , self.WingMatrix )
 			self.RightWing:DrawModel()
 		end
 	end
@@ -450,8 +500,8 @@ else
 	--copied straight from the thruster code
 
 	function ENT:DrawJetpackFire( pos , normal , scale )
-		local vOffset = pos or vector_origin
-		local vNormal = normal or vector_origin
+		local vOffset = pos
+		local vNormal = normal
 
 		local scroll = 1000 + ( CurTime() * -10 )
 
@@ -460,7 +510,7 @@ else
 		render.SetMaterial( self.MatFire )
 
 		render.StartBeam( 3 )
-			render.AddBeam( vOffset, 8 * Scale , scroll , Color( 0 , 0 , 255 , 128) )
+			render.AddBeam( vOffset, 8 * Scale , scroll , Color( 0 , 0 , 255 , 128 ) )
 			render.AddBeam( vOffset + vNormal * 60 * Scale , 32 * Scale , scroll + 1, Color( 255, 255, 255, 128 ) )
 			render.AddBeam( vOffset + vNormal * 148 * Scale , 32 * Scale , scroll + 3, Color( 255, 255, 255, 0 ) )
 		render.EndBeam()
@@ -486,11 +536,9 @@ else
 	end
 
 	function ENT:DrawJetpackSmoke( pos , normal , scale )
-
-		--would it be a good idea to actually just render the smoke in local positions and then manually
-		--draw it in relative positions? it's not gonna look realistic but I think it'd look better than
-		--how it is now
-
+		
+		scale = scale or 0.25
+		
 		if not self.JetpackParticleEmitter then
 			self.JetpackParticleEmitter = ParticleEmitter( pos )
 			--self.JetpackParticleEmitter:SetNoDraw( true )
@@ -498,21 +546,20 @@ else
 
 		self.NextParticle = self.NextParticle or CurTime()
 
-
-
 		if self.NextParticle < CurTime() and self:GetActive() then
-			self.NextParticle = CurTime() + 0.01
-
-			local particle = self.JetpackParticleEmitter:Add("particle/particle_noisesphere", pos )
+			local particle = self.JetpackParticleEmitter:Add( "particle/particle_noisesphere", pos )
 			if particle then
+				--only increase the time on a successful particle
+				self.NextParticle = CurTime() + 0.01
+			
 				particle:SetVelocity( normal * 100 )
 				particle:SetDieTime( 0.5 )
 				particle:SetStartAlpha( 255 )
 				particle:SetEndAlpha( 0 )
-				particle:SetStartSize( 4 )
-				particle:SetEndSize( 16 )
-				particle:SetRoll( math.Rand( -10,10  ) )
-				particle:SetRollDelta( math.Rand( -0.2, 0.2 ) )
+				particle:SetStartSize( 16 * scale )
+				particle:SetEndSize( 64 * scale )
+				particle:SetRoll( math.Rand( -10 , 10  ) )
+				particle:SetRollDelta( math.Rand( -0.2 , 0.2 ) )
 				particle:SetColor( 200 , 200 , 200 )
 			end
 		end
@@ -525,15 +572,19 @@ else
 end
 
 function ENT:OnRemove()
-	--TODO: remove the sounds on both client and server, in case we got removed while the player was using us
-	--happens during a mass cleanup
 	if self.JetpackSound then
 		self.JetpackSound:Stop()
+		self.JetpackSound = nil
 	end
-
+	
+	--if stopping the soundpatch doesn't work, stop the sound manually
 	self:StopSound( "jetpack.thruster_loop" )
 
 	if CLIENT then
 		self:RemoveWings()
+		if self.JetpackParticleEmitter then
+			self.JetpackParticleEmitter:Finish()
+			self.JetpackParticleEmitter = nil
+		end
 	end
 end
