@@ -205,7 +205,7 @@ function ENT:CanFly( owner , mv )
 
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
 	if self:GetGoneApeshit() then
-		return owner:WaterLevel() == 0 and self:GetFuel() > 0
+		return self:WaterLevel() == 0 and self:GetFuel() > 0
 	end
 
 	return false
