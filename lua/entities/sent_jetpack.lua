@@ -230,22 +230,21 @@ function ENT:PredictedMove( owner , data )
 		--this is just some really shitty code I used years ago, can't even be arsed to recode it properly
 		--this was mainly based from the jetpack in natural selection 2, that's why it's so arcade-y
 
-		local oldspeed=data:GetVelocity()
-		local sight=owner:EyeAngles()
-		local factor=1.5
-		local sidespeed=math.Clamp(data:GetSideSpeed(),-data:GetMaxClientSpeed()*factor,data:GetMaxClientSpeed()*factor)
-		local forwardspeed=math.Clamp(data:GetForwardSpeed(),-data:GetMaxClientSpeed()*factor,data:GetMaxClientSpeed()*factor)
-		local upspeed=data:GetVelocity().z
+		local oldspeed = data:GetVelocity()
+		local sight = owner:EyeAngles()
+		local factor = 1.5
+		local sidespeed = math.Clamp( data:GetSideSpeed() , -data:GetMaxClientSpeed() * factor , data:GetMaxClientSpeed() * factor )
+		local forwardspeed = math.Clamp( data:GetForwardSpeed() , -data:GetMaxClientSpeed() * factor , data:GetMaxClientSpeed() * factor )
+		local upspeed = data:GetVelocity().z
 		sight.pitch=0
 		sight.roll=0
-		sight.yaw=sight.yaw-90
-		local upspeed=(sidespeed<=200 and forwardspeed<=100) and 22 or 12
+		sight.yaw = sight.yaw - 90
+		local upspeed = ( sidespeed <= 200 and forwardspeed <= 100 ) and 22 or 12
 
-		local moveang=Vector(sidespeed/70,forwardspeed/70,upspeed)
-
-		moveang:Rotate(sight)
-		local horizontalspeed=moveang
-		data:SetVelocity(oldspeed+horizontalspeed)
+		local moveang = Vector( sidespeed / 70 , forwardspeed / 70 , upspeed)
+		moveang:Rotate( sight )
+		local horizontalspeed = moveang
+		data:SetVelocity( oldspeed + horizontalspeed )
 	end
 
 end
@@ -485,10 +484,6 @@ else
 			end
 		end
 	end
-	
-	--hardcoded offsets for when the wings are fully deployed
-	
-	
 	
 	function ENT:DrawWings()
 		local pos = self:GetPos()
