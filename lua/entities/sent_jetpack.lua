@@ -14,9 +14,10 @@ if CLIENT then
 	AccessorFunc( ENT , "WingClosure" , "WingClosure" )
 	AccessorFunc( ENT , "WingClosureStartTime" , "WingClosureStartTime" )
 	AccessorFunc( ENT , "WingClosureEndTime" , "WingClosureEndTime" )
+	AccessorFunc( ENT , "NextParticle" , "NextParticle" )
 		
-	ENT.MaxParticleSize = 0.25
-	ENT.MinParticleSize = 0.1
+	ENT.MaxEffectsSize = 0.25
+	ENT.MinEffectsSize = 0.01
 	
 	ENT.JetpackWings = {
 		Scale = 0.4,
@@ -90,6 +91,7 @@ function ENT:Initialize()
 		self:SetWingClosure( 0 )
 		self:SetWingClosureStartTime( 0 )
 		self:SetWingClosureEndTime( 0 )
+		self:SetNextParticle( 0 )
 	end
 end
 
@@ -223,6 +225,9 @@ end
 
 function ENT:PredictedSetupMove( owner , movedata , usercmd )
 	self:HandleFly( true , owner , movedata , usercmd )
+	if self:GetActive() then
+		owner:SetGroundEntity( NULL )
+	end
 end
 
 function ENT:PredictedThink( owner , movedata )
@@ -232,7 +237,6 @@ end
 
 function ENT:PredictedMove( owner , data )
 	if self:GetActive() then
-
 		--To Willox: REPLACE ME!
 		--this is just some really shitty code I used years ago, can't even be arsed to recode it properly
 		--this was mainly based from the jetpack in natural selection 2, that's why it's so arcade-y
@@ -248,7 +252,7 @@ function ENT:PredictedMove( owner , data )
 		sight.yaw = sight.yaw - 90
 		local upspeed = ( sidespeed <= 200 and forwardspeed <= 100 ) and 22 or 12
 
-		local moveang = Vector( sidespeed / 70 , forwardspeed / 70 , upspeed)
+		local moveang = Vector( sidespeed / 70 , forwardspeed / 70 , upspeed )
 		moveang:Rotate( sight )
 		local horizontalspeed = moveang
 		data:SetVelocity( oldspeed + horizontalspeed )
@@ -418,36 +422,33 @@ else
 			
 			self:DrawWings()
 			
-			local atchpos , atchang = self:GetParticleOffset()
+			local atchpos , atchang = self:GetEffectsOffset()
 			
-			local particlescale = self:GetParticleScale()
+			local effectsscale = self:GetEffectsScale()
 			
 			--technically we shouldn't draw the fire from here, it should be done in drawtranslucent
 			--but since we draw from the player and he's not translucent this won't get called despite us being translucent
 			--might as well just set us to opaque
 			
 			if self:GetActive() then	-- and bit.band( flags , STUDIO_TRANSPARENCY ) ~= 0 then
-				self:DrawJetpackFire( atchpos , atchang , particlescale )
-				--TODO: dynamic light for the fire?
+				self:DrawJetpackFire( atchpos , atchang , effectsscale ) --TODO: dynamic light for the fire?
 			end
 			
-			self:DrawJetpackSmoke( atchpos , atchang , particlescale )
+			self:DrawJetpackSmoke( atchpos , atchang , effectsscale )
 		end
 	end
 	
 	--the less fuel we have, the smaller our particles will be
-
-	
-	function ENT:GetParticleScale()
+	function ENT:GetEffectsScale()
 			
 		if self:GetMaxFuel() ~= -1 then
-			return Lerp( self:GetFuel() / self:GetMaxFuel() , self.MaxParticleSize , self.MinParticleSize )
+			return Lerp( self:GetFuel() / self:GetMaxFuel() , self.MaxEffectsSize , self.MinEffectsSize )
 		end
 		
-		return self.MaxParticleSize
+		return self.MaxEffectsSize
 	end
 	
-	function ENT:GetParticleOffset()
+	function ENT:GetEffectsOffset()
 		return self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up()
 	end
 	
@@ -533,16 +534,22 @@ else
 	
 
 	--copied straight from the thruster code
-
+	
+	ENT.JetpackFireBlue = Color( 0 , 0 , 255 , 128 )
+	ENT.JetpackFireWhite = Color( 255 , 255 , 255 , 128 )
+	ENT.JetpackFireNone = Color( 255 , 255 , 255 , 0 )
+	ENT.JetpackFireRed = Color( 255 , 128 , 128 , 255 )
+	
+	
 	function ENT:DrawJetpackFire( pos , normal , scale )
-		local scroll = 1000 + ( CurTime() * -10 )
+		local scroll = 1000 + ( UnPredictedCurTime() * -10 )
 
 		render.SetMaterial( self.MatFire )
 
 		render.StartBeam( 3 )
-			render.AddBeam( pos, 8 * scale , scroll , Color( 0 , 0 , 255 , 128 ) )
-			render.AddBeam( pos + normal * 60 * scale , 32 * scale , scroll + 1, Color( 255, 255, 255, 128 ) )
-			render.AddBeam( pos + normal * 148 * scale , 32 * scale , scroll + 3, Color( 255, 255, 255, 0 ) )
+			render.AddBeam( pos, 8 * scale , scroll , self.JetpackFireBlue )
+			render.AddBeam( pos + normal * 60 * scale , 32 * scale , scroll + 1, self.JetpackFireWhite )
+			render.AddBeam( pos + normal * 148 * scale , 32 * scale , scroll + 3, self.JetpackFireNone )
 		render.EndBeam()
 
 		scroll = scroll * 0.5
@@ -550,37 +557,53 @@ else
 		render.UpdateRefractTexture()
 		render.SetMaterial( self.MatHeatWave )
 		render.StartBeam( 3 )
-			render.AddBeam( pos, 8 * scale , scroll , Color( 0 , 0 , 255 , 128 ) )
-			render.AddBeam( pos + normal * 32 * scale, 32 * scale , scroll + 2, Color( 255, 255, 255, 255 ) )
-			render.AddBeam( pos + normal * 128 * scale, 48 * scale , scroll + 5, Color( 0, 0, 0, 0) )
+			render.AddBeam( pos, 8 * scale , scroll , self.JetpackFireBlue )
+			render.AddBeam( pos + normal * 32 * scale, 32 * scale , scroll + 2, color_white )
+			render.AddBeam( pos + normal * 128 * scale, 48 * scale , scroll + 5, self.JetpackFireNone )
 		render.EndBeam()
 
 
 		scroll = scroll * 1.3
 		render.SetMaterial( self.MatHeatWave )
 		render.StartBeam( 3 )
-			render.AddBeam( pos , 8 * scale , scroll, Color( 0 , 0 , 255 , 128 ) )
-			render.AddBeam( pos + normal * 60 * scale , 16 * scale , scroll + 1 , Color( 255, 255, 255, 128 ) )
-			render.AddBeam( pos + normal * 148 * scale , 16 * scale , scroll + 3 , Color( 255, 255, 255, 0 ) )
+			render.AddBeam( pos , 8 * scale , scroll, self.JetpackFireBlue )
+			render.AddBeam( pos + normal * 60 * scale , 16 * scale , scroll + 1 , self.JetpackFireWhite )
+			render.AddBeam( pos + normal * 148 * scale , 16 * scale , scroll + 3 , self.JetpackFireNone )
 		render.EndBeam()
+		
+		local light = DynamicLight( self:EntIndex() )
+		
+		if not light then
+			return
+		end
+		
+		light.r = self.JetpackFireRed.r
+		light.g = self.JetpackFireRed.g
+		light.b = self.JetpackFireRed.b
+		light.Brightness = self.JetpackFireRed.a
+		light.Pos = pos
+		--TODO: directional dlight stuff, dunno how these work yet
+		--light.Dir = normal
+		--light.InnerAngle = -45
+		--light.OuterAngle = 45
+		light.Size = 500 * scale -- 125 when the scale is 0.25
+		light.Style = 1	--this should do the flicker for us
+		light.MinLight = 0.5
+		light.Decay = 1000
+		light.DieTime = CurTime() + 0.1 --can't use UnPredictedCurTime() since they check against CurTime() internally
 	end
 
 	function ENT:DrawJetpackSmoke( pos , normal , scale )
 		
-		scale = scale or 0.25
-		
 		if not self.JetpackParticleEmitter then
 			self.JetpackParticleEmitter = ParticleEmitter( pos )
-			--self.JetpackParticleEmitter:SetNoDraw( true )
 		end
-
-		self.NextParticle = self.NextParticle or CurTime()
-
-		if self.NextParticle < CurTime() and self:GetActive() then
+		
+		if self:GetNextParticle() < UnPredictedCurTime() and self:GetActive() then
 			local particle = self.JetpackParticleEmitter:Add( "particle/particle_noisesphere", pos )
 			if particle then
 				--only increase the time on a successful particle
-				self.NextParticle = CurTime() + 0.01
+				self:SetNextParticle( UnPredictedCurTime() + 0.01 )
 			
 				particle:SetVelocity( normal * 100 )
 				particle:SetDieTime( 0.5 )
@@ -593,10 +616,6 @@ else
 				particle:SetColor( 200 , 200 , 200 )
 			end
 		end
-
-		--self.JetpackParticleEmitter:SetPos( pos )
-		--self.JetpackParticleEmitter:Draw()
-
 	end
 
 end
