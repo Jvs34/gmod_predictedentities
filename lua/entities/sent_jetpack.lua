@@ -30,6 +30,12 @@ if CLIENT then
 			OffsetAng = Angle( 180 , 0 , -90 ),
 		},
 	}
+	
+	ENT.JetpackFireBlue = Color( 0 , 0 , 255 , 128 )
+	ENT.JetpackFireWhite = Color( 255 , 255 , 255 , 128 )
+	ENT.JetpackFireNone = Color( 255 , 255 , 255 , 0 )
+	ENT.JetpackFireRed = Color( 255 , 128 , 128 , 255 )
+	
 else
 	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )
 	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , -1500 )
@@ -194,12 +200,12 @@ function ENT:CanFly( owner , mv )
 	--To willox, change this if you want to have the hover mode
 
 	if IsValid( owner ) then
-		return owner:GetMoveType() == MOVETYPE_WALK and not owner:OnGround() and mv:KeyDown( IN_JUMP ) and owner:Alive() and self:GetFuel() > 0
+		return owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and mv:KeyDown( IN_JUMP ) and owner:Alive() and self:GetFuel() > 0
 	end
 
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
 	if self:GetGoneApeshit() then
-		return self:GetFuel() > 0
+		return owner:WaterLevel() == 0 and self:GetFuel() > 0
 	end
 
 	return false
@@ -254,8 +260,7 @@ function ENT:PredictedMove( owner , data )
 
 		local moveang = Vector( sidespeed / 70 , forwardspeed / 70 , upspeed )
 		moveang:Rotate( sight )
-		local horizontalspeed = moveang
-		data:SetVelocity( oldspeed + horizontalspeed )
+		data:SetVelocity( oldspeed + moveang )
 	end
 
 end
@@ -299,7 +304,7 @@ if SERVER then
 		end
 		
 		--roll a random, if we're not being held by a player and the random succeeds, go apeshit
-		if not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
+		if dmginfo:GetDamage() > 1 not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
 			local rand = math.random( 1 , 10 )
 			if rand <= 2 then
 				self:SetGoneApeshit( true )
@@ -359,26 +364,22 @@ if SERVER then
 	end
 	
 	function ENT:PhysicsCollide( data , physobj )
-		
-		if self:CheckDetonate( data , physobj ) then
-			self:Detonate()
-			return
-		end
-		
 		--taken straight from valve's code, it's needed since garry overwrote VPhysicsCollision, friction sound is still there though
 		--because he didn't override the VPhysicsFriction
 		
-		if data.DeltaTime < 0.05 or data.Speed < 70 then
-			return
+		if data.DeltaTime >= 0.05 and data.Speed >= 70 then
+			local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
+			if volume > 1 then
+				volume = 1
+			end
+			
+			--TODO: find a better impact sound for this model
+			self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
 		end
 		
-		local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
-		if volume > 1 then
-			volume = 1
+		if self:CheckDetonate( data , physobj ) then
+			self:Detonate()
 		end
-		
-		--TODO: find a better impact sound for this model
-		self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
 	end
 	
 	function ENT:CheckDetonate( data , physobj )
@@ -409,7 +410,7 @@ if SERVER then
 		local effect = EffectData()
 		effect:SetOrigin( self:GetPos() )
 		effect:SetMagnitude( dmg )	--this is actually the force of the explosion
-		effect:SetFlags( bit.bor( 0x80 , 0x20 ) ) --NOFIREBALL, NOFIREBALLSMOKE, ROTATE
+		effect:SetFlags( bit.bor( 0x80 , 0x20 ) ) --NOFIREBALLSMOKE, ROTATE
 		util.Effect( "Explosion" , effect )
 	end
 
@@ -431,7 +432,7 @@ else
 			--might as well just set us to opaque
 			
 			if self:GetActive() then	-- and bit.band( flags , STUDIO_TRANSPARENCY ) ~= 0 then
-				self:DrawJetpackFire( atchpos , atchang , effectsscale ) --TODO: dynamic light for the fire?
+				self:DrawJetpackFire( atchpos , atchang , effectsscale )
 			end
 			
 			self:DrawJetpackSmoke( atchpos , atchang , effectsscale )
@@ -534,15 +535,8 @@ else
 	
 
 	--copied straight from the thruster code
-	
-	ENT.JetpackFireBlue = Color( 0 , 0 , 255 , 128 )
-	ENT.JetpackFireWhite = Color( 255 , 255 , 255 , 128 )
-	ENT.JetpackFireNone = Color( 255 , 255 , 255 , 0 )
-	ENT.JetpackFireRed = Color( 255 , 128 , 128 , 255 )
-	
-	
 	function ENT:DrawJetpackFire( pos , normal , scale )
-		local scroll = 1000 + ( UnPredictedCurTime() * -10 )
+		local scroll = 1000 + UnPredictedCurTime() * -10
 
 		render.SetMaterial( self.MatFire )
 
@@ -604,7 +598,8 @@ else
 			if particle then
 				--only increase the time on a successful particle
 				self:SetNextParticle( UnPredictedCurTime() + 0.01 )
-			
+				particle:SetCollide( true )
+				particle:SetBounce( 0.25 )
 				particle:SetVelocity( normal * 100 )
 				particle:SetDieTime( 0.5 )
 				particle:SetStartAlpha( 255 )
