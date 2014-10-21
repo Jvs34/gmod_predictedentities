@@ -18,7 +18,7 @@ if CLIENT then
 	AccessorFunc( ENT , "LastActive" , "LastActive" )
 	
 	ENT.MaxEffectsSize = 0.25
-	ENT.MinEffectsSize = 0.01
+	ENT.MinEffectsSize = 0.1
 	
 	ENT.JetpackWings = {
 		Scale = 0.4,
@@ -62,6 +62,8 @@ sound.Add( {
 	sound = "^thrusters/jet02.wav"
 })
 
+local sv_gravity = GetConVar "sv_gravity"
+
 function ENT:SpawnFunction( ply, tr, ClassName )
 
 	if not tr.Hit then return end
@@ -86,13 +88,20 @@ function ENT:Initialize()
 		self:SetMaxHealth( 100 )
 		self:SetHealth( self:GetMaxHealth() )
 		
-		self:SetMaxFuel( 100 )	--set this to -1 to disable the fuel drain, in the end this only changes the damage during apeshit impacts
+		self:SetMaxFuel( -1 )	--set this to -1 to disable the fuel drain, in the end this only changes the damage during apeshit impacts
 		self:SetFuel( self:GetMaxFuel() )
 		self:SetFuelDrain( 10 )	--drain in seconds
 		self:SetFuelRecharge( 15 )	--recharge in seconds
 		self:SetActive( false )
 		self:SetGoneApeshit( false )	--TODO: allow going apeshit even when held by a player
 		hook.Add( "PostPlayerDeath" , self , self.ControllingPlayerDeath )
+		
+		self:SetAirResistance( 2.5 )
+		self:SetRemoveGravity( false )
+		self:SetJetpackSpeed( 224 )
+		self:SetJetpackStrafeSpeed( 600 )
+		self:SetJetpackVelocity( 1200 )
+		self:SetJetpackStrafeVelocity( 1200 )
 	else
 		self:SetLastActive( false )
 		self:SetWingClosure( 0 )
@@ -111,6 +120,14 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
 	self:DefineNWVar( "Float" , "FuelDrain" ) --how many seconds it's gonna take to drain all the fuel
 	self:DefineNWVar( "Float" , "FuelRecharge" ) --how many seconds it should take to fully recharge this
+	
+	self:DefineNWVar( "Bool" , "RemoveGravity" )
+	
+	self:DefineNWVar( "Float" , "AirResistance" )
+	self:DefineNWVar( "Float" , "JetpackSpeed" )
+	self:DefineNWVar( "Float" , "JetpackStrafeSpeed" )
+	self:DefineNWVar( "Float" , "JetpackVelocity" )
+	self:DefineNWVar( "Float" , "JetpackStrafeVelocity" )
 end
 
 function ENT:HandleFly( predicted , owner , movedata , usercmd )
@@ -201,7 +218,7 @@ function ENT:CanFly( owner , mv )
 	--To willox, change this if you want to have the hover mode
 
 	if IsValid( owner ) then
-		return owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and mv:KeyDown( IN_JUMP ) and owner:Alive() and self:GetFuel() > 0
+		return ( mv:KeyDown( IN_JUMP ) or mv:KeyDown( IN_DUCK ) ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:GetFuel() > 0
 	end
 
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
@@ -230,10 +247,75 @@ function ENT:Think()
 	return BaseClass.Think( self )
 end
 
-function ENT:PredictedSetupMove( owner , movedata , usercmd )
-	self:HandleFly( true , owner , movedata , usercmd )
+function ENT:PredictedSetupMove( owner , mv , usercmd )
+	self:HandleFly( true , owner , mv , usercmd )
 	if self:GetActive() then
-		owner:SetGroundEntity( NULL )
+		local vel = mv:GetVelocity()
+
+		--
+		-- Apply upwards velocity while jump is held and hold steady when sprint is held
+		--
+
+		if mv:KeyDown( IN_JUMP ) and vel.z < self:GetJetpackSpeed() then
+
+			-- Apply constant jetpack_velocity
+			vel.z = vel.z + self:GetJetpackVelocity() * FrameTime()
+
+		elseif mv:KeyDown( IN_DUCK ) and vel.z < 0 then
+
+			-- Apply just the right amount of thrust
+			vel.z = math.Approach( vel.z, 0, self:GetJetpackVelocity() * FrameTime() )
+
+		end
+
+		--
+		-- Remove gravity when velocity is supposed to be zero for hover mode
+		--
+
+		if vel.z == 0 then
+
+			self:SetRemoveGravity( true )
+
+			vel.z = vel.z + sv_gravity:GetFloat() * 0.5 * FrameTime()
+
+		end
+
+		--
+		-- Apply movement velocity
+		--
+		local move_vel = Vector( 0, 0, 0 )
+
+		local ang = mv:GetMoveAngles();	ang.p = 0
+
+		move_vel:Add( ang:Right() * mv:GetSideSpeed() )
+		move_vel:Add( ang:Forward() * mv:GetForwardSpeed() )
+
+		move_vel:Normalize()
+		move_vel:Mul( self:GetJetpackStrafeVelocity() * FrameTime() )
+
+		if vel:Length2D() < self:GetJetpackStrafeSpeed() then
+
+			vel:Add( move_vel )
+
+		end
+
+		--
+		-- Apply air resistance
+		--
+		vel.x = math.Approach( vel.x, 0, FrameTime() * self:GetAirResistance() * vel.x )
+		vel.y = math.Approach( vel.y, 0, FrameTime() * self:GetAirResistance() * vel.y )
+
+		--
+		-- Write our calculated velocity back to the CMoveData structure
+		--
+		mv:SetVelocity( vel )
+
+		mv:SetForwardSpeed( 0 )
+		mv:SetSideSpeed( 0 )
+		mv:SetUpSpeed( 0 )
+
+		mv:SetButtons( bit.band( mv:GetButtons(), bit.bnot( IN_DUCK ) ) )
+	
 	end
 end
 
@@ -243,32 +325,23 @@ function ENT:PredictedThink( owner , movedata )
 end
 
 function ENT:PredictedMove( owner , data )
-	if self:GetActive() then
-		--To Willox: REPLACE ME!
-		--this is just some really shitty code I used years ago, can't even be arsed to recode it properly
-		--this was mainly based from the jetpack in natural selection 2, that's why it's so arcade-y
-
-		local oldspeed = data:GetVelocity()
-		local sight = owner:EyeAngles()
-		local factor = 1.5
-		local sidespeed = math.Clamp( data:GetSideSpeed() , -data:GetMaxClientSpeed() * factor , data:GetMaxClientSpeed() * factor )
-		local forwardspeed = math.Clamp( data:GetForwardSpeed() , -data:GetMaxClientSpeed() * factor , data:GetMaxClientSpeed() * factor )
-		local upspeed = data:GetVelocity().z
-		sight.pitch=0
-		sight.roll=0
-		sight.yaw = sight.yaw - 90
-		local upspeed = ( sidespeed <= 200 and forwardspeed <= 100 ) and 22 or 12
-
-		local moveang = Vector( sidespeed / 70 , forwardspeed / 70 , upspeed )
-		moveang:Rotate( sight )
-		data:SetVelocity( oldspeed + moveang )
-	end
-
 end
 
 function ENT:PredictedFinishMove( owner , movedata )
 	if self:GetActive() then
+		
+		--
+		-- Remove gravity when velocity is supposed to be zero for hover mode
+		--
+		if self:GetRemoveGravity() then
+			local vel = movedata:GetVelocity()
 
+			vel.z = vel.z + sv_gravity:GetFloat() * 0.5 * FrameTime()
+
+			movedata:SetVelocity( vel )
+
+			self:SetRemoveGravity( false )
+		end
 	end
 end
 
@@ -305,7 +378,7 @@ if SERVER then
 		end
 		
 		--roll a random, if we're not being held by a player and the random succeeds, go apeshit
-		if dmginfo:GetDamage() > 1 not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
+		if dmginfo:GetDamage() > 1 and not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
 			local rand = math.random( 1 , 10 )
 			if rand <= 2 then
 				self:SetGoneApeshit( true )
@@ -444,7 +517,7 @@ else
 	function ENT:GetEffectsScale()
 			
 		if self:GetMaxFuel() ~= -1 then
-			return Lerp( self:GetFuel() / self:GetMaxFuel() , self.MaxEffectsSize , self.MinEffectsSize )
+			return Lerp( self:GetFuel() / self:GetMaxFuel() , self.MinEffectsSize , self.MaxEffectsSize )
 		end
 		
 		return self.MaxEffectsSize
@@ -569,21 +642,19 @@ else
 		if not light then
 			return
 		end
-		
 		light.r = self.JetpackFireRed.r
 		light.g = self.JetpackFireRed.g
 		light.b = self.JetpackFireRed.b
-		light.Brightness = self.JetpackFireRed.a
+		light.Brightness = 0
 		light.Pos = pos
-		--TODO: directional dlight stuff, dunno how these work yet
-		--light.Dir = normal
-		--light.InnerAngle = -45
-		--light.OuterAngle = 45
-		light.Size = 500 * scale -- 125 when the scale is 0.25
+		light.Dir = normal
+		light.InnerAngle = -45
+		light.OuterAngle = 45
+		light.Size = 250 * scale -- 125 when the scale is 0.25
 		light.Style = 1	--this should do the flicker for us
 		light.MinLight = 0.5
 		light.Decay = 1000
-		light.DieTime = CurTime() + 0.1 --can't use UnPredictedCurTime() since they check against CurTime() internally
+		light.DieTime = CurTime() + 1 --can't use UnPredictedCurTime() since they check against CurTime() internally
 	end
 
 	function ENT:DrawJetpackSmoke( pos , normal , scale )
