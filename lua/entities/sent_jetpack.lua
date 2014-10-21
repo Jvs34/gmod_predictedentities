@@ -62,6 +62,7 @@ function ENT:SpawnFunction( ply, tr, ClassName )
 
 	local ent = ents.Create( ClassName )
 	ent:SetPos( SpawnPos )
+	ent:SetAngles( Angle( 0 , 0 , 180 ) )
 	ent:Spawn()
 	return ent
 
@@ -175,7 +176,13 @@ function ENT:HandleSounds( predicted )
 	end
 
 	if self:GetActive() then
-		self.JetpackSound:PlayEx( 0.25  , 125 )
+		local pitch = 125
+		
+		if self:GetGoneApeshit() then
+			pitch = 175
+		end
+		
+		self.JetpackSound:PlayEx( 0.25  , pitch )
 	else
 		self.JetpackSound:Stop()
 	end
@@ -261,9 +268,15 @@ if SERVER then
 	
 	function ENT:OnTakeDamage( dmginfo )
 		
+		self:TakePhysicsDamage( dmginfo )
+		
 		--might happen if multiple jetpacks explode at the same time
 		
 		if self:IsEFlagSet( EFL_KILLME ) then
+			return
+		end
+		
+		if self:Health() <= 0 then
 			return
 		end
 		
@@ -282,8 +295,8 @@ if SERVER then
 		end
 		
 		--roll a random, if we're not being held by a player and the random succeeds, go apeshit
-		if dmginfo:GetDamage() > 50 and not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
-			local rand = math.random( 1 , 6 )
+		if not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
+			local rand = math.random( 1 , 10 )
 			if rand <= 2 then
 				self:SetGoneApeshit( true )
 			end
@@ -300,8 +313,6 @@ if SERVER then
 		self:SetGoneApeshit( false )	--someone might be able to catch us midflight!
 		self:SetActive( false )
 		self:SetNoDraw( true )
-		
-		self:SetLagCompensated( false ) --in theory, we should be moved back with the player either way, so disable it
 	end
 
 	function ENT:OnDrop( ply )
@@ -316,7 +327,7 @@ if SERVER then
 		end
 		self:SetNoDraw( false )
 		
-		self:SetLagCompensated( true )
+		
 	end
 
 	function ENT:OnInitPhysics( physobj )
@@ -324,17 +335,19 @@ if SERVER then
 			physobj:SetMass( 75 )
 			self:StartMotionController()
 		end
+		self:SetLagCompensated( true )
 	end
 	
 	function ENT:OnRemovePhysics()
 		self:StopMotionController()
+		self:SetLagCompensated( false ) --in theory, we should be moved back with the player either way, so disable it
 	end
 	
 	function ENT:PhysicsSimulate( physobj , delta )
 		if self:GetActive() then
 			
 			if self:GetGoneApeshit() then
-				return self.ApeShitAngular * physobj:GetMass() , self.ApeShitLinear * physobj:GetMass() , SIM_LOCAL_FORCE
+				return self.StandaloneApeShitAngular * physobj:GetMass() , self.StandaloneApeShitLinear * physobj:GetMass() , SIM_LOCAL_FORCE
 			end
 			
 			return self.StandaloneAngular * physobj:GetMass() , self.StandaloneLinear * physobj:GetMass() , SIM_LOCAL_FORCE
@@ -374,6 +387,8 @@ if SERVER then
 			return 
 		end
 		
+		self:Remove()
+		
 		local fuel = self:GetFuel()
 		
 		--since we have infinite fuel, fake it as if we had 100 to do max damage
@@ -390,10 +405,8 @@ if SERVER then
 		local effect = EffectData()
 		effect:SetOrigin( self:GetPos() )
 		effect:SetMagnitude( dmg )	--this is actually the force of the explosion
-		effect:SetFlags( bit.bor( 0x40 , 0x80 , 0x20 ) ) --NOFIREBALL, NOFIREBALLSMOKE, ROTATE
+		effect:SetFlags( bit.bor( 0x80 , 0x20 ) ) --NOFIREBALL, NOFIREBALLSMOKE, ROTATE
 		util.Effect( "Explosion" , effect )
-		
-		self:Remove()
 	end
 
 else
@@ -489,7 +502,7 @@ else
 		local pos = self:GetPos()
 		local ang = self:GetAngles()
 
-		self.WingMatrix = self.WingMatrix or Matrix()
+		self.WingMatrix = Matrix()
 		
 		local dist = Lerp( self:GetWingClosure() , -15 , 0 )
 		self.WingMatrix:SetTranslation( Vector( 0 ,0 , dist ) )	--how far inside the jetpack we should go to hide our scaled down wings
