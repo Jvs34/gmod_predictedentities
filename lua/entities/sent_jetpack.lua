@@ -15,7 +15,8 @@ if CLIENT then
 	AccessorFunc( ENT , "WingClosureStartTime" , "WingClosureStartTime" )
 	AccessorFunc( ENT , "WingClosureEndTime" , "WingClosureEndTime" )
 	AccessorFunc( ENT , "NextParticle" , "NextParticle" )
-		
+	AccessorFunc( ENT , "LastActive" , "LastActive" )
+	
 	ENT.MaxEffectsSize = 0.25
 	ENT.MinEffectsSize = 0.01
 	
@@ -93,7 +94,7 @@ function ENT:Initialize()
 		self:SetGoneApeshit( false )	--TODO: allow going apeshit even when held by a player
 		hook.Add( "PostPlayerDeath" , self , self.ControllingPlayerDeath )
 	else
-		self.LastActive = false
+		self:SetLastActive( false )
 		self:SetWingClosure( 0 )
 		self:SetWingClosureStartTime( 0 )
 		self:SetWingClosureEndTime( 0 )
@@ -349,7 +350,7 @@ if SERVER then
 	
 	function ENT:OnRemovePhysics()
 		self:StopMotionController()
-		self:SetLagCompensated( false ) --in theory, we should be moved back with the player either way, so disable it
+		self:SetLagCompensated( false ) --in theory, we should be moved back with the player either way since we're parented to him, so disable this
 	end
 	
 	function ENT:PhysicsSimulate( physobj , delta )
@@ -469,10 +470,10 @@ else
 			self.RightWing = self:CreateWing()
 		end
 
-		if self.LastActive ~= self:GetActive() then
+		if self:GetLastActive() ~= self:GetActive() then
 			self:SetWingClosureStartTime( UnPredictedCurTime() )
 			self:SetWingClosureEndTime( UnPredictedCurTime() + 0.25 )
-			self.LastActive = self:GetActive()
+			self:SetLastActive( self:GetActive() )
 		end
 		
 		--do the math time fraction from the closure time to the UnPredictedCurTime,
@@ -531,8 +532,6 @@ else
 			self.RightWing:Remove()
 		end
 	end
-
-	
 
 	--copied straight from the thruster code
 	function ENT:DrawJetpackFire( pos , normal , scale )
