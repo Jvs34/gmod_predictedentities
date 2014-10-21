@@ -8,9 +8,33 @@ ENT.PrintName = "Jetpack"
 
 if CLIENT then
 	ENT.WingModel = Model( "models/xqm/jettailpiece1.mdl" )
+	ENT.MatHeatWave		= Material( "sprites/heatwave" )
+	ENT.MatFire			= Material( "effects/fire_cloud1" )
+	
 	AccessorFunc( ENT , "WingClosure" , "WingClosure" )
 	AccessorFunc( ENT , "WingClosureStartTime" , "WingClosureStartTime" )
 	AccessorFunc( ENT , "WingClosureEndTime" , "WingClosureEndTime" )
+		
+	ENT.MaxParticleSize = 0.25
+	ENT.MinParticleSize = 0.1
+	
+	ENT.JetpackWings = {
+		Scale = 0.4,
+		{
+			OffsetVec = Vector( 0 , -9 , 0 ),
+			OffsetAng = Angle( 0 , 0 , 90 ),
+		},
+		{
+			OffsetVec = Vector( 0 , 10 , 0 ),
+			OffsetAng = Angle( 180 , 0 , -90 ),
+		},
+	}
+else
+	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )
+	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , -1500 )
+	
+	ENT.StandaloneAngular = vector_origin
+	ENT.StandaloneLinear = Vector( 0 , 0 , -1500 )
 end
 
 --use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
@@ -58,7 +82,7 @@ function ENT:Initialize()
 		self:SetFuelDrain( 10 )	--drain in seconds
 		self:SetFuelRecharge( 15 )	--recharge in seconds
 		self:SetActive( false )
-		self:SetGoneApeshit( false )
+		self:SetGoneApeshit( false )	--TODO: allow going apeshit even when held by a player
 		hook.Add( "PostPlayerDeath" , self , self.ControllingPlayerDeath )
 	else
 		self.LastActive = false
@@ -237,6 +261,9 @@ end
 if SERVER then
 	
 	function ENT:OnTakeDamage( dmginfo )
+		
+		--might happen if multiple jetpacks explode at the same time
+		
 		if self:IsEFlagSet( EFL_KILLME ) then
 			return
 		end
@@ -247,13 +274,15 @@ if SERVER then
 		self:SetHealth( newhealth )
 		
 		if self:Health() <= 0 then
-			self:Drop()
+			--maybe something is relaying damage to the jetpack instead, an explosion maybe?
+			if IsValid( self:GetControllingPlayer() ) then
+				self:Drop()
+			end
 			self:Detonate()
 			return
 		end
 		
 		--roll a random, if we're not being held by a player and the random succeeds, go apeshit
-		
 		if dmginfo:GetDamage() > 50 and not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
 			local rand = math.random( 1 , 6 )
 			if rand <= 2 then
@@ -301,12 +330,6 @@ if SERVER then
 	function ENT:OnRemovePhysics()
 		self:StopMotionController()
 	end
-	
-	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )
-	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , -1500 )
-	
-	ENT.StandaloneAngular = vector_origin
-	ENT.StandaloneLinear = Vector( 0 , 0 , -1500 )
 	
 	function ENT:PhysicsSimulate( physobj , delta )
 		if self:GetActive() then
@@ -393,6 +416,7 @@ else
 			
 			if self:GetActive() then	-- and bit.band( flags , STUDIO_TRANSPARENCY ) ~= 0 then
 				self:DrawJetpackFire( atchpos , atchang , particlescale )
+				--TODO: dynamic light for the fire?
 			end
 			
 			self:DrawJetpackSmoke( atchpos , atchang , particlescale )
@@ -400,14 +424,15 @@ else
 	end
 	
 	--the less fuel we have, the smaller our particles will be
+
 	
 	function ENT:GetParticleScale()
 			
 		if self:GetMaxFuel() ~= -1 then
-			return Lerp( self:GetFuel() / self:GetMaxFuel() , 0.25 , 0.1 )
+			return Lerp( self:GetFuel() / self:GetMaxFuel() , self.MaxParticleSize , self.MinParticleSize )
 		end
 		
-		return 0.25
+		return self.MaxParticleSize
 	end
 	
 	function ENT:GetParticleOffset()
@@ -416,7 +441,7 @@ else
 	
 	function ENT:CreateWing()
 		local wing = ClientsideModel( self.WingModel )
-		wing:SetModelScale( 0.4 , 0 )
+		wing:SetModelScale( self.JetpackWings.Scale , 0 )
 		wing:SetNoDraw( true )
 		return wing
 	end
@@ -463,16 +488,7 @@ else
 	
 	--hardcoded offsets for when the wings are fully deployed
 	
-	ENT.JetpackWings = {
-		{
-			OffsetVec = Vector( 0 , -9 , 0 ),
-			OffsetAng = Angle( 0 , 0 , 90 ),
-		},
-		{
-			OffsetVec = Vector( 0 , 10 , 0 ),
-			OffsetAng = Angle( 180 , 0 , -90 ),
-		},
-	}
+	
 	
 	function ENT:DrawWings()
 		local pos = self:GetPos()
@@ -511,25 +527,19 @@ else
 		end
 	end
 
-	ENT.MatHeatWave		= Material( "sprites/heatwave" )
-	ENT.MatFire			= Material( "effects/fire_cloud1" )
+	
 
 	--copied straight from the thruster code
 
 	function ENT:DrawJetpackFire( pos , normal , scale )
-		local vOffset = pos
-		local vNormal = normal
-
 		local scroll = 1000 + ( CurTime() * -10 )
-
-		local Scale = scale or 1
 
 		render.SetMaterial( self.MatFire )
 
 		render.StartBeam( 3 )
-			render.AddBeam( vOffset, 8 * Scale , scroll , Color( 0 , 0 , 255 , 128 ) )
-			render.AddBeam( vOffset + vNormal * 60 * Scale , 32 * Scale , scroll + 1, Color( 255, 255, 255, 128 ) )
-			render.AddBeam( vOffset + vNormal * 148 * Scale , 32 * Scale , scroll + 3, Color( 255, 255, 255, 0 ) )
+			render.AddBeam( pos, 8 * scale , scroll , Color( 0 , 0 , 255 , 128 ) )
+			render.AddBeam( pos + normal * 60 * scale , 32 * scale , scroll + 1, Color( 255, 255, 255, 128 ) )
+			render.AddBeam( pos + normal * 148 * scale , 32 * scale , scroll + 3, Color( 255, 255, 255, 0 ) )
 		render.EndBeam()
 
 		scroll = scroll * 0.5
@@ -537,18 +547,18 @@ else
 		render.UpdateRefractTexture()
 		render.SetMaterial( self.MatHeatWave )
 		render.StartBeam( 3 )
-			render.AddBeam( vOffset, 8 * Scale , scroll , Color( 0 , 0 , 255 , 128 ) )
-			render.AddBeam( vOffset + vNormal * 32 * Scale, 32 * Scale , scroll + 2, Color( 255, 255, 255, 255 ) )
-			render.AddBeam( vOffset + vNormal * 128 * Scale, 48 * Scale , scroll + 5, Color( 0, 0, 0, 0) )
+			render.AddBeam( pos, 8 * scale , scroll , Color( 0 , 0 , 255 , 128 ) )
+			render.AddBeam( pos + normal * 32 * scale, 32 * scale , scroll + 2, Color( 255, 255, 255, 255 ) )
+			render.AddBeam( pos + normal * 128 * scale, 48 * scale , scroll + 5, Color( 0, 0, 0, 0) )
 		render.EndBeam()
 
 
 		scroll = scroll * 1.3
 		render.SetMaterial( self.MatHeatWave )
 		render.StartBeam( 3 )
-			render.AddBeam( vOffset , 8 * Scale , scroll, Color( 0 , 0 , 255 , 128 ) )
-			render.AddBeam( vOffset + vNormal * 60 * Scale , 16 * Scale , scroll + 1 , Color( 255, 255, 255, 128 ) )
-			render.AddBeam( vOffset + vNormal * 148 * Scale , 16 * Scale , scroll + 3 , Color( 255, 255, 255, 0 ) )
+			render.AddBeam( pos , 8 * scale , scroll, Color( 0 , 0 , 255 , 128 ) )
+			render.AddBeam( pos + normal * 60 * scale , 16 * scale , scroll + 1 , Color( 255, 255, 255, 128 ) )
+			render.AddBeam( pos + normal * 148 * scale , 16 * scale , scroll + 3 , Color( 255, 255, 255, 0 ) )
 		render.EndBeam()
 	end
 
