@@ -301,25 +301,33 @@ if SERVER then
 	function ENT:OnRemovePhysics()
 		self:StopMotionController()
 	end
-
+	
+	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )
+	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , -1500 )
+	
+	ENT.StandaloneAngular = vector_origin
+	ENT.StandaloneLinear = Vector( 0 , 0 , -1500 )
+	
 	function ENT:PhysicsSimulate( physobj , delta )
-		if self:GetGoneApeshit() then
-			--TODO:apply an angular spin so that we fly in a corkscrew pattern
-			return Vector( 0 , 30 , 10 ) * physobj:GetMass() , Vector( 0 , 0 , -1500 ) * physobj:GetMass() , SIM_LOCAL_FORCE
+		if self:GetActive() then
+			
+			if self:GetGoneApeshit() then
+				return self.ApeShitAngular * physobj:GetMass() , self.ApeShitLinear * physobj:GetMass() , SIM_LOCAL_FORCE
+			end
+			
+			return self.StandaloneAngular * physobj:GetMass() , self.StandaloneLinear * physobj:GetMass() , SIM_LOCAL_FORCE
 		end
 	end
 	
 	function ENT:PhysicsCollide( data , physobj )
 		
-		--you never know!
-		if self:IsEFlagSet( EFL_KILLME ) then 
-			return 
-		end
-		
 		if self:CheckDetonate( data , physobj ) then
 			self:Detonate()
 			return
 		end
+		
+		--taken straight from valve's code, it's needed since garry overwrote VPhysicsCollision, friction sound is still there though
+		--because he didn't override the VPhysicsFriction
 		
 		if data.DeltaTime < 0.05 or data.Speed < 70 then
 			return
@@ -330,7 +338,7 @@ if SERVER then
 			volume = 1
 		end
 		
-		--TODO: find a better impact sound
+		--TODO: find a better impact sound for this model
 		self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
 	end
 	
@@ -339,19 +347,28 @@ if SERVER then
 	end
 	
 	function ENT:Detonate()
-		--check how much fuel was left when we impacted
-		local dmg = 1.5 * self:GetFuel()
-		local radius = 2.5 * self:GetFuel()
-		
-		--do the full damage for infinite fuel
-		if self:GetMaxFuel() == -1 then
-			dmg = dmg * 100
-			radius = radius * 100
+		--you never know!
+		if self:IsEFlagSet( EFL_KILLME ) then 
+			return 
 		end
 		
+		local fuel = self:GetFuel()
+		
+		--since we have infinite fuel, fake it as if we had 100 to do max damage
+		if self:GetMaxFuel() == -1 then
+			fuel = 100
+		end
+		
+		--check how much fuel was left when we impacted
+		local dmg = 1.5 * fuel
+		local radius = 2.5 * fuel
+		
 		util.BlastDamage( self , self , self:GetPos() , radius , dmg )
+		
 		local effect = EffectData()
 		effect:SetOrigin( self:GetPos() )
+		effect:SetMagnitude( dmg )	--this is actually the force of the explosion
+		effect:SetFlags( bit.bor( 0x40 , 0x80 , 0x20 ) ) --NOFIREBALL, NOFIREBALLSMOKE, ROTATE
 		util.Effect( "Explosion" , effect )
 		
 		self:Remove()
