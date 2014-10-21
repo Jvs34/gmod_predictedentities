@@ -468,7 +468,6 @@ else
 		end
 
 		if self.LastActive ~= self:GetActive() then
-			self.LastDirection = self:GetActive()
 			self:SetWingClosureStartTime( UnPredictedCurTime() )
 			self:SetWingClosureEndTime( UnPredictedCurTime() + 0.25 )
 			self.LastActive = self:GetActive()
@@ -480,11 +479,7 @@ else
 			local starttime = self:GetWingClosureStartTime()
 			local endtime = self:GetWingClosureEndTime()
 			
-			if self.LastDirection == nil then
-				self.LastDirection = false
-			end
-			
-			if not self.LastDirection then
+			if not self:GetActive() then
 				starttime , endtime = endtime , starttime
 			end
 			
