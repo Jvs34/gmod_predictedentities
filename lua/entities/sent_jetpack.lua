@@ -153,7 +153,6 @@ function ENT:HandleFuel( predicted )
 
 	if self:GetMaxFuel() == -1 then
 		self:SetFuel( 1 )	--can't be arsed to add a maxfuel == -1 check in canfly, so this is a workaround
-		self:SetGoneApeshit( false )	--never go apeshit with infinite fuel, or we'll never stop
 		return
 	end
 
@@ -450,14 +449,15 @@ if SERVER then
 			--TODO: find a better impact sound for this model
 			self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
 		end
-		
-		if self:CheckDetonate( data , physobj ) then
-			self:Detonate()
+		if SERVER then
+			if self:CheckDetonate( data , physobj ) then
+				self:Detonate()
+			end
 		end
 	end
 	
 	function ENT:CheckDetonate( data , physobj )
-		return self:GetActive() and data.Speed > 500
+		return self:GetActive() and data.Speed > 500 and not self:IsPlayerHolding()
 	end
 	
 	function ENT:Detonate()
