@@ -7,7 +7,6 @@ ENT.SlotName = "jetpack"
 ENT.PrintName = "Jetpack"
 
 if CLIENT then
-	ENT.WingModel = Model( "models/xqm/jettailpiece1.mdl" )
 	ENT.MatHeatWave		= Material( "sprites/heatwave" )
 	ENT.MatFire			= Material( "effects/fire_cloud1" )
 	
@@ -22,6 +21,7 @@ if CLIENT then
 	
 	ENT.JetpackWings = {
 		Scale = 0.4,
+		Model = Model( "models/xqm/jettailpiece1.mdl" ),
 		{
 			OffsetVec = Vector( 0 , -9 , 0 ),
 			OffsetAng = Angle( 0 , 0 , 90 ),
@@ -102,6 +102,8 @@ function ENT:Initialize()
 		self:SetJetpackStrafeSpeed( 600 )
 		self:SetJetpackVelocity( 1200 )
 		self:SetJetpackStrafeVelocity( 1200 )
+		self:SetHoverMode( false )
+		self:SetNextHoverSwitch( CurTime() )
 	else
 		self:SetLastActive( false )
 		self:SetWingClosure( 0 )
@@ -116,18 +118,23 @@ function ENT:SetupDataTables()
 
 	self:DefineNWVar( "Bool" , "Active" )
 	self:DefineNWVar( "Bool" , "GoneApeshit" )	--set when the player using us dies while we're active
+	self:DefineNWVar( "Bool" , "RemoveGravity" )
+	self:DefineNWVar( "Bool" , "HoverMode" ) --toggled when the player presses IN_whatever
+	
 	self:DefineNWVar( "Float" , "Fuel" )
 	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
 	self:DefineNWVar( "Float" , "FuelDrain" ) --how many seconds it's gonna take to drain all the fuel
 	self:DefineNWVar( "Float" , "FuelRecharge" ) --how many seconds it should take to fully recharge this
-	
-	self:DefineNWVar( "Bool" , "RemoveGravity" )
-	
 	self:DefineNWVar( "Float" , "AirResistance" )
-	self:DefineNWVar( "Float" , "JetpackSpeed" )
-	self:DefineNWVar( "Float" , "JetpackStrafeSpeed" )
-	self:DefineNWVar( "Float" , "JetpackVelocity" )
-	self:DefineNWVar( "Float" , "JetpackStrafeVelocity" )
+	self:DefineNWVar( "Float" , "NextHoverSwitch" )
+	
+	self:DefineNWVar( "Int" , "JetpackSpeed" )
+	self:DefineNWVar( "Int" , "JetpackStrafeSpeed" )
+	self:DefineNWVar( "Int" , "JetpackVelocity" )
+	self:DefineNWVar( "Int" , "JetpackStrafeVelocity" )
+	
+	
+	
 end
 
 function ENT:HandleFly( predicted , owner , movedata , usercmd )
@@ -214,10 +221,11 @@ function ENT:HandleSounds( predicted )
 end
 
 function ENT:CanFly( owner , mv )
-	--To willox, change this if you want to have the hover mode
-
+	
+	
 	if IsValid( owner ) then
-		return ( mv:KeyDown( IN_JUMP ) or mv:KeyDown( IN_DUCK ) ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:GetFuel() > 0
+		--or mv:KeyDown( IN_DUCK )
+		return ( mv:KeyDown( IN_JUMP ) or self:GetHoverMode() ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:GetFuel() > 0
 	end
 
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
@@ -250,19 +258,31 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 	self:HandleFly( true , owner , mv , usercmd )
 	if self:GetActive() then
 		local vel = mv:GetVelocity()
-
+		
+		if mv:KeyPressed( IN_SPEED ) and self:GetNextHoverSwitch() < CurTime() then
+			self:SetHoverMode( not self:GetHoverMode() )
+			self:SetNextHoverSwitch( CurTime() + 0.1 )
+			owner:EmitSound( "Buttons.snd10" )	-- need to play it on the player, EmitSound still doesn't cull prediction on non-weapons entities
+		end
+		
 		--
-		-- Apply upwards velocity while jump is held and hold steady when sprint is held
+		-- Apply upwards velocity while jump is held and hold steady when hovermode is enabled
 		--
 
 		if mv:KeyDown( IN_JUMP ) and vel.z < self:GetJetpackSpeed() then
 
-			-- Apply constant jetpack_velocity
+			-- Apply constant positive jetpack_velocity
 			vel.z = vel.z + self:GetJetpackVelocity() * FrameTime()
-
-		elseif mv:KeyDown( IN_DUCK ) and vel.z < 0 then
+			
+		elseif mv:KeyDown( IN_DUCK ) and vel.z > self:GetJetpackSpeed() then
+			
+			-- Apply constant negative jetpack_velocity
+			vel.z = vel.z - self:GetJetpackVelocity() * FrameTime()
+		
+		elseif self:GetHoverMode() and vel.z < 0 then	--mv:KeyDown( IN_DUCK )
 
 			-- Apply just the right amount of thrust
+			
 			vel.z = math.Approach( vel.z, 0, self:GetJetpackVelocity() * FrameTime() )
 
 		end
@@ -312,7 +332,9 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		mv:SetForwardSpeed( 0 )
 		mv:SetSideSpeed( 0 )
 		mv:SetUpSpeed( 0 )
-
+		
+		-- Removes the crouch button from the movedata, effectively disabling the crouching behaviour
+		
 		mv:SetButtons( bit.band( mv:GetButtons(), bit.bnot( IN_DUCK ) ) )
 	
 	end
@@ -439,17 +461,17 @@ if SERVER then
 	function ENT:PhysicsCollide( data , physobj )
 		--taken straight from valve's code, it's needed since garry overwrote VPhysicsCollision, friction sound is still there though
 		--because he didn't override the VPhysicsFriction
-		
-		if data.DeltaTime >= 0.05 and data.Speed >= 70 then
-			local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
-			if volume > 1 then
-				volume = 1
+		if SERVER then
+			if data.DeltaTime >= 0.05 and data.Speed >= 70 then
+				local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
+				if volume > 1 then
+					volume = 1
+				end
+				
+				--TODO: find a better impact sound for this model
+				self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
 			end
 			
-			--TODO: find a better impact sound for this model
-			self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
-		end
-		if SERVER then
 			if self:CheckDetonate( data , physobj ) then
 				self:Detonate()
 			end
@@ -528,7 +550,7 @@ else
 	end
 	
 	function ENT:CreateWing()
-		local wing = ClientsideModel( self.WingModel )
+		local wing = ClientsideModel( self.JetpackWings.Model )
 		wing:SetModelScale( self.JetpackWings.Scale , 0 )
 		wing:SetNoDraw( true )
 		return wing
@@ -609,13 +631,30 @@ else
 	--copied straight from the thruster code
 	function ENT:DrawJetpackFire( pos , normal , scale )
 		local scroll = 1000 + UnPredictedCurTime() * -10
-
+		
+		local tracelength = 148 * scale
+		
+		local tr = {
+			start = pos,
+			endpos = pos + normal * tracelength,
+			mask = MASK_OPAQUE,
+			filter = self:GetControllingPlayer(),
+		}
+		tr.output = tr
+		
+		util.TraceLine( tr )
+		
+		-- tr.Fraction * ( 60 * scale ) / tracelength
+		
+		
+		--TODO: fix the middle segment 
+		
 		render.SetMaterial( self.MatFire )
 
 		render.StartBeam( 3 )
 			render.AddBeam( pos, 8 * scale , scroll , self.JetpackFireBlue )
 			render.AddBeam( pos + normal * 60 * scale , 32 * scale , scroll + 1, self.JetpackFireWhite )
-			render.AddBeam( pos + normal * 148 * scale , 32 * scale , scroll + 3, self.JetpackFireNone )
+			render.AddBeam( tr.HitPos , 32 * scale , scroll + 3, self.JetpackFireNone )
 		render.EndBeam()
 
 		scroll = scroll * 0.5
@@ -625,7 +664,7 @@ else
 		render.StartBeam( 3 )
 			render.AddBeam( pos, 8 * scale , scroll , self.JetpackFireBlue )
 			render.AddBeam( pos + normal * 32 * scale, 32 * scale , scroll + 2, color_white )
-			render.AddBeam( pos + normal * 128 * scale, 48 * scale , scroll + 5, self.JetpackFireNone )
+			render.AddBeam( tr.HitPos, 48 * scale , scroll + 5, self.JetpackFireNone )
 		render.EndBeam()
 
 
@@ -634,7 +673,7 @@ else
 		render.StartBeam( 3 )
 			render.AddBeam( pos , 8 * scale , scroll, self.JetpackFireBlue )
 			render.AddBeam( pos + normal * 60 * scale , 16 * scale , scroll + 1 , self.JetpackFireWhite )
-			render.AddBeam( pos + normal * 148 * scale , 16 * scale , scroll + 3 , self.JetpackFireNone )
+			render.AddBeam( tr.HitPos , 16 * scale , scroll + 3 , self.JetpackFireNone )
 		render.EndBeam()
 		
 		local light = DynamicLight( self:EntIndex() )
@@ -642,11 +681,12 @@ else
 		if not light then
 			return
 		end
+		
+		light.Pos = tr.HitPos
 		light.r = self.JetpackFireRed.r
 		light.g = self.JetpackFireRed.g
 		light.b = self.JetpackFireRed.b
 		light.Brightness = 0
-		light.Pos = pos
 		light.Dir = normal
 		light.InnerAngle = -45
 		light.OuterAngle = 45
@@ -661,6 +701,7 @@ else
 		
 		if not self.JetpackParticleEmitter then
 			self.JetpackParticleEmitter = ParticleEmitter( pos )
+			self.JetpackParticleEmitter:SetNoDraw( true )
 		end
 		
 		if self:GetNextParticle() < UnPredictedCurTime() and self:GetActive() then
@@ -681,6 +722,8 @@ else
 				particle:SetColor( 200 , 200 , 200 )
 			end
 		end
+		
+		self.JetpackParticleEmitter:Draw()
 	end
 
 end

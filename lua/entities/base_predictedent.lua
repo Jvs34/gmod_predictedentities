@@ -3,11 +3,11 @@ DEFINE_BASECLASS( "base_entity" )
 ENT.Spawnable = false
 
 ENT.SlotName = "mypredictedent"	--change this to "predicted_<myentityname>", using the classname is also just fine
-ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, you'll have to handle positioning on the player on your own, see sent_jetpack
+ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, when true this removes physics and draws the entity on the player
 ENT.RenderGroup = RENDERGROUP_OPAQUE
 
 
---example attachment info table
+--example attachment info table, only used if AttachesToPlayer is true
 --[[
 ENT.AttachmentInfo = {
 	BoneName = "ValveBiped.Bip01_Spine2",
@@ -26,7 +26,7 @@ function ENT:DefineNWVar( dttype , dtname )
 	end
 
 	local index = -1
-	local maxindex = self.DefinedDTVars[dttype].MAX
+	local maxindex = self.DefinedDTVars[dttype].Max
 
 	for i = 0 , maxindex - 1 do
 		if not self.DefinedDTVars[dttype][i] then
@@ -49,29 +49,30 @@ function ENT:SetupDataTables()
 
 	self.DefinedDTVars = {
 		Entity = {
-			MAX = GMOD_MAXDTVARS,
+			Max = GMOD_MAXDTVARS,
 		},
 		Float = {
-			MAX = GMOD_MAXDTVARS,
+			Max = GMOD_MAXDTVARS,
 		},
 		Int = {
-			MAX = GMOD_MAXDTVARS,
+			Max = GMOD_MAXDTVARS,
 		},
 		Bool = {
-			MAX = GMOD_MAXDTVARS,
+			Max = GMOD_MAXDTVARS,
 		},
 		Vector = {
-			MAX = GMOD_MAXDTVARS,
+			Max = GMOD_MAXDTVARS,
 		},
 		Angle = {
-			MAX = GMOD_MAXDTVARS,
+			Max = GMOD_MAXDTVARS,
 		},
 		String = {
-			MAX = 4,
+			Max = 4, --as I said before, fuck strings
 		},
 	}
 
 	self:DefineNWVar( "Entity" , "ControllingPlayer" )
+	self:DefineNWVar( "Bool" , "BeingHeld" )
 end
 
 function ENT:Initialize()
@@ -91,15 +92,20 @@ end
 
 function ENT:Think()
 	if SERVER then
+	
 		--check if this guy is still my parent and owner, maybe something is forcibly unparenting us from him, if so, drop
-		if self.AttachesToPlayer then
-			if IsValid( self:GetControllingPlayer() ) then
-				local ply = self:GetControllingPlayer()
-				if self:GetParent() ~= ply or self:GetOwner() ~= ply then
-					self:Drop()
-				end
+		if self.AttachesToPlayer and IsValid( self:GetControllingPlayer() ) then
+			local ply = self:GetControllingPlayer()
+			if self:GetParent() ~= ply or self:GetOwner() ~= ply then
+				self:Drop()
 			end
 		end
+		
+		--we have to network this ourselves since it's based on the physics object ( which is mainly serverside )
+		--NOTE: this is not as expensive as it looks, it just checks for the FVPHYSICS_PLAYER_HELD flag on our physobj
+		--in fact, it could even be done manually, the only shitty thing is that we don't know who's carrying us without the use of hooks
+		--but we don't care
+		self:SetBeingHeld( self:IsPlayerHolding() )
 	else
 		--calling this in a non-predicted hook is perfectly fine, since we need the entity to enable prediction on its own
 		--even when controlling players change
@@ -107,7 +113,11 @@ function ENT:Think()
 		--Ideally this would be handled on the callback of SetControllingPlayer clientside, but we don't have that yet
 		self:HandlePrediction()
 	end
-
+	
+	--set our think rate to be in line with the server tickrate
+	--this may also affect animations clientside if they're ran in this hook, considering that also happens in normal source
+	--I'd say that's an accurate replication of the issue
+	
 	self:NextThink( CurTime() + engine.TickInterval() )
 	return true
 end
@@ -221,10 +231,22 @@ if SERVER then
 	end
 
 else
+
+	function ENT:IsCarriedByLocalPlayer()
+		return LocalPlayer() == self:GetControllingPlayer()
+	end
 	
-	--TODO: when the player gets pushed with the new behaviour, change this to self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
+	--TODO: when the update gets pushed with the new behaviour, change this to self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
 	function ENT:HandlePrediction()
-		local bool = LocalPlayer() == self:GetControllingPlayer()
+	
+		--either the gravity gun or some other stuff is carrying me, don't do anything on prediction
+		--because they might enable it to carry us around smoothly
+		
+		if self:GetBeingHeld() then
+			return
+		end
+		
+		local bool = self:IsCarriedByLocalPlayer()
 		if self.IsPredictable ~= bool then
 			self:SetPredictable( bool )
 			self.IsPredictable = bool
@@ -232,20 +254,14 @@ else
 	end
 
 	function ENT:DrawOnPlayer( ply )
-		if self.AttachesToPlayer then
-			if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
-				self:DrawModel()
-			end
+		if self.AttachesToPlayer and IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
+			self:DrawModel()
 		end
 	end
 
 	function ENT:CanDraw()
-		if not self.AttachesToPlayer then
-			return true
-		end
-
-		if self:GetControllingPlayer() == LocalPlayer() then
-			return LocalPlayer():ShouldDrawLocalPlayer()
+		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer() then
+			return self:GetControllingPlayer():ShouldDrawLocalPlayer()
 		else
 			return true
 		end
@@ -325,19 +341,21 @@ end
 
 --attaches the entity to the player depending on the attachmentinfo table
 --you can override this safely as long as you keep the part with ply:SetupBones()
---although you generally should just use the attachemnt info table instea
+--although you generally should just use the attachment info table instead
 
-function ENT:GetCustomParentOrigin( ply )
+function ENT:GetCustomParentOrigin()
 
 	if not self.AttachmentInfo then
 		return
 	end
-
+	
+	local ply = self:GetControllingPlayer()
+	
 	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
 	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
 	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
 
-	if CLIENT and ply == LocalPlayer() and not ply:ShouldDrawLocalPlayer() then
+	if CLIENT and self:IsCarriedByLocalPlayer() and not ply:ShouldDrawLocalPlayer() then
 		ply:SetupBones()
 	end
 
@@ -360,10 +378,8 @@ end
 --this is called shared, yes it's more expensive than source's normal parenting but it's worth it
 
 function ENT:CalcAbsolutePosition( pos , ang )
-	if self.AttachesToPlayer then
-		if IsValid( self:GetControllingPlayer() ) then
-			return self:GetCustomParentOrigin( self:GetControllingPlayer() )
-		end
+	if self.AttachesToPlayer and IsValid( self:GetControllingPlayer() ) then
+		return self:GetCustomParentOrigin()
 	end
 end
 
