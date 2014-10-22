@@ -81,7 +81,6 @@ end
 function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
-		self:SetLagCompensated( true )
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--comment to reenable collisions with players and npcs
 		self:InitPhysics()
@@ -263,7 +262,6 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		if mv:KeyPressed( IN_SPEED ) and self:GetNextHoverSwitch() < CurTime() then
 			self:SetHoverMode( not self:GetHoverMode() )
 			self:SetNextHoverSwitch( CurTime() + 0.1 )
-			owner:EmitSound( "Buttons.snd10" )	-- need to play it on the player, EmitSound still doesn't cull prediction on non-weapons entities
 		end
 		
 		--
@@ -418,7 +416,8 @@ if SERVER then
 		self:SetGoneApeshit( false )	--someone might be able to catch us midflight!
 		self:SetActive( false )
 		self:SetNoDraw( true )
-		self:AddEffects( EF_BONEMERGE )
+		self:SetLagCompensated( false )
+		--self:SetSolid( SOLID_BBOX )
 	end
 
 	function ENT:OnDrop( ply )
@@ -432,7 +431,7 @@ if SERVER then
 			self:SetActive( false )
 		end
 		self:SetNoDraw( false )
-		self:RemoveEffects( EF_BONEMERGE )
+		self:SetLagCompensated( true )
 		
 	end
 
@@ -466,7 +465,7 @@ if SERVER then
 				angular = angular * 0.5
 			end
 			
-			return force * physobj:GetMass() , angular * physobj:GetMass() , SIM_LOCAL_FORCE
+			return angular * physobj:GetMass() , force * physobj:GetMass() , SIM_LOCAL_FORCE
 		end
 	end
 	
@@ -526,7 +525,12 @@ else
 
 	function ENT:Draw( flags )
 		if self:CanDraw() then
-
+			local pos , ang = self:GetCustomParentOrigin()
+			if pos and ang then
+				self:SetPos( pos )
+				self:SetAngles( ang )
+			end
+			
 			self:DrawModel()
 			
 			self:DrawWings()

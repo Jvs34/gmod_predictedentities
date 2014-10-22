@@ -272,6 +272,7 @@ else
 			self:DrawModel()
 		end
 	end
+	
 end
 
 function ENT:HandlePredictedStartCommand( ply , cmd )
@@ -350,6 +351,10 @@ function ENT:GetCustomParentOrigin()
 	end
 	
 	local ply = self:GetControllingPlayer()
+	
+	if not IsValid( ply ) then
+		return
+	end
 	
 	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
 	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
