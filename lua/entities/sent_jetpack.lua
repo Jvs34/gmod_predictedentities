@@ -686,13 +686,13 @@ else
 		light.r = self.JetpackFireRed.r
 		light.g = self.JetpackFireRed.g
 		light.b = self.JetpackFireRed.b
-		light.Brightness = 0
+		light.Brightness = 3
 		light.Dir = normal
 		light.InnerAngle = -45
 		light.OuterAngle = 45
 		light.Size = 250 * scale -- 125 when the scale is 0.25
 		light.Style = 1	--this should do the flicker for us
-		light.MinLight = 0.5
+		light.MinLight = 2
 		light.Decay = 1000
 		light.DieTime = CurTime() + 1 --can't use UnPredictedCurTime() since they check against CurTime() internally
 	end
