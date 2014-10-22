@@ -39,10 +39,10 @@ if CLIENT then
 	
 else
 	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )
-	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , -1500 )
+	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , 0 )
 	
 	ENT.StandaloneAngular = vector_origin
-	ENT.StandaloneLinear = Vector( 0 , 0 , -1500 )
+	ENT.StandaloneLinear = Vector( 0 , 0 , 0 )
 end
 
 --use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
@@ -81,6 +81,7 @@ end
 function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
+		self:SetLagCompensated( true )
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--comment to reenable collisions with players and npcs
 		self:InitPhysics()
@@ -274,7 +275,7 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 			-- Apply constant positive jetpack_velocity
 			vel.z = vel.z + self:GetJetpackVelocity() * FrameTime()
 			
-		elseif mv:KeyDown( IN_DUCK ) and vel.z > self:GetJetpackSpeed() then
+		elseif mv:KeyDown( IN_DUCK ) and vel.z < self:GetJetpackSpeed() then
 			
 			-- Apply constant negative jetpack_velocity
 			vel.z = vel.z - self:GetJetpackVelocity() * FrameTime()
@@ -417,6 +418,7 @@ if SERVER then
 		self:SetGoneApeshit( false )	--someone might be able to catch us midflight!
 		self:SetActive( false )
 		self:SetNoDraw( true )
+		self:AddEffects( EF_BONEMERGE )
 	end
 
 	function ENT:OnDrop( ply )
@@ -430,7 +432,7 @@ if SERVER then
 			self:SetActive( false )
 		end
 		self:SetNoDraw( false )
-		
+		self:RemoveEffects( EF_BONEMERGE )
 		
 	end
 
@@ -439,22 +441,32 @@ if SERVER then
 			physobj:SetMass( 75 )
 			self:StartMotionController()
 		end
-		self:SetLagCompensated( true )
 	end
 	
 	function ENT:OnRemovePhysics()
 		self:StopMotionController()
-		self:SetLagCompensated( false ) --in theory, we should be moved back with the player either way since we're parented to him, so disable this
 	end
 	
 	function ENT:PhysicsSimulate( physobj , delta )
 		if self:GetActive() then
 			
+			local force = self.StandaloneLinear
+			local angular = self.StandaloneAngular
+			
 			if self:GetGoneApeshit() then
-				return self.StandaloneApeShitAngular * physobj:GetMass() , self.StandaloneApeShitLinear * physobj:GetMass() , SIM_LOCAL_FORCE
+				force = self.StandaloneApeShitLinear
+				angular = self.StandaloneApeShitAngular
 			end
 			
-			return self.StandaloneAngular * physobj:GetMass() , self.StandaloneLinear * physobj:GetMass() , SIM_LOCAL_FORCE
+			force.z = -self:GetJetpackVelocity()
+			
+			--hover mode moves the jetpack slower, reflect it on the physics
+			if self:GetHoverMode() then
+				force = force * 0.5
+				angular = angular * 0.5
+			end
+			
+			return force * physobj:GetMass() , angular * physobj:GetMass() , SIM_LOCAL_FORCE
 		end
 	end
 	
