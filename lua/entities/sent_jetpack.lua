@@ -93,7 +93,9 @@ function ENT:Initialize()
 		self:SetFuelDrain( 10 )	--drain in seconds
 		self:SetFuelRecharge( 15 )	--recharge in seconds
 		self:SetActive( false )
-		self:SetGoneApeshit( false )	--TODO: allow going apeshit even when held by a player
+		self:SetGoneApeshit( false )
+		self:SetGoneApeshitTime( 0 )
+		
 		hook.Add( "PostPlayerDeath" , self , self.ControllingPlayerDeath )
 		
 		self:SetAirResistance( 2.5 )
@@ -127,6 +129,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "FuelRecharge" ) --how many seconds it should take to fully recharge this
 	self:DefineNWVar( "Float" , "AirResistance" )
 	self:DefineNWVar( "Float" , "NextHoverSwitch" )
+	self:DefineNWVar( "Float" , "GoneApeshitTime" )
 	
 	self:DefineNWVar( "Int" , "JetpackSpeed" )
 	self:DefineNWVar( "Int" , "JetpackStrafeSpeed" )
@@ -139,6 +142,28 @@ end
 
 function ENT:HandleFly( predicted , owner , movedata , usercmd )
 	self:SetActive( self:CanFly( owner , movedata ) )
+	
+	--we have infinite fuel and the apeshit timeout hasn't been set, do it now
+	--this is most useful because I CBA to do that everytime ok?
+	--also it's serverside only because we only set the apeshit on the server anyway
+	
+	if SERVER then
+		if self:GetGoneApeshit() and self:GetGoneApeshitTime() == 0 and self:HasInfiniteFuel() then
+			self:SetGoneApeshitTime( CurTime() + 5 )
+		end
+	end
+	
+	--the check below has to be done with prediction on the client!
+	
+	if CLIENT and not predicted then
+		return
+	end
+	
+	--if we have an apeshit timeout, calm us down ( this doesn't check for infinite fuel, in case we did this manually )
+	if self:GetGoneApeshit() and self:GetGoneApeshitTime() ~= 0 and self:GetGoneApeshitTime() <= CurTime() then
+		self:SetGoneApeshit( false )
+		self:SetGoneApeshitTime( 0 )
+	end
 end
 
 function ENT:HandleFuel( predicted )
@@ -156,11 +181,6 @@ function ENT:HandleFuel( predicted )
 	--screw that, during prediction we need to recharge with FrameTime()
 	if predicted then
 		ft = FrameTime()
-	end
-
-	if self:GetMaxFuel() == -1 then
-		self:SetFuel( 1 )	--can't be arsed to add a maxfuel == -1 check in canfly, so this is a workaround
-		return
 	end
 
 	local fueltime = self:GetActive() and self:GetFuelDrain() or self:GetFuelRecharge()
@@ -188,7 +208,7 @@ function ENT:HandleFuel( predicted )
 	self:SetFuel( math.Clamp( self:GetFuel() + fuelrate , 0 , self:GetMaxFuel() ) )
 
 	--we exhausted all of our fuel, chill out
-	if self:GetFuel() <= 0 and self:GetGoneApeshit() then
+	if not self:HasFuel() and self:GetGoneApeshit() then
 		self:SetGoneApeshit( false )
 	end
 end
@@ -220,17 +240,35 @@ function ENT:HandleSounds( predicted )
 	end
 end
 
+function ENT:HasInfiniteFuel()
+	return self:GetMaxFuel() == -1
+end
+
+function ENT:HasFuel()
+	if not self:HasInfiniteFuel() then
+		return self:GetFuel() > 0
+	end
+	
+	return true
+end
+
 function ENT:CanFly( owner , mv )
 	
 	
 	if IsValid( owner ) then
-		--or mv:KeyDown( IN_DUCK )
-		return ( mv:KeyDown( IN_JUMP ) or self:GetHoverMode() ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:GetFuel() > 0
+	
+		--
+		
+		if self:GetGoneApeshit() then
+			return owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and self:HasFuel()
+		end
+		
+		return ( mv:KeyDown( IN_JUMP ) or mv:KeyPressed( IN_DUCK ) or self:GetHoverMode() ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:HasFuel()
 	end
 
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
 	if self:GetGoneApeshit() then
-		return self:WaterLevel() == 0 and self:GetFuel() > 0
+		return self:WaterLevel() == 0 and self:HasFuel()
 	end
 
 	return false
@@ -255,11 +293,15 @@ function ENT:Think()
 end
 
 function ENT:PredictedSetupMove( owner , mv , usercmd )
+	
 	self:HandleFly( true , owner , mv , usercmd )
+	self:HandleFuel( true )
+	self:HandleSounds( true )
+	
 	if self:GetActive() then
 		local vel = mv:GetVelocity()
 		
-		if mv:KeyPressed( IN_SPEED ) and self:GetNextHoverSwitch() < CurTime() then
+		if mv:KeyPressed( IN_DUCK ) and self:GetNextHoverSwitch() < CurTime() then
 			self:SetHoverMode( not self:GetHoverMode() )
 			self:SetNextHoverSwitch( CurTime() + 0.1 )
 		end
@@ -270,15 +312,10 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 
 		if mv:KeyDown( IN_JUMP ) and vel.z < self:GetJetpackSpeed() then
 
-			-- Apply constant positive jetpack_velocity
+			-- Apply constant jetpack_velocity
 			vel.z = vel.z + self:GetJetpackVelocity() * FrameTime()
-			
-		elseif mv:KeyDown( IN_DUCK ) and vel.z < self:GetJetpackSpeed() then
-			
-			-- Apply constant negative jetpack_velocity
-			vel.z = vel.z - self:GetJetpackVelocity() * FrameTime()
 		
-		elseif self:GetHoverMode() and vel.z < 0 then	--mv:KeyDown( IN_DUCK )
+		elseif self:GetHoverMode() and vel.z < 0 then
 
 			-- Apply just the right amount of thrust
 			
@@ -316,6 +353,13 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 			vel:Add( move_vel )
 
 		end
+		
+		--apply random forces calculated with util.SharedRandom if we've goneapeshit
+		if self:GetGoneApeshit() then
+		
+		
+		
+		end
 
 		--
 		-- Apply air resistance
@@ -340,8 +384,6 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 end
 
 function ENT:PredictedThink( owner , movedata )
-	self:HandleFuel( true )
-	self:HandleSounds( true )
 end
 
 function ENT:PredictedMove( owner , data )
@@ -398,7 +440,7 @@ if SERVER then
 		end
 		
 		--roll a random, if we're not being held by a player and the random succeeds, go apeshit
-		if dmginfo:GetDamage() > 1 and not self:GetGoneApeshit() and not IsValid( self:GetControllingPlayer() ) then
+		if dmginfo:GetDamage() > 1 and not self:GetGoneApeshit() then
 			local rand = math.random( 1 , 10 )
 			if rand <= 2 then
 				self:SetGoneApeshit( true )
@@ -413,7 +455,7 @@ if SERVER then
 	end
 
 	function ENT:OnAttach( ply )
-		self:SetGoneApeshit( false )	--someone might be able to catch us midflight!
+		--self:SetGoneApeshit( false )	--someone might be able to catch us midflight!
 		self:SetActive( false )
 		self:SetNoDraw( true )
 		self:SetLagCompensated( false )
@@ -504,7 +546,7 @@ if SERVER then
 		local fuel = self:GetFuel()
 		
 		--since we have infinite fuel, fake it as if we had 100 to do max damage
-		if self:GetMaxFuel() == -1 then
+		if self:HasInfiniteFuel() then
 			fuel = 100
 		end
 		
@@ -554,7 +596,7 @@ else
 	--the less fuel we have, the smaller our particles will be
 	function ENT:GetEffectsScale()
 			
-		if self:GetMaxFuel() ~= -1 then
+		if not self:HasInfiniteFuel() then
 			return Lerp( self:GetFuel() / self:GetMaxFuel() , self.MinEffectsSize , self.MaxEffectsSize )
 		end
 		
@@ -663,7 +705,7 @@ else
 		-- tr.Fraction * ( 60 * scale ) / tracelength
 		
 		
-		--TODO: fix the middle segment 
+		--TODO: fix the middle segment not being proportional to the tracelength ( and Fraction )
 		
 		render.SetMaterial( self.MatFire )
 
@@ -708,7 +750,6 @@ else
 		light.OuterAngle = 45
 		light.Size = 250 * scale -- 125 when the scale is 0.25
 		light.Style = 1	--this should do the flicker for us
-		--light.MinLight = 2
 		light.Decay = 1000
 		light.DieTime = CurTime() + 1 --can't use UnPredictedCurTime() since they check against CurTime() internally
 	end
@@ -717,8 +758,12 @@ else
 		
 		if not self.JetpackParticleEmitter then
 			self.JetpackParticleEmitter = ParticleEmitter( pos )
-			self.JetpackParticleEmitter:SetNoDraw( true )
 		end
+		
+		--to prevent the smoke from drawing inside of the player when he's looking at a mirror, draw it manually if he's the local player
+		--this behaviour is disabled if he's not the one actually using the jetpack ( this also happens when the jetpack is dropped and flies off )
+		
+		self.JetpackParticleEmitter:SetNoDraw( self:IsCarriedByLocalPlayer() )
 		
 		if self:GetNextParticle() < UnPredictedCurTime() and self:GetActive() then
 			local particle = self.JetpackParticleEmitter:Add( "particle/particle_noisesphere", pos )
@@ -739,7 +784,9 @@ else
 			end
 		end
 		
-		self.JetpackParticleEmitter:Draw()
+		if self:IsCarriedByLocalPlayer() then
+			self.JetpackParticleEmitter:Draw()
+		end
 	end
 
 end
