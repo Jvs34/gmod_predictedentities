@@ -88,7 +88,8 @@ function ENT:Initialize()
 		self:SetMaxHealth( 100 )
 		self:SetHealth( self:GetMaxHealth() )
 		
-		self:SetMaxFuel( -1 )	--set this to -1 to disable the fuel drain, in the end this only changes the damage during apeshit impacts
+		self:SetInfiniteFuel( true )
+		self:SetMaxFuel( 100 )
 		self:SetFuel( self:GetMaxFuel() )
 		self:SetFuelDrain( 10 )	--drain in seconds
 		self:SetFuelRecharge( 15 )	--recharge in seconds
@@ -122,6 +123,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "GoneApeshit" )	--set when the player using us dies while we're active
 	self:DefineNWVar( "Bool" , "RemoveGravity" )
 	self:DefineNWVar( "Bool" , "HoverMode" ) --toggled when the player presses IN_whatever
+	self:DefineNWVar( "Bool" , "InfiniteFuel" )
 	
 	self:DefineNWVar( "Float" , "Fuel" )
 	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
@@ -148,7 +150,7 @@ function ENT:HandleFly( predicted , owner , movedata , usercmd )
 	--also it's serverside only because we only set the apeshit on the server anyway
 	
 	if SERVER then
-		if self:GetGoneApeshit() and self:GetGoneApeshitTime() == 0 and self:HasInfiniteFuel() then
+		if self:GetGoneApeshit() and self:GetGoneApeshitTime() == 0 and self:GetInfiniteFuel() then
 			self:SetGoneApeshitTime( CurTime() + 5 )
 		end
 	end
@@ -240,16 +242,8 @@ function ENT:HandleSounds( predicted )
 	end
 end
 
-function ENT:HasInfiniteFuel()
-	return self:GetMaxFuel() == -1
-end
-
 function ENT:HasFuel()
-	if not self:HasInfiniteFuel() then
-		return self:GetFuel() > 0
-	end
-	
-	return true
+	return self:GetFuel() > 0
 end
 
 function ENT:CanFly( owner , mv )
@@ -257,7 +251,7 @@ function ENT:CanFly( owner , mv )
 	
 	if IsValid( owner ) then
 	
-		--
+		--don't care about player inputs in this case, the player's jetpack is going craaazy
 		
 		if self:GetGoneApeshit() then
 			return owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and self:HasFuel()
@@ -354,19 +348,24 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 
 		end
 		
-		--apply random forces calculated with util.SharedRandom if we've goneapeshit
-		if self:GetGoneApeshit() then
-		
-		
-		
-		end
-
 		--
 		-- Apply air resistance
 		--
 		vel.x = math.Approach( vel.x, 0, FrameTime() * self:GetAirResistance() * vel.x )
 		vel.y = math.Approach( vel.y, 0, FrameTime() * self:GetAirResistance() * vel.y )
 
+		--apply random forces calculated with util.SharedRandom if we've goneapeshit
+		
+		if self:GetGoneApeshit() then
+			
+			local apeshitvel = Vector( 0 , 0 , 0 )
+			apeshitvel:Add( ang:Forward() * util.SharedRandom( "ApeShitForward" , -self:GetJetpackSpeed() , -self:GetJetpackSpeed() )
+			apeshitvel:Add( ang:Right() * util.SharedRandom( "ApeShitRight" , -self:GetJetpackSpeed() , -self:GetJetpackSpeed() )
+			apeshitvel:Add( ang:Up() * util.SharedRandom( "ApeShitUp" , -self:GetJetpackSpeed() , -self:GetJetpackSpeed() )
+		
+			vel:Add( apeshitdir )
+		end
+		
 		--
 		-- Write our calculated velocity back to the CMoveData structure
 		--
@@ -545,11 +544,6 @@ if SERVER then
 		
 		local fuel = self:GetFuel()
 		
-		--since we have infinite fuel, fake it as if we had 100 to do max damage
-		if self:HasInfiniteFuel() then
-			fuel = 100
-		end
-		
 		--check how much fuel was left when we impacted
 		local dmg = 1.5 * fuel
 		local radius = 2.5 * fuel
@@ -595,12 +589,7 @@ else
 	
 	--the less fuel we have, the smaller our particles will be
 	function ENT:GetEffectsScale()
-			
-		if not self:HasInfiniteFuel() then
-			return Lerp( self:GetFuel() / self:GetMaxFuel() , self.MinEffectsSize , self.MaxEffectsSize )
-		end
-		
-		return self.MaxEffectsSize
+		return Lerp( self:GetFuel() / self:GetMaxFuel() , self.MinEffectsSize , self.MaxEffectsSize )
 	end
 	
 	function ENT:GetEffectsOffset()
@@ -757,9 +746,13 @@ else
 	function ENT:DrawJetpackSmoke( pos , normal , scale )
 		
 		if not self.JetpackParticleEmitter then
-			self.JetpackParticleEmitter = ParticleEmitter( pos )
+			local emittr = ParticleEmitter( pos )
+			if not emittr then
+				return
+			end
+			self.JetpackParticleEmitter = emittr
 		end
-		
+
 		--to prevent the smoke from drawing inside of the player when he's looking at a mirror, draw it manually if he's the local player
 		--this behaviour is disabled if he's not the one actually using the jetpack ( this also happens when the jetpack is dropped and flies off )
 		
@@ -772,9 +765,9 @@ else
 				self:SetNextParticle( UnPredictedCurTime() + 0.01 )
 				particle:SetCollide( true )
 				particle:SetBounce( 0.25 )
-				particle:SetVelocity( normal * 100 )
+				particle:SetVelocity( normal * self:GetJetpackSpeed() )
 				particle:SetDieTime( 0.5 )
-				particle:SetStartAlpha( 255 )
+				particle:SetStartAlpha( 150 )
 				particle:SetEndAlpha( 0 )
 				particle:SetStartSize( 16 * scale )
 				particle:SetEndSize( 64 * scale )
