@@ -85,7 +85,6 @@ function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
 		self:SetModel( "models/thrusters/jetpack.mdl" )
-		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--comment to reenable collisions with players and npcs
 		self:InitPhysics()
 		
 		self:SetMaxHealth( 100 )
@@ -117,12 +116,6 @@ function ENT:Initialize()
 		self:SetWingClosureEndTime( 0 )
 		self:SetNextParticle( 0 )
 	end
-	
-	--TODO: set enablecustom collisions or whatever it's called and then avoid anything that we share the same owner on
-	--mainly done because we want the jetpack to still have collisions on the player's back ( SOLID_BBOX ) but the player
-	--firing a crossbow bolt would just hit himself and detonate the jetpack ( hilarious but dumb )
-	self:SetCustomCollisionCheck( true )
-	hook.Add( "ShouldCollide" , self , self.HandleShouldCollide )
 end
 
 function ENT:SetupDataTables()
@@ -372,11 +365,11 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		if self:GetGoneApeshit() then
 			--TODO: actually move the player in a corkscrew pattern? which direction should it do that on?
 			local apeshitvel = Vector( 0 , 0 , 0 )
-			apeshitvel:Add( ang:Forward() * util.SharedRandom( "ApeShitForward" , -self:GetJetpackSpeed() , -self:GetJetpackSpeed() )
-			apeshitvel:Add( ang:Right() * util.SharedRandom( "ApeShitRight" , -self:GetJetpackSpeed() , -self:GetJetpackSpeed() )
-			apeshitvel:Add( ang:Up() * util.SharedRandom( "ApeShitUp" , -self:GetJetpackSpeed() , -self:GetJetpackSpeed() )
-		
-			vel:Add( apeshitdir )
+			apeshitvel:Add( ang:Forward() * util.SharedRandom( "ApeShitForward" , -self:GetJetpackVelocity() , self:GetJetpackVelocity() ) )
+			apeshitvel:Add( ang:Right() * util.SharedRandom( "ApeShitRight" , -self:GetJetpackVelocity() , self:GetJetpackVelocity() ) )
+			apeshitvel:Add( ang:Up() * util.SharedRandom( "ApeShitUp" , -self:GetJetpackVelocity() , self:GetJetpackVelocity() ) )
+			vel:Add( apeshitvel * FrameTime() )
+			owner:SetGroundEntity( NULL )
 		end
 		
 		--
@@ -500,10 +493,12 @@ if SERVER then
 			physobj:SetMass( 75 )
 			self:StartMotionController()
 		end
+		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--comment to reenable collisions with players and npcs
 	end
 	
 	function ENT:OnRemovePhysics()
 		self:StopMotionController()
+		self:SetCollisionGroup( COLLISION_GROUP_DEBRIS )
 	end
 	
 	function ENT:PhysicsSimulate( physobj , delta )
@@ -827,15 +822,5 @@ function ENT:OnRemove()
 			self.JetpackParticleEmitter:Finish()
 			self.JetpackParticleEmitter = nil
 		end
-	end
-end
-
-function ENT:HandleShouldCollide( ent1 , ent2 )
-	if ent1 == self and ent2:GetOwner() == self:GetOwner() then
-		return false
-	end
-	
-	if ent2 == self and ent1:GetOwner() == self:GetOwner() then
-		return false
 	end
 end

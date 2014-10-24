@@ -202,7 +202,7 @@ if SERVER then
 		if self.ShowPickupNotice then
 			self:EmitSound( "HL2Player.PickupWeapon" )
 			
-			net.Start( "predictedent_pickup" )
+			net.Start( "pe_pickup" )
 				net.WriteString( self:GetClass() )
 			net.Send( activator )
 		end
