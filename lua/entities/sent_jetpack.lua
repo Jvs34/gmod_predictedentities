@@ -96,7 +96,7 @@ function ENT:Initialize()
 		self:SetFuelDrain( 10 )	--drain in seconds
 		self:SetFuelRecharge( 15 )	--recharge in seconds
 		self:SetActive( false )
-		self:SetGoneApeshit( false )
+		self:SetGoneApeshit( math.random( 0 , 100 ) > 95 ) --little chance that on spawn we're gonna be crazy!
 		self:SetGoneApeshitTime( 0 )
 		
 		hook.Add( "PostPlayerDeath" , self , self.ControllingPlayerDeath )
@@ -107,8 +107,6 @@ function ENT:Initialize()
 		self:SetJetpackStrafeSpeed( 600 )
 		self:SetJetpackVelocity( 1200 )
 		self:SetJetpackStrafeVelocity( 1200 )
-		self:SetHoverMode( false )
-		self:SetNextHoverSwitch( CurTime() )
 	else
 		self:SetLastActive( false )
 		self:SetWingClosure( 0 )
@@ -124,7 +122,6 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "Active" )
 	self:DefineNWVar( "Bool" , "GoneApeshit" )	--set when the player using us dies while we're active
 	self:DefineNWVar( "Bool" , "RemoveGravity" )
-	self:DefineNWVar( "Bool" , "HoverMode" ) --toggled when the player presses IN_whatever
 	self:DefineNWVar( "Bool" , "InfiniteFuel" )
 	
 	self:DefineNWVar( "Float" , "Fuel" )
@@ -139,8 +136,6 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Int" , "JetpackStrafeSpeed" )
 	self:DefineNWVar( "Int" , "JetpackVelocity" )
 	self:DefineNWVar( "Int" , "JetpackStrafeVelocity" )
-	
-	
 	
 end
 
@@ -204,10 +199,17 @@ function ENT:HandleFuel( predicted )
 			fuelrate = 0
 		end
 	else
-		--can't recharge until our owner is on the ground!
-		--prevents the player from tapping the jump button to fly and recharge at the same time
+		--recharge in different ways if we have an owner or not, because players might drop and reequip the jetpack to exploit the recharging
 		if IsValid( self:GetControllingPlayer() ) then
+			--can't recharge until our owner is on the ground!
+			--prevents the player from tapping the jump button to fly and recharge at the same time
 			if not self:GetControllingPlayer():OnGround() then
+				fuelrate = 0
+			end
+		else
+			--only recharge if our physobj is sleeping and it's valid ( should never be invalid in the first place )
+			local physobj = self:GetPhysicsObject()
+			if not IsValid( physobj ) or not physobj:IsAsleep() then
 				fuelrate = 0
 			end
 		end
@@ -215,7 +217,7 @@ function ENT:HandleFuel( predicted )
 	
 	self:SetFuel( math.Clamp( self:GetFuel() + fuelrate , 0 , self:GetMaxFuel() ) )
 
-	--we exhausted all of our fuel, chill out
+	--we exhausted all of our fuel, chill out if we're crazy
 	if not self:HasFuel() and self:GetGoneApeshit() then
 		self:SetGoneApeshit( false )
 	end
@@ -300,22 +302,14 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 	
 	if self:GetActive() then
 		local vel = mv:GetVelocity()
-		
-		if mv:KeyPressed( IN_DUCK ) and self:GetNextHoverSwitch() < CurTime() then
-			self:SetHoverMode( not self:GetHoverMode() )
-			self:SetNextHoverSwitch( CurTime() + 0.1 )
-		end
-		
-		--
-		-- Apply upwards velocity while jump is held and hold steady when hovermode is enabled
-		--
+
 
 		if mv:KeyDown( IN_JUMP ) and vel.z < self:GetJetpackSpeed() then
 
 			-- Apply constant jetpack_velocity
 			vel.z = vel.z + self:GetJetpackVelocity() * FrameTime()
 		
-		elseif self:GetHoverMode() and vel.z < 0 then
+		elseif mv:KeyPressed( IN_DUCK ) and vel.z < 0 then
 
 			-- Apply just the right amount of thrust
 			
@@ -363,13 +357,7 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		--apply random forces calculated with util.SharedRandom if we've goneapeshit
 		
 		if self:GetGoneApeshit() then
-			--TODO: actually move the player in a corkscrew pattern? which direction should it do that on?
-			local apeshitvel = Vector( 0 , 0 , 0 )
-			apeshitvel:Add( ang:Forward() * util.SharedRandom( "ApeShitForward" , -self:GetJetpackVelocity() , self:GetJetpackVelocity() ) )
-			apeshitvel:Add( ang:Right() * util.SharedRandom( "ApeShitRight" , -self:GetJetpackVelocity() , self:GetJetpackVelocity() ) )
-			apeshitvel:Add( ang:Up() * util.SharedRandom( "ApeShitUp" , -self:GetJetpackVelocity() , self:GetJetpackVelocity() ) )
-			vel:Add( apeshitvel * FrameTime() )
-			owner:SetGroundEntity( NULL )
+			--TODO:
 		end
 		
 		--
@@ -410,17 +398,14 @@ function ENT:PredictedFinishMove( owner , movedata )
 			self:SetRemoveGravity( false )
 		end
 		
-		--if we're going apeshit, check if we're actually impacting a wall, if we are then apply damage serverside
-		--and then apply viewpunch and a bounce off the surface
+		--if we're going apeshit, check if we're actually impacting a wall, if we are then apply damage on the server
+		--then apply viewpunch and a bounce off the surface
 		
 		if self:GetGoneApeshit() then
 		
 		end
-		
 	end
 end
-
-
 
 if SERVER then
 	
@@ -493,7 +478,7 @@ if SERVER then
 			physobj:SetMass( 75 )
 			self:StartMotionController()
 		end
-		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--comment to reenable collisions with players and npcs
+		self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--set to COLLISION_GROUP_NONE to reenable collisions against players and npcs
 	end
 	
 	function ENT:OnRemovePhysics()
@@ -516,12 +501,6 @@ if SERVER then
 			end
 			
 			force.z = -self:GetJetpackVelocity()
-			
-			--hover mode moves the jetpack slower, reflect it on the physics
-			if self:GetHoverMode() then
-				force = force * 0.5
-				angular = angular * 0.5
-			end
 			
 			return angular * physobj:GetMass() , force * physobj:GetMass() , SIM_LOCAL_FORCE
 		end
@@ -616,7 +595,8 @@ else
 	end
 	
 	function ENT:GetEffectsOffset()
-		return self:GetPos() + self:GetAngles():Up() * 10 , self:GetAngles():Up()
+		local angup = self:GetAngles():Up()
+		return self:GetPos() + angup * 10 , angup
 	end
 	
 	function ENT:CreateWing()
@@ -666,7 +646,7 @@ else
 		local ang = self:GetAngles()
 
 		self.WingMatrix = Matrix()
-		
+		--TODO: reset the scale to Vector( 1 , 1 , 1 ) instead of recreating the matrix every frame
 		local dist = Lerp( self:GetWingClosure() , -15 , 0 )
 		self.WingMatrix:SetTranslation( Vector( 0 ,0 , dist ) )	--how far inside the jetpack we should go to hide our scaled down wings
 		self.WingMatrix:Scale( Vector( 1 , 1 , self:GetWingClosure() ) ) --our scale depends on the wing closure
@@ -701,6 +681,9 @@ else
 	--copied straight from the thruster code
 	function ENT:DrawJetpackFire( pos , normal , scale )
 		local scroll = 1000 + UnPredictedCurTime() * -10
+		
+		--the trace makes sure that the light or the flame don't end up inside walls
+		--although it should be cached somehow, and only do the trace every tick
 		
 		local tracelength = 148 * scale
 		
@@ -779,7 +762,9 @@ else
 		--to prevent the smoke from drawing inside of the player when he's looking at a mirror, draw it manually if he's the local player
 		--this behaviour is disabled if he's not the one actually using the jetpack ( this also happens when the jetpack is dropped and flies off )
 		
-		self.JetpackParticleEmitter:SetNoDraw( self:IsCarriedByLocalPlayer() )
+		local particlenodraw = self:IsCarriedByLocalPlayer()
+		
+		self.JetpackParticleEmitter:SetNoDraw( particlenodraw )
 		
 		if self:GetNextParticle() < UnPredictedCurTime() and self:GetActive() then
 			local particle = self.JetpackParticleEmitter:Add( "particle/particle_noisesphere", pos )
@@ -800,7 +785,7 @@ else
 			end
 		end
 		
-		if self:IsCarriedByLocalPlayer() then
+		if particlenodraw then
 			self.JetpackParticleEmitter:Draw()
 		end
 	end
