@@ -136,8 +136,9 @@ if SERVER then
 		self:Attach( activator )
 	end
 
+	--these functions may actually not be correct, some entities may not want vphysics at all, and simply use the BBOX system
 	function ENT:InitPhysics()
-		if self:GetSolid() == SOLID_VPHYSICS then
+		if IsValid( self:GetPhysicsObject() ) then
 			return
 		end
 
@@ -150,7 +151,7 @@ if SERVER then
 	end
 
 	function ENT:RemovePhysics()
-		if self:GetSolid() == SOLID_NONE then
+		if not IsValid( self:GetPhysicsObject() ) then
 			return
 		end
 
