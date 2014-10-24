@@ -121,8 +121,8 @@ function ENT:Initialize()
 	--TODO: set enablecustom collisions or whatever it's called and then avoid anything that we share the same owner on
 	--mainly done because we want the jetpack to still have collisions on the player's back ( SOLID_BBOX ) but the player
 	--firing a crossbow bolt would just hit himself and detonate the jetpack ( hilarious but dumb )
-	--self:SetCustomCollisionCheck( true )
-	--hook.Add( "ShouldCollide" , self , self.HandleShouldCollide )
+	self:SetCustomCollisionCheck( true )
+	hook.Add( "ShouldCollide" , self , self.HandleShouldCollide )
 end
 
 function ENT:SetupDataTables()
@@ -370,7 +370,7 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		--apply random forces calculated with util.SharedRandom if we've goneapeshit
 		
 		if self:GetGoneApeshit() then
-			
+			--TODO: actually move the player in a corkscrew pattern? which direction should it do that on?
 			local apeshitvel = Vector( 0 , 0 , 0 )
 			apeshitvel:Add( ang:Forward() * util.SharedRandom( "ApeShitForward" , -self:GetJetpackSpeed() , -self:GetJetpackSpeed() )
 			apeshitvel:Add( ang:Right() * util.SharedRandom( "ApeShitRight" , -self:GetJetpackSpeed() , -self:GetJetpackSpeed() )
@@ -416,6 +416,14 @@ function ENT:PredictedFinishMove( owner , movedata )
 
 			self:SetRemoveGravity( false )
 		end
+		
+		--if we're going apeshit, check if we're actually impacting a wall, if we are then apply damage serverside
+		--and then apply viewpunch and a bounce off the surface
+		
+		if self:GetGoneApeshit() then
+		
+		end
+		
 	end
 end
 
@@ -819,5 +827,15 @@ function ENT:OnRemove()
 			self.JetpackParticleEmitter:Finish()
 			self.JetpackParticleEmitter = nil
 		end
+	end
+end
+
+function ENT:HandleShouldCollide( ent1 , ent2 )
+	if ent1 == self and ent2:GetOwner() == self:GetOwner() then
+		return false
+	end
+	
+	if ent2 == self and ent1:GetOwner() == self:GetOwner() then
+		return false
 	end
 end
