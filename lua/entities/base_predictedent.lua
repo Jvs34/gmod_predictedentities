@@ -4,8 +4,15 @@ ENT.Spawnable = false
 
 ENT.SlotName = "mypredictedent"	--change this to "predicted_<myentityname>", using the classname is also just fine
 ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, when true this removes physics and draws the entity on the player
-ENT.RenderGroup = RENDERGROUP_OPAQUE
 
+if SERVER then
+	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
+else
+	ENT.RenderGroup = RENDERGROUP_OPAQUE
+end
+
+--NOTE:	yes I'm using NWVars to network the entity on the player, I'm not happy to do that but soon garry's NWVars will
+--be replaced with Vinh's , which will be as reliable as normal dt vars ( except for the lack of prediction, that will come later )
 
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
@@ -18,6 +25,7 @@ ENT.AttachmentInfo = {
 
 --temporary system because willox is tired of the whole id offsets shenanigans, and so am I
 --should probably port this to the css weapon base as well
+--this is all going to change once vinh is done with prediction on his new NWVars system, until then, this'll stay here
 
 function ENT:DefineNWVar( dttype , dtname )
 	if not self.DefinedDTVars[dttype] then
@@ -29,7 +37,10 @@ function ENT:DefineNWVar( dttype , dtname )
 	local maxindex = self.DefinedDTVars[dttype].Max
 
 	for i = 0 , maxindex - 1 do
-		if not self.DefinedDTVars[dttype][i] then
+		
+		--we either didn't find anything in this slot or we found the requested one again
+		--in which case just override again?
+		if not self.DefinedDTVars[dttype][i] or self.DefinedDTVars[dttype][i] == dtname then
 			index = i
 			break
 		end
@@ -84,7 +95,7 @@ function ENT:Initialize()
 
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
-		self:SetUseType( SIMPLE_USE )
+		self:SetUseType( SIMPLE_USE ) --don't allow continuous use
 	else
 		hook.Add( "PostPlayerDraw" , self , self.DrawOnPlayer )
 	end
@@ -103,8 +114,6 @@ function ENT:Think()
 		
 		--we have to network this ourselves since it's based on the physics object ( which is mainly serverside )
 		--NOTE: this is not as expensive as it looks, it just checks for the FVPHYSICS_PLAYER_HELD flag on our physobj
-		--in fact, it could even be done manually, the only shitty thing is that we don't know who's carrying us without the use of hooks
-		--but we don't care
 		self:SetBeingHeld( self:IsPlayerHolding() )
 	else
 		--calling this in a non-predicted hook is perfectly fine, since we need the entity to enable prediction on its own
@@ -124,14 +133,7 @@ end
 
 if SERVER then
 	function ENT:Use( activator )
-		if IsValid( activator ) and activator:IsPlayer() then
-
-			if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self.SlotName ) ) then
-				return
-			end
-
-			self:Attach( activator )
-		end
+		self:Attach( activator )
 	end
 
 	function ENT:InitPhysics()
@@ -163,7 +165,7 @@ if SERVER then
 
 	end
 
-	function ENT:OnDrop( ply )
+	function ENT:OnDrop( ply , fromuser )
 
 	end
 
@@ -179,6 +181,16 @@ if SERVER then
 	end
 
 	function ENT:Attach( activator )
+	
+		if not IsValid( activator ) or not activator:IsPlayer() then
+			return
+		end
+		
+		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self.SlotName ) ) then
+			self:EmitSound( "HL2Player.UseDeny" )
+			return
+		end
+		
 		if self.AttachesToPlayer then
 			self:RemovePhysics()
 			self:SetParent( activator )
@@ -186,6 +198,14 @@ if SERVER then
 			self:SetTransmitWithParent( true )
 		end
 
+		if self.ShowPickupNotice then
+			self:EmitSound( "HL2Player.PickupWeapon" )
+			
+			net.Start( "predictedent_pickup" )
+				net.WriteString( self:GetClass() )
+			net.Send( activator )
+		end
+		
 		activator:SetNWEntity( self.SlotName , self )
 		self:SetControllingPlayer( activator )
 		self:OnAttach( self:GetControllingPlayer() )
@@ -205,7 +225,7 @@ if SERVER then
 		undo.Finish()
 	end
 
-	function ENT:Drop()
+	function ENT:Drop( forced )
 
 		if self.AttachesToPlayer then
 			self:SetParent( NULL )
@@ -214,7 +234,7 @@ if SERVER then
 			self:SetTransmitWithParent( false )
 		end
 
-		self:OnDrop( self:GetControllingPlayer() )
+		self:OnDrop( self:GetControllingPlayer() , forced )
 
 		if IsValid( self:GetControllingPlayer() ) then
 			--TODO: remove the undo block, is this even possible without hacking around?
@@ -328,7 +348,7 @@ function ENT:PredictedSetupMove( ply , mv , cmd )
 
 end
 
-function ENT:PredictedMove( ply , mv , cmd )
+function ENT:PredictedMove( ply , mv )
 
 end
 
@@ -336,8 +356,90 @@ function ENT:PredictedThink( ply , mv )
 
 end
 
-function ENT:PredictedFinishMove( ply , mv , cmd )
+function ENT:PredictedFinishMove( ply , mv )
 
+end
+
+
+--Allows for predicted movement simulation on non player entities, without disrupting the player movement itself
+--FinishMove should be the best place for this, since even in case of fuckups, the rest of the movement should be fine
+
+--[[
+	function ENT:PredictedFinishMove( ply , mv )
+		
+		local sv = self:BackupMoveData( mv )
+		
+		--set the data you want on the movedata, such as the entity origin, speed, angles and stuff
+		
+		--run the entity traces
+		
+		--set the final position of the entity here with the same way garry does ( setnetworkedposition or whatever )
+		
+		--restore the movedata on the player as if nothing happened
+		
+		self:RestoreMoveData( mv , sv )
+		
+	
+	end
+
+
+]]
+
+local movedatameta = FindMetaTable( "CMoveData" )
+
+local emptyvalues = {
+	[TYPE_VECTOR] = vector_origin,
+	[TYPE_ANGLE] = angle_zero,
+	[TYPE_NUMBER] = 0,
+}
+
+function ENT:BackupMoveData( mv )
+	
+	if not mv then
+		return
+	end
+	
+	local sv = {}
+	--save the movedata by name on the table, then go trough the metatable to get the setters and set values to empty ones
+	sv.Origin =	mv:GetOrigin()
+	sv.Velocity = mv:GetVelocity()
+	sv.Angles = mv:GetAngles()
+	sv.OldAngles = mv:GetOldAngles()
+	sv.AbsMoveAngles = mv:GetAbsMoveAngles()
+	sv.MoveAngles = mv:GetMoveAngles()
+	sv.MaxSpeed = mv:GetMaxSpeed()
+	sv.MaxClientSpeed = mv:GetMaxClientSpeed()
+	sv.Buttons = mv:GetButtons()
+	sv.OldButtons = mv:GetOldButtons()
+	sv.ImpulseCommand = mv:GetImpulseCommand()
+	sv.ForwardSpeed = mv:GetForwardSpeed()
+	sv.SideSpeed = mv:GetSideSpeed()
+	sv.UpSpeed = mv:GetUpSpeed()
+	sv.ConstraintRadius = mv:GetConstraintRadius()
+	
+	for i , v in pairs( sv ) do
+		local setter = movedatameta["Set"..i]
+		if setter then
+			setter( mv , emptyvalues[type( v )] * 1 )
+		end
+	end
+	
+	return sv
+end
+
+function ENT:RestoreMoveData( mv , sv )
+	--shouldn't be possible
+	if not mv or not sv then
+		return
+	end
+	
+	--restore the values from the table, prevents duplicated code by using the setters from the metatable directly
+	for i , v in pairs( sv ) do
+		local setter = movedatameta["Set"..i]
+		if setter then
+			setter( mv , v )
+		end
+	end
 end
 
 --attaches the entity to the player depending on the attachmentinfo table
@@ -388,7 +490,11 @@ function ENT:CalcAbsolutePosition( pos , ang )
 	end
 end
 
+--stuff that should be in an autorun file but that I can't be arsed to split up to
+
 if SERVER then
+	
+	util.AddNetworkString( "pe_pickup" )
 	
 	--can be either called manually or from the derma when the user uses the context menu
 	
@@ -414,5 +520,14 @@ if SERVER then
 		
 		slotent:Drop()
 		
+	end)
+else
+	
+	--tells the hud to show the player the entity pickup
+	language.Add( "invalid_entity" , "Invalid Entity" )
+	
+	net.Receive( "pe_pickup" , function( len )
+		local str = net.ReadString()
+		gamemode.Call( "HUDItemPickedUp" , str or "invalid_entity" )
 	end)
 end

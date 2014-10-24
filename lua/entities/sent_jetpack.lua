@@ -37,12 +37,15 @@ if CLIENT then
 	ENT.JetpackFireNone = Color( 255 , 255 , 255 , 0 )
 	ENT.JetpackFireRed = Color( 255 , 128 , 128 , 255 )
 	
+	language.Add( "sent_jetpack" , ENT.PrintName )
 else
 	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )
 	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , 0 )
 	
 	ENT.StandaloneAngular = vector_origin
 	ENT.StandaloneLinear = Vector( 0 , 0 , 0 )
+	
+	ENT.ShowPickupNotice = true
 end
 
 --use this to calculate the position on the parent because I can't be arsed to deal with source's parenting bullshit with local angles and position
@@ -114,6 +117,12 @@ function ENT:Initialize()
 		self:SetWingClosureEndTime( 0 )
 		self:SetNextParticle( 0 )
 	end
+	
+	--TODO: set enablecustom collisions or whatever it's called and then avoid anything that we share the same owner on
+	--mainly done because we want the jetpack to still have collisions on the player's back ( SOLID_BBOX ) but the player
+	--firing a crossbow bolt would just hit himself and detonate the jetpack ( hilarious but dumb )
+	--self:SetCustomCollisionCheck( true )
+	--hook.Add( "ShouldCollide" , self , self.HandleShouldCollide )
 end
 
 function ENT:SetupDataTables()
@@ -194,8 +203,12 @@ function ENT:HandleFuel( predicted )
 
 		if self:GetGoneApeshit() then
 			--drain twice as much fuel if we're going craaaazy
-			--no need to stop the recharge rate when we're not active, because then we're not crazy anymore
 			fuelrate = fuelrate * 2
+		end
+		
+		--don't drain any fuel when infinite fuel is on, but still allow recharge
+		if self:GetInfiniteFuel() then
+			fuelrate = 0
 		end
 	else
 		--can't recharge until our owner is on the ground!
@@ -206,7 +219,7 @@ function ENT:HandleFuel( predicted )
 			end
 		end
 	end
-
+	
 	self:SetFuel( math.Clamp( self:GetFuel() + fuelrate , 0 , self:GetMaxFuel() ) )
 
 	--we exhausted all of our fuel, chill out
@@ -411,18 +424,17 @@ end
 if SERVER then
 	
 	function ENT:OnTakeDamage( dmginfo )
-		
-		self:TakePhysicsDamage( dmginfo )
-		
-		--might happen if multiple jetpacks explode at the same time
-		
+		--does this not work when Detonate is called or what, :Remove is called before the blastdamage, but it still passes this?
 		if self:IsEFlagSet( EFL_KILLME ) then
 			return
 		end
 		
+		--we're already dead , might happen if multiple jetpacks explode at the same time
 		if self:Health() <= 0 then
 			return
 		end
+		
+		self:TakePhysicsDamage( dmginfo )
 		
 		local oldhealth = self:Health()
 		
@@ -439,7 +451,7 @@ if SERVER then
 		end
 		
 		--roll a random, if we're not being held by a player and the random succeeds, go apeshit
-		if dmginfo:GetDamage() > 1 and not self:GetGoneApeshit() then
+		if dmginfo:GetDamage() > 5 and not self:GetGoneApeshit() then
 			local rand = math.random( 1 , 10 )
 			if rand <= 2 then
 				self:SetGoneApeshit( true )
@@ -454,14 +466,13 @@ if SERVER then
 	end
 
 	function ENT:OnAttach( ply )
-		--self:SetGoneApeshit( false )	--someone might be able to catch us midflight!
 		self:SetActive( false )
 		self:SetNoDraw( true )
 		self:SetLagCompensated( false )
-		--self:SetSolid( SOLID_BBOX )
+		self:SetSolid( SOLID_BBOX )
 	end
 
-	function ENT:OnDrop( ply )
+	function ENT:OnDrop( ply , forced )
 		if IsValid( ply ) and not ply:Alive() then
 			--when the player dies while still using us, keep us active and let us fly with physics until
 			--our fuel runs out
@@ -488,7 +499,10 @@ if SERVER then
 	end
 	
 	function ENT:PhysicsSimulate( physobj , delta )
-		if self:GetActive() then
+		
+		--no point in applying forces and stuff if something is holding our physobj
+		
+		if self:GetActive() and not self:GetBeingHeld() then
 			
 			local force = self.StandaloneLinear
 			local angular = self.StandaloneAngular
@@ -514,6 +528,8 @@ if SERVER then
 		--taken straight from valve's code, it's needed since garry overwrote VPhysicsCollision, friction sound is still there though
 		--because he didn't override the VPhysicsFriction
 		if SERVER then
+			--only do this check serverside because if the gravity gun holds us, the clientside collisions still happen
+			--and play sounds on regardless of garry's override
 			if data.DeltaTime >= 0.05 and data.Speed >= 70 then
 				local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
 				if volume > 1 then
@@ -531,7 +547,7 @@ if SERVER then
 	end
 	
 	function ENT:CheckDetonate( data , physobj )
-		return self:GetActive() and data.Speed > 500 and not self:IsPlayerHolding()
+		return self:GetActive() and data.Speed > 500 and not self:GetBeingHeld()
 	end
 	
 	function ENT:Detonate()
@@ -561,7 +577,11 @@ else
 
 	function ENT:Draw( flags )
 		if self:CanDraw() then
+			
 			local pos , ang = self:GetCustomParentOrigin()
+			
+			--even though the calcabsoluteposition hook should already prevent this, it doesn't on other players
+			--might as well not give it the benefit of the doubt in the first place
 			if pos and ang then
 				self:SetPos( pos )
 				self:SetAngles( ang )
