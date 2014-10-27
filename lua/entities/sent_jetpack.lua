@@ -132,8 +132,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "FuelDrain" ) --how many seconds it's gonna take to drain all the fuel
 	self:DefineNWVar( "Float" , "FuelRecharge" ) --how many seconds it should take to fully recharge this
 	self:DefineNWVar( "Float" , "AirResistance" )
-	self:DefineNWVar( "Float" , "NextHoverSwitch" )
-	self:DefineNWVar( "Float" , "GoneApeshitTime" )
+	self:DefineNWVar( "Float" , "GoneApeshitTime" ) --only used if infinite fuel is on
 	
 	self:DefineNWVar( "Int" , "JetpackSpeed" )
 	self:DefineNWVar( "Int" , "JetpackStrafeSpeed" )
@@ -456,7 +455,6 @@ if SERVER then
 
 	function ENT:OnAttach( ply )
 		self:SetActive( false )
-		self:SetNoDraw( true )
 		self:SetLagCompensated( false )
 		self:SetSolid( SOLID_BBOX )
 	end
@@ -471,7 +469,7 @@ if SERVER then
 		else
 			self:SetActive( false )
 		end
-		self:SetNoDraw( false )
+		
 		self:SetLagCompensated( true )
 		
 	end

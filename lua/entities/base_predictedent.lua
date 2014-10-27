@@ -197,6 +197,7 @@ if SERVER then
 			self:SetParent( activator )
 			self:SetOwner( activator )
 			self:SetTransmitWithParent( true )
+			self:SetNoDraw( true )
 		end
 
 		if self.ShowPickupNotice then
@@ -210,7 +211,6 @@ if SERVER then
 		activator:SetNWEntity( self.SlotName , self )
 		self:SetControllingPlayer( activator )
 		self:OnAttach( self:GetControllingPlayer() )
-
 		--add a new undo history to the player that allows him to drop this entity
 
 		undo.Create( self:GetClass() )
@@ -233,10 +233,11 @@ if SERVER then
 			self:SetOwner( NULL )
 			self:InitPhysics()
 			self:SetTransmitWithParent( false )
+			self:SetNoDraw( false )
 		end
 
 		self:OnDrop( self:GetControllingPlayer() , forced )
-
+		
 		if IsValid( self:GetControllingPlayer() ) then
 			--TODO: remove the undo block, is this even possible without hacking around?
 			self:GetControllingPlayer():SetNWEntity( self.SlotName , NULL )
