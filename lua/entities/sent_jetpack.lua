@@ -114,6 +114,9 @@ function ENT:Initialize()
 		self:SetWingClosureEndTime( 0 )
 		self:SetNextParticle( 0 )
 	end
+	
+	self:SetCustomCollisionCheck( true )
+	hook.Add( "ShouldCollide" , self , self.HandleShouldCollide )
 end
 
 function ENT:SetupDataTables()
@@ -265,7 +268,7 @@ function ENT:CanFly( owner , mv )
 			return owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and self:HasFuel()
 		end
 		
-		return ( mv:KeyDown( IN_JUMP ) or mv:KeyPressed( IN_DUCK ) or self:GetHoverMode() ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:HasFuel()
+		return ( mv:KeyDown( IN_JUMP ) or mv:KeyPressed( IN_DUCK ) ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:HasFuel()
 	end
 
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
@@ -792,11 +795,24 @@ else
 
 end
 
+function ENT:HandleShouldCollide( ent1 , ent2 )
+	if ent1 ~= self then
+		return
+	end
+	
+	if IsValid( self:GetControllingPlayer() ) and ( ent2:GetOwner() == self:GetOwner() or self:GetOwner() == ent2 ) then
+		return false
+	end
+end
+
 function ENT:OnRemove()
+	
+	--[[
 	if self.JetpackSound then
 		self.JetpackSound:Stop()
 		self.JetpackSound = nil
 	end
+	]]
 	
 	--if stopping the soundpatch doesn't work, stop the sound manually
 	self:StopSound( "jetpack.thruster_loop" )

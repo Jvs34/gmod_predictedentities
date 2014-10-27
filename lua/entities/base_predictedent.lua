@@ -188,7 +188,7 @@ if SERVER then
 		end
 		
 		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self.SlotName ) ) then
-			self:EmitSound( "HL2Player.UseDeny" )
+			activator:EmitSound( "HL2Player.UseDeny" )
 			return
 		end
 		
