@@ -188,7 +188,7 @@ if SERVER then
 		end
 		
 		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self.SlotName ) ) then
-			activator:EmitSound( "HL2Player.UseDeny" )
+			self:EmitPESound( "HL2Player.UseDeny" , nil , nil , nil , nil , nil , true )
 			return
 		end
 		
@@ -201,7 +201,7 @@ if SERVER then
 		end
 
 		if self.ShowPickupNotice then
-			self:EmitSound( "HL2Player.PickupWeapon" )
+			self:EmitPESound( "HL2Player.PickupWeapon" )
 			
 			net.Start( "pe_pickup" )
 				net.WriteString( self:GetClass() )
@@ -492,11 +492,59 @@ function ENT:CalcAbsolutePosition( pos , ang )
 	end
 end
 
+function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted , onlytolocalplayer )
+	if not level then
+		level = 75
+	end
+	
+	if not pitch then
+		pitch = 100
+	end
+	
+	if not volume then
+		volume = 1
+	end
+	
+	if not chan then
+		chan = CHAN_AUTO
+	end
+	
+	if SERVER then
+		local plys = {}
+		if onlytolocalplayer then
+			plys = self:GetControllingPlayer()
+		else
+			for i , v in pairs( player.GetHumans() ) do
+				if ( predicted and v ~= self:GetControllingPlayer() ) or not predicted then
+					plys[#plys] = v
+				end
+			end
+		end
+		
+		if ( type( plys ) == "Player" and not IsValid( plys ) ) or #plys == 0 then
+			return
+		end
+		
+		net.Start( "pe_playsound" )
+			net.WriteEntity( self )
+			net.WriteString( soundname )
+			net.WriteFloat( level )
+			net.WriteFloat( pitch )
+			net.WriteFloat( volume )
+			net.WriteInt( chan , 8 )
+		net.Send( plys )
+			
+	else
+		self:EmitSound( soundname , level , pitch , volume , chan )
+	end
+end
+
 --stuff that should be in an autorun file but that I can't be arsed to split up to
 
 if SERVER then
 	
 	util.AddNetworkString( "pe_pickup" )
+	util.AddNetworkString( "pe_playsound" )
 	
 	--can be either called manually or from the derma when the user uses the context menu
 	
@@ -531,5 +579,21 @@ else
 	net.Receive( "pe_pickup" , function( len )
 		local str = net.ReadString()
 		gamemode.Call( "HUDItemPickedUp" , str or "invalid_entity" )
+	end)
+	
+	net.Receive( "pe_playsound" , function( len )
+		local ent = net.ReadEntity()
+		if not IsValid( ent ) then
+			return
+		end
+		
+		local soundname = net.ReadString() --yes I know that I can do util.addnetworkstring to
+		
+		local level = net.ReadFloat()
+		local pitch = net.ReadFloat()
+		local volume = net.ReadFloat()
+		local chan = net.ReadInt( 8 )
+		
+		ent:EmitPESound( soundname , level , pitch , volume , chan )
 	end)
 end
