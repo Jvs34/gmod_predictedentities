@@ -3,7 +3,6 @@ AddCSLuaFile()
 DEFINE_BASECLASS( "base_predictedent" )
 
 ENT.Spawnable = true
-ENT.SlotName = "jetpack"
 ENT.PrintName = "Jetpack"
 
 if CLIENT then
@@ -74,6 +73,7 @@ function ENT:SpawnFunction( ply, tr, ClassName )
 	local SpawnPos = tr.HitPos + tr.HitNormal * 36
 
 	local ent = ents.Create( ClassName )
+	ent:SetSlotName( ClassName )
 	ent:SetPos( SpawnPos )
 	ent:SetAngles( Angle( 0 , 0 , 180 ) )
 	ent:Spawn()
@@ -432,7 +432,7 @@ if SERVER then
 		if self:Health() <= 0 then
 			--maybe something is relaying damage to the jetpack instead, an explosion maybe?
 			if IsValid( self:GetControllingPlayer() ) then
-				self:Drop()
+				self:Drop( true )
 			end
 			self:Detonate()
 			return
@@ -449,14 +449,14 @@ if SERVER then
 	
 	function ENT:ControllingPlayerDeath( ply )
 		if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
-			self:Drop()
+			self:Drop( true )
 		end
 	end
 
 	function ENT:OnAttach( ply )
 		self:SetActive( false )
 		self:SetLagCompensated( false )
-		self:SetSolid( SOLID_BBOX )
+		self:SetSolid( SOLID_BBOX )	--we can still be hit when on the player's back
 	end
 
 	function ENT:OnDrop( ply , forced )

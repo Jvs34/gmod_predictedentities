@@ -1,8 +1,7 @@
 AddCSLuaFile()
 DEFINE_BASECLASS( "base_entity" )
 ENT.Spawnable = false
-
-ENT.SlotName = "mypredictedent"	--change this to "predicted_<myentityname>", using the classname is also just fine
+ENT.IsPredictedEnt = true
 ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, when true this removes physics and draws the entity on the player
 
 if SERVER then
@@ -57,7 +56,6 @@ function ENT:DefineNWVar( dttype , dtname )
 end
 
 function ENT:SetupDataTables()
-
 	self.DefinedDTVars = {
 		Entity = {
 			Max = GMOD_MAXDTVARS,
@@ -84,6 +82,7 @@ function ENT:SetupDataTables()
 
 	self:DefineNWVar( "Entity" , "ControllingPlayer" )
 	self:DefineNWVar( "Bool" , "BeingHeld" )
+	self:DefineNWVar( "String" , "SlotName" )
 end
 
 function ENT:Initialize()
@@ -108,7 +107,7 @@ function ENT:Think()
 		if self.AttachesToPlayer and IsValid( self:GetControllingPlayer() ) then
 			local ply = self:GetControllingPlayer()
 			if self:GetParent() ~= ply or self:GetOwner() ~= ply then
-				self:Drop()
+				self:Drop( true )
 			end
 		end
 		
@@ -132,6 +131,7 @@ function ENT:Think()
 end
 
 if SERVER then
+
 	function ENT:Use( activator )
 		self:Attach( activator )
 	end
@@ -187,7 +187,7 @@ if SERVER then
 			return
 		end
 		
-		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self.SlotName ) ) then
+		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
 			self:EmitPESound( "HL2Player.UseDeny" , nil , nil , nil , nil , nil , true )
 			return
 		end
@@ -208,17 +208,18 @@ if SERVER then
 			net.Send( activator )
 		end
 		
-		activator:SetNWEntity( self.SlotName , self )
+		activator:SetNWEntity( self:GetSlotName() , self )
 		self:SetControllingPlayer( activator )
 		self:OnAttach( self:GetControllingPlayer() )
 		--add a new undo history to the player that allows him to drop this entity
-
+		--TODO: completely scratch this bullshit when I implement hud elements ( that can also be clicked with the context menu )
+		
 		undo.Create( self:GetClass() )
 			undo.SetPlayer( activator )
 			undo.AddFunction( function( tab , ent )
 				if IsValid( ent ) then
 					if ent:GetControllingPlayer() == tab.Owner then
-						ent:Drop()
+						ent:Drop( false )
 					end
 				end
 			end, self )
@@ -240,7 +241,7 @@ if SERVER then
 		
 		if IsValid( self:GetControllingPlayer() ) then
 			--TODO: remove the undo block, is this even possible without hacking around?
-			self:GetControllingPlayer():SetNWEntity( self.SlotName , NULL )
+			self:GetControllingPlayer():SetNWEntity( self:GetSlotName() , NULL )
 		end
 
 		self:SetControllingPlayer( NULL )
@@ -248,7 +249,7 @@ if SERVER then
 
 	function ENT:OnControllerRemoved( ent )
 		if ent == self:GetControllingPlayer() then
-			self:Drop()
+			self:Drop( true )
 		end
 	end
 
@@ -295,11 +296,21 @@ else
 		end
 	end
 	
+	--NOTE: this should work in the case that we have multiple of the same entity but with different slots
+	
+	function ENT:RegisterHUDInternal( parentpanel )
+		--the parentpanel is a DVerticalLayout or whatever, depending on the user settings on where to show it
+		--so we just want to create a button with a custom image display, and we'll leave the rest to the child class
+		local mypanel = parentpanel:Add( "DPredictedEnt" )
+		mypanel:SetEntity( self )	--also allows the panel to autodelete itself when the entity is gone
+		mypanel:SetSlot( self:GetSlotName() )
+	end
+	
 end
 
 function ENT:HandlePredictedStartCommand( ply , cmd )
 	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self.SlotName )
+		local predictedent = ply:GetNWEntity( self:GetSlotName() )
 		if predictedent == self then
 			self:PredictedStartCommand( ply , cmd )
 		end
@@ -308,7 +319,7 @@ end
 
 function ENT:HandlePredictedSetupMove( ply , mv , cmd )
 	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self.SlotName )
+		local predictedent = ply:GetNWEntity( self:GetSlotName() )
 		if predictedent == self then
 			self:PredictedSetupMove( ply , mv , cmd )
 		end
@@ -317,7 +328,7 @@ end
 
 function ENT:HandlePredictedMove( ply , mv )
 	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self.SlotName )
+		local predictedent = ply:GetNWEntity( self:GetSlotName() )
 		if predictedent == self then
 			self:PredictedMove( ply , mv )
 		end
@@ -326,7 +337,7 @@ end
 
 function ENT:HandlePredictedThink( ply , mv )
 	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self.SlotName ) --or your prefered way to network it
+		local predictedent = ply:GetNWEntity( self:GetSlotName() )
 		if predictedent == self then
 			self:PredictedThink( ply , mv )
 		end
@@ -335,7 +346,7 @@ end
 
 function ENT:HandlePredictedFinishMove( ply , mv )
 	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self.SlotName )
+		local predictedent = ply:GetNWEntity( self:GetSlotName() )
 		if predictedent == self then
 			self:PredictedFinishMove( ply , mv )
 		end
@@ -548,7 +559,7 @@ if SERVER then
 	
 	--can be either called manually or from the derma when the user uses the context menu
 	
-	concommand.Add( "drop_pe" , function( ply , cmd , args , fullstr )
+	concommand.Add( "pe_drop" , function( ply , cmd , args , fullstr )
 		
 		if not IsValid( ply ) then
 			return
@@ -564,11 +575,11 @@ if SERVER then
 		
 		--user tried to drop an invalid or an entity which is not a predicted entity, or doesn't have a slot assigned
 		
-		if not IsValid( slotent ) or not slotent.SlotName then
+		if not IsValid( slotent ) or not slotent.IsPredictedEnt or slotent:GetSlotName() == "" then
 			return
 		end
 		
-		slotent:Drop()
+		slotent:Drop( false )
 		
 	end)
 else
@@ -578,12 +589,15 @@ else
 	
 	net.Receive( "pe_pickup" , function( len )
 		local str = net.ReadString()
-		gamemode.Call( "HUDItemPickedUp" , str or "invalid_entity" )
+		if str then
+			gamemode.Call( "HUDItemPickedUp" , str )
+		end
 	end)
 	
 	net.Receive( "pe_playsound" , function( len )
 		local ent = net.ReadEntity()
-		if not IsValid( ent ) then
+		
+		if not IsValid( ent ) or not ent.EmitPESound then
 			return
 		end
 		
@@ -596,4 +610,11 @@ else
 		
 		ent:EmitPESound( soundname , level , pitch , volume , chan )
 	end)
+	
+	
+	--register a panel of type DPredictedEnt , which will show a rounded button with stencils, that
+	--when pressed will execute drop_pe <slotname>
+	--the button will call a callback when it's drawn , which can be overridden by a child class to show variables
+	--such as fuel or whatever
+	
 end

@@ -3,7 +3,6 @@ AddCSLuaFile()
 DEFINE_BASECLASS( "base_predictedent" )
 
 ENT.Spawnable = true
-ENT.SlotName = "grapplehookbpack"
 ENT.PrintName = "Grappling hook Backpack"
 
 if CLIENT then
@@ -32,6 +31,7 @@ function ENT:SpawnFunction( ply, tr, ClassName )
 	local SpawnPos = tr.HitPos + tr.HitNormal * 36
 
 	local ent = ents.Create( ClassName )
+	ent:SetSlotName( ClassName )
 	ent:SetPos( SpawnPos )
 	ent:Spawn()
 	return ent
