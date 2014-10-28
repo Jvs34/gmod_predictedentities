@@ -188,7 +188,7 @@ if SERVER then
 		end
 		
 		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
-			self:EmitPESound( "HL2Player.UseDeny" , nil , nil , nil , nil , nil , true )
+			self:EmitPESound( "HL2Player.UseDeny" , nil , nil , nil , nil , nil , activator )
 			return
 		end
 		
@@ -201,7 +201,7 @@ if SERVER then
 		end
 
 		if self.ShowPickupNotice then
-			self:EmitPESound( "HL2Player.PickupWeapon" )
+			self:EmitSound( "HL2Player.PickupWeapon" )
 			
 			net.Start( "pe_pickup" )
 				net.WriteString( self:GetClass() )
@@ -503,7 +503,8 @@ function ENT:CalcAbsolutePosition( pos , ang )
 	end
 end
 
-function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted , onlytolocalplayer )
+function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted , activator )
+	
 	if not level then
 		level = 75
 	end
@@ -519,21 +520,23 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 	if not chan then
 		chan = CHAN_AUTO
 	end
-	
 	if SERVER then
 		local plys = {}
-		if onlytolocalplayer then
-			plys = self:GetControllingPlayer()
+		if IsValid( activator ) then
+			plys = activator
 		else
 			for i , v in pairs( player.GetHumans() ) do
-				if ( predicted and v ~= self:GetControllingPlayer() ) or not predicted then
+				if predicted and v ~= self:GetControllingPlayer() then
+					plys[#plys] = v
+				elseif not predicted then
 					plys[#plys] = v
 				end
+				
 			end
-		end
-		
-		if ( type( plys ) == "Player" and not IsValid( plys ) ) or #plys == 0 then
-			return
+			
+			if #plys == 0 then
+				return
+			end
 		end
 		
 		net.Start( "pe_playsound" )
@@ -544,7 +547,6 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 			net.WriteFloat( volume )
 			net.WriteInt( chan , 8 )
 		net.Send( plys )
-			
 	else
 		self:EmitSound( soundname , level , pitch , volume , chan )
 	end

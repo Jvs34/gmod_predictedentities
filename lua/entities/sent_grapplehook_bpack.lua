@@ -227,7 +227,7 @@ function ENT:DoHookTrace()
 end
 
 function ENT:ShouldStopPulling( mv )
-	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not mv:IsKeyDown( self.HookKey )
+	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not mv:KeyDown( self.HookKey )
 end
 
 function ENT:CanPull( mv )
