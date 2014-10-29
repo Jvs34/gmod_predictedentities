@@ -3,6 +3,7 @@ DEFINE_BASECLASS( "base_entity" )
 ENT.Spawnable = false
 ENT.IsPredictedEnt = true
 ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, when true this removes physics and draws the entity on the player
+ENT.DropOnDeath = true
 
 if SERVER then
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
@@ -127,6 +128,7 @@ function ENT:Initialize()
 
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
+		hook.Add( "PostPlayerDeath" , self , self.OnControllerDeath )
 		self:SetUseType( SIMPLE_USE ) --don't allow continuous use
 	else
 		hook.Add( "PostDrawViewModel" , self , self.DrawFirstPersonInternal )
@@ -284,6 +286,12 @@ if SERVER then
 
 	function ENT:OnControllerRemoved( ent )
 		if ent == self:GetControllingPlayer() then
+			self:Drop( true )
+		end
+	end
+	
+	function ENT:OnControllerDeath( ply )
+		if self.DropOnDeath and IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
 			self:Drop( true )
 		end
 	end

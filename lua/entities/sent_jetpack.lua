@@ -100,8 +100,6 @@ function ENT:Initialize()
 		self:SetGoneApeshit( math.random( 0 , 100 ) > 95 ) --little chance that on spawn we're gonna be crazy!
 		self:SetGoneApeshitTime( 0 )
 		
-		hook.Add( "PostPlayerDeath" , self , self.ControllingPlayerDeath )
-		
 		self:SetAirResistance( 2.5 )
 		self:SetRemoveGravity( false )
 		self:SetJetpackSpeed( 224 )
@@ -453,12 +451,6 @@ if SERVER then
 		end
 	end
 	
-	function ENT:ControllingPlayerDeath( ply )
-		if IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
-			self:Drop( true )
-		end
-	end
-
 	function ENT:OnAttach( ply )
 		self:SetActive( false )
 		self:SetLagCompensated( false )

@@ -271,12 +271,12 @@ if SERVER then
 	end
 	
 	function ENT:OnDrop( ply , forced )
-		self:ResetGrapple()
-		
 		if not ply:Alive() then
 			--TODO: like for the jetpack, we still let the entity function as usual when the user dies
+			return
 		end
 		
+		self:ResetGrapple()
 		self:Detach( not forced )
 	end
 	
@@ -292,9 +292,8 @@ if SERVER then
 		
 		if self:GetIsAttached() and not self:GetBeingHeld() and self:CanPull() then
 			
-			local force = self:GetDirection()
+			local force = self:GetDirection() * 100
 			local angular = vector_origin
-			
 			
 			return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
 		end
