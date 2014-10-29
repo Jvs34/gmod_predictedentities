@@ -38,7 +38,8 @@ if CLIENT then
 	
 	language.Add( "sent_jetpack" , ENT.PrintName )
 else
-	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )
+	
+	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )	--do a corkscrew
 	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , 0 )
 	
 	ENT.StandaloneAngular = vector_origin
@@ -123,7 +124,7 @@ function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
 
 	self:DefineNWVar( "Bool" , "Active" )
-	self:DefineNWVar( "Bool" , "GoneApeshit" )	--set when the player using us dies while we're active
+	self:DefineNWVar( "Bool" , "GoneApeshit" )	--set either when the owner dies with us active, or when we're being shot at
 	self:DefineNWVar( "Bool" , "RemoveGravity" )
 	self:DefineNWVar( "Bool" , "InfiniteFuel" , true , "Infinite Fuel" )
 	
@@ -350,18 +351,23 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 
 		end
 		
+		--TODO: goneapeshit stuff, do it before air resistance
+		
+		if self:GetGoneApeshit() then
+			--boost us in the direction the jetpack is facing in the world ( actual third person angles )
+			--ragdolling the user and attaching us to the ragdoll would be quite expensive and wouldn't be worth it
+			--as cool as that might look, that might also break stuff in other gamemodes
+			
+			local addvel = self:GetAngles():Up() * -1 * self:GetJetpackVelocity() * FrameTime()
+			vel:Add( addvel )
+		end
+		
 		--
 		-- Apply air resistance
 		--
 		vel.x = math.Approach( vel.x, 0, FrameTime() * self:GetAirResistance() * vel.x )
 		vel.y = math.Approach( vel.y, 0, FrameTime() * self:GetAirResistance() * vel.y )
-
-		--apply random forces calculated with util.SharedRandom if we've goneapeshit
-		
-		if self:GetGoneApeshit() then
-			--TODO:
-		end
-		
+	
 		--
 		-- Write our calculated velocity back to the CMoveData structure
 		--
