@@ -61,7 +61,7 @@ sound.Add( {
 	name = "jetpack.thruster_loop",
 	channel = CHAN_ITEM,
 	volume = 1.0,
-	level = 0.25,
+	level = 75,
 	sound = "^thrusters/jet02.wav"
 })
 
@@ -245,7 +245,7 @@ function ENT:HandleSounds( predicted )
 			pitch = 175
 		end
 		
-		self.JetpackSound:PlayEx( 0.25  , pitch )
+		self.JetpackSound:PlayEx( 0.5  , pitch )
 	else
 		self.JetpackSound:Stop()
 	end
@@ -490,7 +490,7 @@ if SERVER then
 		--no point in applying forces and stuff if something is holding our physobj
 		
 		if self:GetActive() and not self:GetBeingHeld() then
-			
+			physobj:Wake()
 			local force = self.StandaloneLinear
 			local angular = self.StandaloneAngular
 			

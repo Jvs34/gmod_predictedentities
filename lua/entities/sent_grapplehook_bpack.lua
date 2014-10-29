@@ -8,6 +8,8 @@ ENT.PrintName = "Grappling hook Backpack"
 if CLIENT then
 	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
 	ENT.KeyConvar = CreateConVar( "grapplehook_key" , "17", FCVAR_ARCHIVE + FCVAR_USERINFO , "The key code to trigger IN_GRENADE1 and use the grappling hook." )
+else
+	ENT.ShowPickupNotice = true
 end
 
 ENT.HookKey = IN_GRENADE1
@@ -25,16 +27,16 @@ sound.Add( {
 	name = "grapplehook.reelsound",
 	channel = CHAN_ITEM,
 	volume = 0.7,
-	level = 0.25,
-	sound = ")vehicles/digger_grinder_loop1.wav"
+	level = 75,
+	sound = "^vehicles/digger_grinder_loop1.wav"
 })
 
 sound.Add( {
 	name = "grapplehook.shootrope",
 	channel = CHAN_ITEM,
 	volume = 0.7,
-	level = 0.25,
-	sound = ")weapons/tripwire/ropeshoot.wav",
+	level = 75,
+	sound = "^weapons/tripwire/ropeshoot.wav",
 })
 
 function ENT:SpawnFunction( ply, tr, ClassName )
@@ -104,6 +106,7 @@ function ENT:Detach( forced )
 	self:SetAttachTime( CurTime() )
 	self:SetAttachStart( CurTime() )
 	self:SetNextFire( CurTime() + ( forced and 0.5 or 1 ) )
+	self:SetAttachSoundPlayed( false )
 end
 
 function ENT:HandleDetach( predicted , mv )
@@ -147,9 +150,12 @@ function ENT:HandleSounds( predicted )
 					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , nil , true , self:GetControllingPlayer() )
 				end
 				
+				--[[
 				if SERVER then
 					EmitSound( "NPC_CombineMine.CloseHooks" , self:GetAttachedTo() , 0 , CHAN_AUTO , 0.7 , 75 , SND_NOFLAGS , 100 )
 				end
+				]]
+				
 				self:SetAttachSoundPlayed( true )
 			end
 			
@@ -197,7 +203,7 @@ function ENT:PredictedMove( owner , mv )
 end
 
 function ENT:PredictedThink( owner , mv )
-	self:HandleDetach( true )
+	self:HandleDetach( true , mv )
 	self:HandleSounds( true )
 end
 
@@ -252,6 +258,7 @@ function ENT:DoHookTrace()
 end
 
 function ENT:ShouldStopPulling( mv )
+
 	if not IsValid( self:GetControllingPlayer() ) then
 		return ( self:NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45
 	end
@@ -311,8 +318,8 @@ if SERVER then
 	function ENT:PhysicsSimulate( physobj , delta )
 		
 		if self:GetIsAttached() and not self:GetBeingHeld() and self:CanPull() then
-			
-			local force = self:GetDirection() * 100
+			physobj:Wake()
+			local force = self:GetDirection() * 1000
 			local angular = vector_origin
 			
 			return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
