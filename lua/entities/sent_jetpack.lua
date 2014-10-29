@@ -122,11 +122,11 @@ function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
 
 	self:DefineNWVar( "Bool" , "Active" )
-	self:DefineNWVar( "Bool" , "GoneApeshit" )	--set either when the owner dies with us active, or when we're being shot at
+	self:DefineNWVar( "Bool" , "GoneApeshit" , true )	--set either when the owner dies with us active, or when we're being shot at
 	self:DefineNWVar( "Bool" , "RemoveGravity" )
 	self:DefineNWVar( "Bool" , "InfiniteFuel" , true , "Infinite Fuel" )
 	
-	self:DefineNWVar( "Float" , "Fuel" )
+	self:DefineNWVar( "Float" , "Fuel" , true )
 	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
 	self:DefineNWVar( "Float" , "FuelDrain" , true , "Seconds to drain fuel" , 1 , 60 ) --how many seconds it's gonna take to drain all the fuel
 	self:DefineNWVar( "Float" , "FuelRecharge" , true , "Seconds to recharge the fuel" , 1 , 60 ) --how many seconds it should take to fully recharge this

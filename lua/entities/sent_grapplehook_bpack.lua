@@ -54,7 +54,10 @@ end
 function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
+		
+		--TODO: change to a dummy model and set the collision bou
 		self:SetModel( "models/thrusters/jetpack.mdl" )
+		
 		self:InitPhysics()
 		
 		self:ResetGrapple()
@@ -239,7 +242,7 @@ function ENT:DoHookTrace()
 			self:GetControllingPlayer(),
 			self,
 		},
-		mask = MASK_SOLID_BRUSHONLY,
+		mask = MASK_SOLID_BRUSHONLY,	--TODO: use the player solid mask?
 		start = self:GetControllingPlayer():EyePos(),
 		endpos = self:GetControllingPlayer():EyePos() + self:GetControllingPlayer():GetAimVector() * self.HookMaxRange,
 		mins = self.HookHullMins,
@@ -284,6 +287,18 @@ if SERVER then
 		self:ResetGrapple()
 		self:Detach( not forced )
 	end
+	
+	--TODO: override the physics because we use a dummy model
+	
+	--[[
+		function ENT:InitPhysics()
+			--create a bbox for us and set our movetype and solid to VPHYSICS
+		end
+		
+		function ENT:RemovePhysics()
+			--destroy the physobj and set the solid to BBOX, so we can be shot at like the jetpack
+		end
+	]]
 	
 	function ENT:OnInitPhysics( physobj )
 		self:StartMotionController()
