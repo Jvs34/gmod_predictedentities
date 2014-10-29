@@ -10,6 +10,8 @@ else
 	ENT.RenderGroup = RENDERGROUP_OPAQUE
 end
 
+ENT.Editable = true
+
 --NOTE:	yes I'm using NWVars to network the entity on the player, I'm not happy to do that but soon garry's NWVars will
 --be replaced with Vinh's , which will be as reliable as normal dt vars ( except for the lack of prediction, that will come later )
 
@@ -26,7 +28,7 @@ ENT.AttachmentInfo = {
 --should probably port this to the css weapon base as well
 --this is all going to change once vinh is done with prediction on his new NWVars system, until then, this'll stay here
 
-function ENT:DefineNWVar( dttype , dtname )
+function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , maxval )
 	if not self.DefinedDTVars[dttype] then
 		Error( "Wrong NWVar type " .. ( dttype or "nil" ) )
 		return
@@ -51,32 +53,62 @@ function ENT:DefineNWVar( dttype , dtname )
 	end
 
 	self.DefinedDTVars[dttype][index] = dtname
-
-	self:NetworkVar( dttype , index , dtname )	--LAAAZY
+	
+	local edit = nil
+	
+	if editable and self.DefinedDTVars[dttype].EditableElement then
+		edit = {
+			KeyName = dtname:lower(),
+			Edit = {
+				title = beautifulname,
+				min = minval,
+				max = maxval,
+				type = self.DefinedDTVars[dttype].EditableElement,
+			}
+		}
+	end
+	
+	self:NetworkVar( dttype , index , dtname , edit )
 end
 
 function ENT:SetupDataTables()
+	
+	--eventually I'll create more editable elements based on garry's system
+	--also there's the problem that in some cases you might want the Vector to be editable with an actual world vector
+	--and in others as a direction
+	--and in some others as a color ( goddamn garry )
+	
 	self.DefinedDTVars = {
 		Entity = {
 			Max = GMOD_MAXDTVARS,
+		--	EditableElement = "PickEnt",	--TODO: an element that uses the worldpicker shit or the same the context menu uses
 		},
 		Float = {
 			Max = GMOD_MAXDTVARS,
+			EditableElement = "Float",
 		},
 		Int = {
 			Max = GMOD_MAXDTVARS,
+			EditableElement = "Int",
 		},
 		Bool = {
 			Max = GMOD_MAXDTVARS,
+			EditableElement = "Boolean",
 		},
 		Vector = {
 			Max = GMOD_MAXDTVARS,
+			--FUCK
+		--	EditableElement = "VectorNormal",	--TODO
+		--	EditableElement = "VectorOrigin",	--TODO
+		--	EditableElement = "VectorColor",
 		},
 		Angle = {
 			Max = GMOD_MAXDTVARS,
+		--	EditableElement = "VectorNormal", --I guess?
 		},
 		String = {
 			Max = 4, --as I said before, fuck strings
+			EditableElement = "Generic",
 		},
 	}
 
@@ -618,5 +650,4 @@ else
 	--when pressed will execute drop_pe <slotname>
 	--the button will call a callback when it's drawn , which can be overridden by a child class to show variables
 	--such as fuel or whatever
-	
 end

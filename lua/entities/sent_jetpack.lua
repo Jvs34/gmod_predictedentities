@@ -125,19 +125,19 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "Active" )
 	self:DefineNWVar( "Bool" , "GoneApeshit" )	--set when the player using us dies while we're active
 	self:DefineNWVar( "Bool" , "RemoveGravity" )
-	self:DefineNWVar( "Bool" , "InfiniteFuel" )
+	self:DefineNWVar( "Bool" , "InfiniteFuel" , true , "Infinite Fuel" )
 	
 	self:DefineNWVar( "Float" , "Fuel" )
 	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
-	self:DefineNWVar( "Float" , "FuelDrain" ) --how many seconds it's gonna take to drain all the fuel
-	self:DefineNWVar( "Float" , "FuelRecharge" ) --how many seconds it should take to fully recharge this
-	self:DefineNWVar( "Float" , "AirResistance" )
+	self:DefineNWVar( "Float" , "FuelDrain" , true , "Seconds to drain fuel" , 1 , 60 ) --how many seconds it's gonna take to drain all the fuel
+	self:DefineNWVar( "Float" , "FuelRecharge" , true , "Seconds to recharge the fuel" , 1 , 60 ) --how many seconds it should take to fully recharge this
+	self:DefineNWVar( "Float" , "AirResistance" , true , "Air Resistance" , 0 , 10 )
 	self:DefineNWVar( "Float" , "GoneApeshitTime" ) --only used if infinite fuel is on
 	
-	self:DefineNWVar( "Int" , "JetpackSpeed" )
-	self:DefineNWVar( "Int" , "JetpackStrafeSpeed" )
-	self:DefineNWVar( "Int" , "JetpackVelocity" )
-	self:DefineNWVar( "Int" , "JetpackStrafeVelocity" )
+	self:DefineNWVar( "Int" , "JetpackSpeed" , true , "Jetpack idle upward speed" , 1 , 1000 )
+	self:DefineNWVar( "Int" , "JetpackStrafeSpeed" , "Jetpack idle side speed" , true , 1 , 1000 )
+	self:DefineNWVar( "Int" , "JetpackVelocity" , true , "Jetpack active upward speed" , 1 , 3000 )
+	self:DefineNWVar( "Int" , "JetpackStrafeVelocity" , true , "Jetpack active side speed" , 1 , 3000 )
 	
 end
 
