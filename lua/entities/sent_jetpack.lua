@@ -135,7 +135,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "GoneApeshitTime" ) --only used if infinite fuel is on
 	
 	self:DefineNWVar( "Int" , "JetpackSpeed" , true , "Jetpack idle upward speed" , 1 , 1000 )
-	self:DefineNWVar( "Int" , "JetpackStrafeSpeed" , "Jetpack idle side speed" , true , 1 , 1000 )
+	self:DefineNWVar( "Int" , "JetpackStrafeSpeed" , true , "Jetpack idle side speed" , 1 , 1000 )
 	self:DefineNWVar( "Int" , "JetpackVelocity" , true , "Jetpack active upward speed" , 1 , 3000 )
 	self:DefineNWVar( "Int" , "JetpackStrafeVelocity" , true , "Jetpack active side speed" , 1 , 3000 )
 	
