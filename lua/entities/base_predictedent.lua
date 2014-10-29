@@ -14,9 +14,6 @@ end
 
 ENT.Editable = true
 
---NOTE:	yes I'm using NWVars to network the entity on the player, I'm not happy to do that but soon garry's NWVars will
---be replaced with Vinh's , which will be as reliable as normal dt vars ( except for the lack of prediction, that will come later )
-
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
 ENT.AttachmentInfo = {
@@ -29,6 +26,7 @@ ENT.AttachmentInfo = {
 --temporary system because willox is tired of the whole id offsets shenanigans, and so am I
 --should probably port this to the css weapon base as well
 --this is all going to change once vinh is done with prediction on his new NWVars system, until then, this'll stay here
+--actually, this'll stay here regardless, the editable thing garry added for the dt vars is quite neat
 
 function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , maxval )
 	if not self.DefinedDTVars[dttype] then
@@ -120,6 +118,7 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Initialize()
+
 	hook.Add( "StartCommand", self, self.HandlePredictedStartCommand )
 	hook.Add( "SetupMove", self, self.HandlePredictedSetupMove )
 	hook.Add( "Move", self, self.HandlePredictedMove )
@@ -128,7 +127,7 @@ function ENT:Initialize()
 
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
-		hook.Add( "PostPlayerDeath" , self , self.OnControllerDeath )
+		hook.Add( "PostPlayerDeath" , self , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, event :KillSilent()
 		self:SetUseType( SIMPLE_USE ) --don't allow continuous use
 	else
 		hook.Add( "PostDrawViewModel" , self , self.DrawFirstPersonInternal )
@@ -694,9 +693,15 @@ else
 		ent:EmitPESound( soundname , level , pitch , volume , chan )
 	end)
 	
+	--register a panel of type DPredictedEntManager , which will create a vertical or horizontal layout depending on cvars
+	--it will also position itself where the user wants it to with convars
+	
 	
 	--register a panel of type DPredictedEnt , which will show a rounded button with stencils, that
 	--when pressed will execute drop_pe <slotname>
 	--the button will call a callback when it's drawn , which can be overridden by a child class to show variables
 	--such as fuel or whatever
+	
+	
+	
 end

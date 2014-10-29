@@ -212,15 +212,15 @@ function ENT:FireHook()
 	self:GetControllingPlayer():LagCompensation( false )
 	
 	if not result.HitSky and result.Hit then
-		local timetoreach = Lerp( result.Fraction , 0 , 2.5 )
+		local timetoreach = Lerp( result.Fraction , 0 , 4 )
+		
 		self:SetAttachedTo( result.HitPos )
 		self:SetAttachTime( CurTime() + timetoreach )
 		self:SetAttachStart( CurTime() )
 		self:SetIsAttached( true )
+		self:SetGrappleNormal( self:GetDirection() )
 		
 		self:EmitPESound( "ambient/machines/catapult_throw.wav" , nil , nil , nil , nil , true )
-		
-		self:SetGrappleNormal( self:GetDirection() )
 	end
 
 end
@@ -234,7 +234,11 @@ end
 
 function ENT:DoHookTrace()
 	local tr = {
-		filter = self:GetControllingPlayer(),
+		--TODO: custom filter callback?
+		filter = {
+			self:GetControllingPlayer(),
+			self,
+		},
 		mask = MASK_SOLID_BRUSHONLY,
 		start = self:GetControllingPlayer():EyePos(),
 		endpos = self:GetControllingPlayer():EyePos() + self:GetControllingPlayer():GetAimVector() * self.HookMaxRange,
@@ -248,6 +252,7 @@ function ENT:ShouldStopPulling( mv )
 	if not IsValid( self:GetControllingPlayer() ) then
 		return ( self:NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45
 	end
+	
 	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not mv:KeyDown( self.HookKey )
 end
 
