@@ -7,13 +7,13 @@ ENT.PrintName = "Grappling hook Backpack"
 
 if CLIENT then
 	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
-	ENT.ConVar = CreateConVar( "grapplehook_key" , "17", FCVAR_ARCHIVE + FCVAR_USERINFO , "The key code to trigger IN_GRENADE1 and use the grappling hook." )
+	ENT.KeyConvar = CreateConVar( "grapplehook_key" , "17", FCVAR_ARCHIVE + FCVAR_USERINFO , "The key code to trigger IN_GRENADE1 and use the grappling hook." )
 end
 
 ENT.HookKey = IN_GRENADE1
 ENT.HookMaxRange = 10000
-ENT.HookHullMins = Vector( -4 , -4 , -4 )
-ENT.HookHullMaxs = Vector( 4 , 4 , 4 )
+ENT.HookHullMins = Vector( -2 , -2 , -2 )
+ENT.HookHullMaxs = Vector( 2 , 2 , 2 )
 
 ENT.AttachmentInfo = {
 	BoneName = "ValveBiped.Bip01_Spine2",
@@ -21,8 +21,21 @@ ENT.AttachmentInfo = {
 	OffsetAng = Angle( 180 , 90 , -90 ),
 }
 
---TODO: create an extra entity called sent_grapplehook_hook to handle the hook drawing along with the beam
---for now, the old behaviour of drawing it manually is fine
+sound.Add( {
+	name = "grapplehook.reelsound",
+	channel = CHAN_ITEM,
+	volume = 0.7,
+	level = 0.25,
+	sound = ")vehicles/digger_grinder_loop1.wav"
+})
+
+sound.Add( {
+	name = "grapplehook.shootrope",
+	channel = CHAN_ITEM,
+	volume = 0.7,
+	level = 0.25,
+	sound = ")weapons/tripwire/ropeshoot.wav",
+})
 
 function ENT:SpawnFunction( ply, tr, ClassName )
 
@@ -46,9 +59,8 @@ function ENT:Initialize()
 		
 		self:ResetGrapple()
 		self:Detach()
-		
 	else
-	
+		self:CreateModels()
 	end
 end
 
@@ -67,6 +79,7 @@ end
 
 function ENT:Think()
 	if not IsValid( self:GetControllingPlayer() ) then
+		self:HandleDetach( false )
 		self:HandleSounds( false )
 	end
 	
@@ -90,63 +103,83 @@ function ENT:Detach( forced )
 	self:SetNextFire( CurTime() + ( forced and 0.5 or 1 ) )
 end
 
-function ENT:HandleSounds( predicted )
-	--TODO: rewrite this
+function ENT:HandleDetach( predicted , mv )
 	
+	if CLIENT and not predicted then
+		return
+	end
+	
+	if self:GetIsAttached() then 
+		if self:GetAttachTime() < CurTime() then
+			if self:ShouldStopPulling( mv ) then
+				self:Detach( true )
+			end
+		end
+	end
+end
+
+function ENT:HandleSounds( predicted )
 	if CLIENT and not predicted then
 		self.LaunchSound = nil
 		self.ReelSound = nil
 		return
 	end
 	
-	
 	if not self.LaunchSound then
-		self.LaunchSound = CreateSound( self , "TripwireGrenade.ShootRope" )
+		self.LaunchSound = CreateSound( self , "grapplehook.shootrope" )
 	end
 	
 	if not self.ReelSound then
-		self.ReelSound = CreateSound( self , "vehicles/digger_grinder_loop1.wav" )
+		self.ReelSound = CreateSound( self , "grapplehook.reelsound" )
 	end
 	
-	--[[
-	self.LaunchSound = CreateSound( self , "TripwireGrenade.ShootRope" )
-	self.ReelSound = CreateSound( self , "vehicles/digger_grinder_loop1.wav" )
-	
-	if self:GetIsAttached() then 
-		if self:GetAttachTime()<=CurTime() then
+	if self:GetIsAttached() then
+		if self:GetAttachTime() < CurTime() then
+			
 			if not self:GetAttachSoundPlayed() then
-				self:EmitSound( "NPC_CombineMine.CloseHooks")
-				self:SetAttachSoundPlayed(true)
+				
+				--play the hit sound only the controlling player and one on the world position
+				
+				if IsValid( self:GetControllingPlayer() ) then
+					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , nil , true , self:GetControllingPlayer() )
+				end
+				
+				if SERVER then
+					EmitSound( "NPC_CombineMine.CloseHooks" , self:GetAttachedTo() , 0 , CHAN_AUTO , 0.7 , 75 , SND_NOFLAGS , 100 )
+				end
+				self:SetAttachSoundPlayed( true )
 			end
-			if self.ReelSound then
-				self.ReelSound:Play()
-				self.ReelSound:ChangePitch(200,0)
-				self.ReelSound:ChangeVolume(0.3,0)
-			end
-			if self.LaunchSound then
-				self.LaunchSound:Stop()
-			end
-		end
-
-	else
-		if self.LaunchSound then
+			
+			self.ReelSound:PlayEx( 0.3 , 200 )
 			self.LaunchSound:Stop()
+		else
+			self.LaunchSound:PlayEx( 1 , 100 )
 		end
-		if self.ReelSound then
-			self.ReelSound:Stop()
+	else
+		self.LaunchSound:Stop()
+		self.ReelSound:Stop()
+	end
+end
+
+
+--allows the user to have a keybind
+function ENT:PredictedStartCommand( owner , usercmd )
+	if CLIENT then
+		local mykey = self.KeyConvar:GetInt()
+		if mykey ~= BUTTON_CODE_NONE and mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
+			if input.IsButtonDown( mykey ) then
+				usercmd:SetButtons( bit.bor( usercmd:GetButtons() , self.HookKey ) )
+			end
 		end
 	end
-	]]
 end
 
 function ENT:PredictedSetupMove( owner , mv , usercmd )
-	
 	if mv:KeyPressed( self.HookKey ) then
 		if self:GetNextFire() <= CurTime() then
 			self:FireHook()
 		end
 	end
-	
 end
 
 function ENT:PredictedMove( owner , mv )
@@ -161,15 +194,8 @@ function ENT:PredictedMove( owner , mv )
 end
 
 function ENT:PredictedThink( owner , mv )
+	self:HandleDetach( true )
 	self:HandleSounds( true )
-	
-	if self:GetIsAttached() then 
-		if self:GetAttachTime() <= CurTime() then
-			if self:ShouldStopPulling( mv ) then
-				self:Detach( true )
-			end
-		end
-	end
 end
 
 function ENT:FireHook()
@@ -186,31 +212,23 @@ function ENT:FireHook()
 	self:GetControllingPlayer():LagCompensation( false )
 	
 	if not result.HitSky and result.Hit then
-		local len = ( self:GetControllingPlayer():EyePos():Distance( result.HitPos ) ) / self.HookMaxRange
 		local timetoreach = Lerp( result.Fraction , 0 , 2.5 )
-		
-		
 		self:SetAttachedTo( result.HitPos )
 		self:SetAttachTime( CurTime() + timetoreach )
 		self:SetAttachStart( CurTime() )
 		self:SetIsAttached( true )
 		
-		--TODO: rewrite this
+		self:EmitPESound( "ambient/machines/catapult_throw.wav" , nil , nil , nil , nil , true )
 		
-		--[[
-		if entity.LaunchSound then
-			entity.LaunchSound:Play()
-			entity.LaunchSound:ChangeVolume(4,0)
-		end
-		
-		entity:EmitSound("ambient/machines/catapult_throw.wav")
-		]]
 		self:SetGrappleNormal( self:GetDirection() )
 	end
 
 end
 
 function ENT:GetDirection()
+	if not IsValid( self:GetControllingPlayer() ) then
+		return ( self:GetAttachedTo() - self:GetPos() ):GetNormalized()
+	end
 	return ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):GetNormalized()
 end
 
@@ -227,6 +245,9 @@ function ENT:DoHookTrace()
 end
 
 function ENT:ShouldStopPulling( mv )
+	if not IsValid( self:GetControllingPlayer() ) then
+		return ( self:NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45
+	end
 	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not mv:KeyDown( self.HookKey )
 end
 
@@ -234,27 +255,65 @@ function ENT:CanPull( mv )
 	return self:GetIsAttached() and self:GetAttachTime() < CurTime() and not self:ShouldStopPulling( mv )
 end
 
+function ENT:OnRemove()
+	if CLIENT then
+		self:RemoveModels()
+		self:StopSound( "grapplehook.reelsound" )
+		self:StopSound( "grapplehook.shootrope" )
+	end
+	
+	BaseClass.OnRemove( self )
+end
+
 if SERVER then
 
 	function ENT:OnAttach( ply )
-	
 	end
 	
 	function ENT:OnDrop( ply , forced )
 		self:ResetGrapple()
+		
+		if not ply:Alive() then
+			--TODO: like for the jetpack, we still let the entity function as usual when the user dies
+		end
+		
 		self:Detach( not forced )
 	end
 	
 	function ENT:OnInitPhysics( physobj )
-
+		self:StartMotionController()
 	end
 
 	function ENT:OnRemovePhysics()
-
+		self:StopMotionController()
+	end
+	
+	function ENT:PhysicsSimulate( physobj , delta )
+		
+		if self:GetIsAttached() and not self:GetBeingHeld() and self:CanPull() then
+			
+			local force = self:GetDirection()
+			local angular = vector_origin
+			
+			
+			return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
+		end
 	end
 	
 else
-
+	
+	function ENT:CreateModels()
+		--create all the models, hook , our custom one 
+	end
+	
+	function ENT:RemoveModels()
+	
+	end
+	
+	function ENT:DrawHook( pos , ang )
+	
+	end
+	
 	function ENT:Draw( flags )
 		if self:CanDraw() then
 			self:DrawModel()

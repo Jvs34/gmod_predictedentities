@@ -781,7 +781,7 @@ else
 				particle:SetCollide( true )
 				particle:SetBounce( 0.25 )
 				particle:SetVelocity( normal * self:GetJetpackSpeed() )
-				particle:SetDieTime( 0.5 )
+				particle:SetDieTime( 0.1 )
 				particle:SetStartAlpha( 150 )
 				particle:SetEndAlpha( 0 )
 				particle:SetStartSize( 16 * scale )
@@ -810,14 +810,6 @@ function ENT:HandleShouldCollide( ent1 , ent2 )
 end
 
 function ENT:OnRemove()
-	
-	--[[
-	if self.JetpackSound then
-		self.JetpackSound:Stop()
-		self.JetpackSound = nil
-	end
-	]]
-	
 	--if stopping the soundpatch doesn't work, stop the sound manually
 	self:StopSound( "jetpack.thruster_loop" )
 
@@ -828,4 +820,6 @@ function ENT:OnRemove()
 			self.JetpackParticleEmitter = nil
 		end
 	end
+	
+	BaseClass.OnRemove( self )
 end

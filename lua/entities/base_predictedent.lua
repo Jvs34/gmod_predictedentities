@@ -8,6 +8,7 @@ if SERVER then
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
 else
 	ENT.RenderGroup = RENDERGROUP_OPAQUE
+	ENT.MainPanel = nil
 end
 
 ENT.Editable = true
@@ -128,6 +129,7 @@ function ENT:Initialize()
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
 		self:SetUseType( SIMPLE_USE ) --don't allow continuous use
 	else
+		hook.Add( "PostDrawViewModel" , self , self.DrawFirstPersonInternal )
 		hook.Add( "PostPlayerDraw" , self , self.DrawOnPlayer )
 	end
 end
@@ -152,6 +154,7 @@ function ENT:Think()
 
 		--Ideally this would be handled on the callback of SetControllingPlayer clientside, but we don't have that yet
 		self:HandlePrediction()
+		self:HandleDerma()
 	end
 	
 	--set our think rate to be in line with the server tickrate
@@ -267,7 +270,7 @@ if SERVER then
 			self:InitPhysics()
 			self:SetTransmitWithParent( false )
 			self:SetNoDraw( false )
-		end
+		endDrawFirstPerson
 
 		self:OnDrop( self:GetControllingPlayer() , forced )
 		
@@ -292,6 +295,7 @@ else
 	end
 	
 	--TODO: when the update gets pushed with the new behaviour, change this to self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
+	
 	function ENT:HandlePrediction()
 	
 		--either the gravity gun or some other stuff is carrying me, don't do anything on prediction
@@ -307,7 +311,19 @@ else
 			self.IsPredictable = bool
 		end
 	end
-
+	
+	--TODO: stop using the viewmodel draw hook and simply create a new 3d cam from renderscene
+	--viewmodels don't draw without an associated weapon ( this is due to garryness, they always do in source )
+	function ENT:DrawFirstPersonInternal( vm , ply , wpn )
+		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer() and self:GetControllingPlayer() == ply then
+			self:DrawFirstPerson( ply , vm )
+		end
+	end
+	
+	function ENT:DrawFirstPerson( ply , vm )
+		
+	end
+	
 	function ENT:DrawOnPlayer( ply )
 		if self.AttachesToPlayer and IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
 			self:DrawModel()
@@ -328,14 +344,31 @@ else
 		end
 	end
 	
-	--NOTE: this should work in the case that we have multiple of the same entity but with different slots
-	
+	function ENT:HandleDerma()
+		if IsValid( self.MainPanel ) then
+			
+			if self:IsCarriedByLocalPlayer() then
+			
+				if not self.MainPanel:HasSlot( self:GetSlotName() ) then
+					self:RegisterHUDInternal( self.MainPanel )
+				end
+			
+			else
+				
+				if self.MainPanel:HasSlot( self:GetSlotName() ) then
+					self.MainPanel:RemovePanelBySlot( self:GetSlotName() )
+				end
+			end
+		end
+	end
+
+	--NOTE: this works on a slot basis, not entity class, so it works 
 	function ENT:RegisterHUDInternal( parentpanel )
 		--the parentpanel is a DVerticalLayout or whatever, depending on the user settings on where to show it
 		--so we just want to create a button with a custom image display, and we'll leave the rest to the child class
 		local mypanel = parentpanel:Add( "DPredictedEnt" )
-		mypanel:SetEntity( self )	--also allows the panel to autodelete itself when the entity is gone
-		mypanel:SetSlot( self:GetSlotName() )
+		mypanel:SetSlot( self:GetSlotName() )	--automatically get the entity from the slot, if it's not valid then remove ourselves
+		return mypanel
 	end
 	
 end
@@ -418,7 +451,7 @@ end
 		
 		--run the entity traces
 		
-		--set the final position of the entity here with the same way garry does ( setnetworkedposition or whatever )
+		--set the final position of the entity here with the same way garry does ( see drive.End or whatever it's called )
 		
 		--restore the movedata on the player as if nothing happened
 		
@@ -554,7 +587,7 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 	end
 	if SERVER then
 		local plys = {}
-		if IsValid( activator ) then
+		if IsValid( activator ) and not predicted then
 			plys = activator
 		else
 			for i , v in pairs( player.GetHumans() ) do
@@ -563,7 +596,6 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 				elseif not predicted then
 					plys[#plys] = v
 				end
-				
 			end
 			
 			if #plys == 0 then
@@ -584,6 +616,15 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 	end
 end
 
+function ENT:OnRemove()
+	if CLIENT then
+		if IsValid( self.MainPanel ) then
+			if self.MainPanel:HasSlot( self:GetSlotName() ) then
+				self.MainPanel:RemovePanelBySlot( self:GetSlotName() )
+			end
+		end
+	end
+end
 --stuff that should be in an autorun file but that I can't be arsed to split up to
 
 if SERVER then
@@ -635,7 +676,7 @@ else
 			return
 		end
 		
-		local soundname = net.ReadString() --yes I know that I can do util.addnetworkstring to
+		local soundname = net.ReadString() --yes I know that I can do util.addnetworkstring to cache it but I cba
 		
 		local level = net.ReadFloat()
 		local pitch = net.ReadFloat()
