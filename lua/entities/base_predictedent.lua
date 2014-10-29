@@ -272,8 +272,8 @@ if SERVER then
 			self:InitPhysics()
 			self:SetTransmitWithParent( false )
 			self:SetNoDraw( false )
-		endDrawFirstPerson
-
+		end
+		
 		self:OnDrop( self:GetControllingPlayer() , forced )
 		
 		if IsValid( self:GetControllingPlayer() ) then
