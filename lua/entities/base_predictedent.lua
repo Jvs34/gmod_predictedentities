@@ -121,7 +121,7 @@ function ENT:SetupDataTables()
 	
 	--only allow the user to modify the button if the coder wants this entity to have an usable key
 	
-	if self.InButton > 0 then
+	if self.InButton == 0 then
 		self:DefineNWVar( "Int" , "Key" )
 	else
 		self:DefineNWVar( "Int" , "Key" , true , "Button" , BUTTON_CODE_NONE + 1 , BUTTON_CODE_LAST , "EditKey" )
@@ -414,9 +414,11 @@ function ENT:HandlePredictedStartCommand( ply , cmd )
 			--allows the user to have a keybind defined by a convar instead of having the player bind a button
 			if CLIENT and self.InButton > 0 then
 				local mykey = self:GetKey()
-				if mykey ~= BUTTON_CODE_NONE and mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
-					if input.IsButtonDown( mykey ) then
-						usercmd:SetButtons( bit.bor( usercmd:GetButtons() , self.InButton ) )
+				if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
+					if mykey ~= BUTTON_CODE_NONE and mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
+						if input.IsButtonDown( mykey ) then
+							cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
+						end
 					end
 				end
 			end
