@@ -169,7 +169,7 @@ function ENT:HandleSounds( predicted )
 end
 
 function ENT:PredictedSetupMove( owner , mv , usercmd )
-	if self:IsKeyDown() then
+	if self:IsKeyDown( mv ) then
 		if self:GetNextFire() <= CurTime() then
 			self:FireHook()
 		end
@@ -248,7 +248,7 @@ function ENT:ShouldStopPulling( mv )
 		return ( self:NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45
 	end
 	
-	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not self:IsKeyDown()
+	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not self:IsKeyDown( mv )
 end
 
 function ENT:CanPull( mv )
