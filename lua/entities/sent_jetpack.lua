@@ -303,11 +303,12 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 	
 	if self:GetActive() then
 		local vel = mv:GetVelocity()
-
+		
 
 		if mv:KeyDown( IN_JUMP ) and vel.z < self:GetJetpackSpeed() then
 
 			-- Apply constant jetpack_velocity
+			
 			vel.z = vel.z + self:GetJetpackVelocity() * FrameTime()
 		
 		elseif mv:KeyPressed( IN_DUCK ) and vel.z < 0 then
@@ -333,6 +334,7 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		--
 		-- Apply movement velocity
 		--
+		
 		local move_vel = Vector( 0, 0, 0 )
 
 		local ang = mv:GetMoveAngles();	ang.p = 0
@@ -386,6 +388,9 @@ function ENT:PredictedThink( owner , movedata )
 end
 
 function ENT:PredictedMove( owner , data )
+	if self:GetActive() and self:GetGoneApeshit() then
+		owner:SetGroundEntity( NULL )
+	end
 end
 
 function ENT:PredictedFinishMove( owner , movedata )
@@ -404,23 +409,12 @@ function ENT:PredictedFinishMove( owner , movedata )
 			self:SetRemoveGravity( false )
 		end
 		
-		--if we're going apeshit, check if we're actually impacting a wall, if we are then apply damage on the server
-		--then apply viewpunch and a bounce off the surface
-		
-		if self:GetGoneApeshit() then
-		
-		end
 	end
 end
 
 if SERVER then
 	
 	function ENT:OnTakeDamage( dmginfo )
-		--does this not work when Detonate is called or what, :Remove is called before the blastdamage, but it still passes this?
-		if self:IsEFlagSet( EFL_KILLME ) then
-			return
-		end
-		
 		--we're already dead , might happen if multiple jetpacks explode at the same time
 		if self:Health() <= 0 then
 			return

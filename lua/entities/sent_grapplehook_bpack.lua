@@ -7,12 +7,11 @@ ENT.PrintName = "Grappling hook Backpack"
 
 if CLIENT then
 	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
-	ENT.KeyConvar = CreateConVar( "grapplehook_key" , "17", FCVAR_ARCHIVE + FCVAR_USERINFO , "The key code to trigger IN_GRENADE1 and use the grappling hook." )
 else
 	ENT.ShowPickupNotice = true
 end
 
-ENT.HookKey = IN_GRENADE1
+ENT.InButton = IN_GRENADE1
 ENT.HookMaxRange = 10000
 ENT.HookHullMins = Vector( -2 , -2 , -2 )
 ENT.HookHullMaxs = Vector( 2 , 2 , 2 )
@@ -56,10 +55,10 @@ end
 function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
-		
-		--TODO: change to a dummy model and set the collision bou
+		--TODO: change to a dummy model and set the collision bounds and render bounds manually
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		
+		self:SetKey( 17 )
 		self:InitPhysics()
 		
 		self:ResetGrapple()
@@ -72,7 +71,6 @@ end
 function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
 	
-	self:DefineNWVar( "Float" , "NextFire" )
 	self:DefineNWVar( "Float" , "AttachTime" )
 	self:DefineNWVar( "Float" , "AttachStart" )
 	self:DefineNWVar( "Vector" , "AttachedTo" )
@@ -170,21 +168,8 @@ function ENT:HandleSounds( predicted )
 	end
 end
 
-
---allows the user to have a keybind
-function ENT:PredictedStartCommand( owner , usercmd )
-	if CLIENT then
-		local mykey = self.KeyConvar:GetInt()
-		if mykey ~= BUTTON_CODE_NONE and mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
-			if input.IsButtonDown( mykey ) then
-				usercmd:SetButtons( bit.bor( usercmd:GetButtons() , self.HookKey ) )
-			end
-		end
-	end
-end
-
 function ENT:PredictedSetupMove( owner , mv , usercmd )
-	if mv:KeyPressed( self.HookKey ) then
+	if self:IsKeyDown() then
 		if self:GetNextFire() <= CurTime() then
 			self:FireHook()
 		end
@@ -263,7 +248,7 @@ function ENT:ShouldStopPulling( mv )
 		return ( self:NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45
 	end
 	
-	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not mv:KeyDown( self.HookKey )
+	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not self:IsKeyDown()
 end
 
 function ENT:CanPull( mv )

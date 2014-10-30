@@ -13,6 +13,7 @@ else
 end
 
 ENT.Editable = true
+ENT.InButton = 0 --set this to an unused IN_ enum and make sure it's not used by other predicted entities
 
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
@@ -28,7 +29,7 @@ ENT.AttachmentInfo = {
 --this is all going to change once vinh is done with prediction on his new NWVars system, until then, this'll stay here
 --actually, this'll stay here regardless, the editable thing garry added for the dt vars is quite neat
 
-function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , maxval )
+function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , maxval , customelement )
 	if not self.DefinedDTVars[dttype] then
 		Error( "Wrong NWVar type " .. ( dttype or "nil" ) )
 		return
@@ -63,7 +64,7 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 				title = beautifulname,
 				min = minval,
 				max = maxval,
-				type = self.DefinedDTVars[dttype].EditableElement,
+				type = customelement or self.DefinedDTVars[dttype].EditableElement,
 			}
 		}
 	end
@@ -90,6 +91,7 @@ function ENT:SetupDataTables()
 		Int = {
 			Max = GMOD_MAXDTVARS,
 			EditableElement = "Int",
+		--	EditableElement = "EditKey", --TODO: a copypaste of the one used by garry for the tools
 		},
 		Bool = {
 			Max = GMOD_MAXDTVARS,
@@ -115,6 +117,15 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Entity" , "ControllingPlayer" )
 	self:DefineNWVar( "Bool" , "BeingHeld" )
 	self:DefineNWVar( "String" , "SlotName" )
+	self:DefineNWVar( "Float" , "NextFire" )
+	
+	--only allow the user to modify the button if the coder wants this entity to have an usable key
+	
+	if self.InButton > 0 then
+		self:DefineNWVar( "Int" , "Key" )
+	else
+		self:DefineNWVar( "Int" , "Key" , true , "Key" , BUTTON_CODE_NONE + 1 , BUTTON_CODE_LAST , "EditKey" )
+	end
 end
 
 function ENT:Initialize()
@@ -380,10 +391,36 @@ else
 	
 end
 
+function ENT:IsKeyDown( mv )
+	if self.InButton == 0 then
+		return false
+	end
+	
+	if IsValid( self:GetControllingPlayer() ) then
+		if mv then
+			return mv:KeyDown( self.InButton )
+		end
+		return self:GetControllingPlayer():KeyDown( self.InButton )
+	end
+	
+	return false
+end
+
 function ENT:HandlePredictedStartCommand( ply , cmd )
 	if ply == self:GetControllingPlayer() then
 		local predictedent = ply:GetNWEntity( self:GetSlotName() )
 		if predictedent == self then
+		
+			--allows the user to have a keybind defined by a convar instead of having the player bind a button
+			if CLIENT and self.InButton > 0 then
+				local mykey = self:GetKey()
+				if mykey ~= BUTTON_CODE_NONE and mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
+					if input.IsButtonDown( mykey ) then
+						usercmd:SetButtons( bit.bor( usercmd:GetButtons() , self.InButton ) )
+					end
+				end
+			end
+			
 			self:PredictedStartCommand( ply , cmd )
 		end
 	end
