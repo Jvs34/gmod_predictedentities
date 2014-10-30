@@ -58,7 +58,7 @@ function ENT:Initialize()
 		--TODO: change to a dummy model and set the collision bounds and render bounds manually
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		
-		self:SetKey( 17 )
+		self:SetKey( 17 )	--the G key on my keyboard
 		self:InitPhysics()
 		
 		self:ResetGrapple()
@@ -149,6 +149,7 @@ function ENT:HandleSounds( predicted )
 				end
 				
 				--[[
+				--precache sound doesn't add the sound to the sound precache list, and thus EmitSound whines 
 				if SERVER then
 					EmitSound( "NPC_CombineMine.CloseHooks" , self:GetAttachedTo() , 0 , CHAN_AUTO , 0.7 , 75 , SND_NOFLAGS , 100 )
 				end
@@ -258,9 +259,10 @@ end
 function ENT:OnRemove()
 	if CLIENT then
 		self:RemoveModels()
-		self:StopSound( "grapplehook.reelsound" )
-		self:StopSound( "grapplehook.shootrope" )
 	end
+	
+	self:StopSound( "grapplehook.reelsound" )
+	self:StopSound( "grapplehook.shootrope" )
 	
 	BaseClass.OnRemove( self )
 end
@@ -271,8 +273,8 @@ if SERVER then
 	end
 	
 	function ENT:OnDrop( ply , forced )
+		--like for the jetpack, we still let the entity function as usual when the user dies
 		if not ply:Alive() then
-			--TODO: like for the jetpack, we still let the entity function as usual when the user dies
 			return
 		end
 		
@@ -314,11 +316,17 @@ if SERVER then
 else
 	
 	function ENT:CreateModels()
-		--create all the models, hook , our custom one 
+		--create all the models, hook , our custom one, the pulley etc
+		self.CSModels = {}
+		
 	end
 	
 	function ENT:RemoveModels()
-	
+		for i , v in pairs( self.CSModels ) do
+			if IsValid( v ) then
+				v:Remove()
+			end
+		end
 	end
 	
 	function ENT:DrawHook( pos , ang )

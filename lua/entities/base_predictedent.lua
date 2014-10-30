@@ -1,4 +1,12 @@
 AddCSLuaFile()
+
+
+--[[
+	This entity base is pretty much a streamlined version of my special action system ( that you might see used in scrapmatch )
+	The advantages over that system is that these entities can be treated as normal entities when not equipped by a player, and as such, should
+	allow for more freedom , such as being bundled in addons, editing some variables
+]]
+
 DEFINE_BASECLASS( "base_entity" )
 ENT.Spawnable = false
 ENT.IsPredictedEnt = true
@@ -193,7 +201,7 @@ if SERVER then
 		self:SetMoveType( MOVETYPE_VPHYSICS )
 		self:SetSolid( SOLID_VPHYSICS )
 		self:PhysWake()
-
+		self:SetLagCompensated( true )
 		self:OnInitPhysics( self:GetPhysicsObject() )
 	end
 
@@ -205,7 +213,7 @@ if SERVER then
 		self:PhysicsDestroy()
 		self:SetMoveType( MOVETYPE_NONE )
 		self:SetSolid( SOLID_NONE )
-
+		self:SetLagCompensated( false )
 		self:OnRemovePhysics()
 	end
 
@@ -257,6 +265,7 @@ if SERVER then
 		
 		activator:SetNWEntity( self:GetSlotName() , self )
 		self:SetControllingPlayer( activator )
+		
 		self:OnAttach( self:GetControllingPlayer() )
 		--add a new undo history to the player that allows him to drop this entity
 		--TODO: completely scratch this bullshit when I implement hud elements ( that can also be clicked with the context menu )
@@ -386,7 +395,14 @@ else
 		--so we just want to create a button with a custom image display, and we'll leave the rest to the child class
 		local mypanel = parentpanel:Add( "DPredictedEnt" )
 		mypanel:SetSlot( self:GetSlotName() )	--automatically get the entity from the slot, if it's not valid then remove ourselves
+		self:SetupCustomHUDElements( mypanel )
 		return mypanel
+	end
+	
+	--use this to add custom elements to the entity button in the HUD
+	
+	function ENT:SetupCustomHUDElements( panel )
+		
 	end
 	
 end
@@ -411,7 +427,9 @@ function ENT:HandlePredictedStartCommand( ply , cmd )
 		local predictedent = ply:GetNWEntity( self:GetSlotName() )
 		if predictedent == self then
 		
-			--allows the user to have a keybind defined by a convar instead of having the player bind a button
+			--allows the user to have a fake keybind by manually checking his buttons instead of having the player bind a button to a command ( which most users don't even know anything about ).
+			--he can configure this key at anytime by editing the entity ( if it allows it in the first place )
+			
 			if CLIENT and self.InButton > 0 then
 				local mykey = self:GetKey()
 				if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
@@ -424,6 +442,7 @@ function ENT:HandlePredictedStartCommand( ply , cmd )
 			end
 			
 			self:PredictedStartCommand( ply , cmd )
+			
 		end
 	end
 end

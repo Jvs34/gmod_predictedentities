@@ -447,7 +447,6 @@ if SERVER then
 	
 	function ENT:OnAttach( ply )
 		self:SetActive( false )
-		self:SetLagCompensated( false )
 		self:SetSolid( SOLID_BBOX )	--we can still be hit when on the player's back
 	end
 
@@ -461,8 +460,6 @@ if SERVER then
 		else
 			self:SetActive( false )
 		end
-		
-		self:SetLagCompensated( true )
 		
 	end
 
@@ -781,6 +778,12 @@ else
 		if particlenodraw then
 			self.JetpackParticleEmitter:Draw()
 		end
+	end
+	
+	
+	--TODO: add a fuel gauge or simply a blue rectangle for now
+	function ENT:SetupCustomHUDElements( panel )
+		
 	end
 
 end
