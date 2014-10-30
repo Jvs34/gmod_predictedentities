@@ -61,7 +61,7 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 		edit = {
 			KeyName = dtname:lower(),
 			Edit = {
-				title = beautifulname,
+				title = beautifulname or dtname,
 				min = minval,
 				max = maxval,
 				type = customelement or self.DefinedDTVars[dttype].EditableElement,
@@ -124,7 +124,7 @@ function ENT:SetupDataTables()
 	if self.InButton > 0 then
 		self:DefineNWVar( "Int" , "Key" )
 	else
-		self:DefineNWVar( "Int" , "Key" , true , "Key" , BUTTON_CODE_NONE + 1 , BUTTON_CODE_LAST , "EditKey" )
+		self:DefineNWVar( "Int" , "Key" , true , "Button" , BUTTON_CODE_NONE + 1 , BUTTON_CODE_LAST , "EditKey" )
 	end
 end
 
