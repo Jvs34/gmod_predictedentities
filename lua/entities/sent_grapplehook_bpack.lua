@@ -7,6 +7,7 @@ ENT.PrintName = "Grappling hook Backpack"
 
 if CLIENT then
 	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
+	ENT.CableMaterial = Material( "cable/cable2" )
 else
 	ENT.ShowPickupNotice = true
 end
@@ -370,7 +371,7 @@ else
 	end
 	
 	--draws the rope and grapple
-	ENT.CableMaterial = Material( "cable/cable2" )
+	
 	function ENT:DrawGrapple()
 		
 		local startgrapplepos , startgrappleang = self:GetHookAttachment()
