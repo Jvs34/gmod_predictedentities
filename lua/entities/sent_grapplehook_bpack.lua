@@ -9,7 +9,6 @@ if CLIENT then
 	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
 else
 	ENT.ShowPickupNotice = true
-	ENT.CableMaterial = Material( "cable/cable2" )
 end
 
 ENT.InButton = IN_GRENADE1
@@ -124,7 +123,7 @@ function ENT:HandleHookHelper( predicted )
 		return
 	end
 	
-	if IsValid( hh ) then
+	if IsValid( self:GetHookHelper() ) then
 		return
 	end
 	
@@ -371,6 +370,7 @@ else
 	end
 	
 	--draws the rope and grapple
+	ENT.CableMaterial = Material( "cable/cable2" )
 	function ENT:DrawGrapple()
 		
 		local startgrapplepos , startgrappleang = self:GetHookAttachment()

@@ -6,6 +6,7 @@ function ENT:Initialize()
 	if SERVER then
 		self:SetSolid( SOLID_NONE )
 		self:SetMoveType( MOVETYPE_NONE )
+		self:DrawShadow( false )
 	end
 end
 
@@ -17,7 +18,11 @@ function ENT:Think()
 				self:Remove()
 			end
 		else
-			self:SetRenderBoundsWS( self:GetPos() , self:GetParent():GetAttachedTo() )
+			if self:GetParent():GetIsAttached() then
+				self:SetRenderBoundsWS( self:GetPos() , self:GetParent():GetAttachedTo() )
+			else
+				self:SetRenderBounds( self:GetParent():GetRenderBounds() )
+			end
 		end
 	end
 end
