@@ -175,7 +175,6 @@ function ENT:HandleFuel( predicted )
 	end
 
 	--we set the think rate on the entity to the tickrate on the server, we could've done NextThink() - CurTime(), but it's only a setter, not a getter
-
 	local ft = engine.TickInterval()
 
 	--screw that, during prediction we need to recharge with FrameTime()
@@ -226,9 +225,7 @@ end
 
 function ENT:HandleSounds( predicted )
 	if not predicted and CLIENT then
-		if self.JetpackSound then
-			self.JetpackSound = nil
-		end
+		self.JetpackSound = nil
 		return
 	end
 

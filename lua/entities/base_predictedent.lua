@@ -343,12 +343,17 @@ else
 	--viewmodels don't draw without an associated weapon ( this is due to garryness, they always do in source )
 	function ENT:DrawFirstPersonInternal( vm , ply , wpn )
 		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer() and self:GetControllingPlayer() == ply then
-			self:DrawFirstPerson( ply , vm )
+			self:DrawFirstPerson( ply , vm ) --this will be moved to the renderscene hook
+			self:DrawOnViewModel( ply , vm ) -- this will stay here
 		end
 	end
 	
 	function ENT:DrawFirstPerson( ply , vm )
 		
+	end
+	
+	function ENT:DrawOnViewModel( ply , vm )
+	
 	end
 	
 	function ENT:DrawOnPlayer( ply )

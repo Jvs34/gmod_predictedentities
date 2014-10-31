@@ -9,6 +9,7 @@ if CLIENT then
 	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
 else
 	ENT.ShowPickupNotice = true
+	ENT.CableMaterial = Material( "cable/cable2" )
 end
 
 ENT.InButton = IN_GRENADE1
@@ -21,6 +22,13 @@ ENT.AttachmentInfo = {
 	OffsetVec = Vector( 3 , -5.6 , 0 ),
 	OffsetAng = Angle( 180 , 90 , -90 ),
 }
+
+ENT.HookAttachmentInfo = {
+	OffsetVec = vector_origin,
+	OffsetAng = angle_zero,
+}
+
+
 
 sound.Add( {
 	name = "grapplehook.reelsound",
@@ -77,10 +85,14 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
+	self:DefineNWVar( "Entity" , "HookHelper" )
 end
 
 
 function ENT:Think()
+	
+	self:HandleHookHelper( false )
+	
 	if not IsValid( self:GetControllingPlayer() ) then
 		self:HandleDetach( false )
 		self:HandleSounds( false )
@@ -105,6 +117,27 @@ function ENT:Detach( forced )
 	self:SetAttachStart( CurTime() )
 	self:SetNextFire( CurTime() + ( forced and 0.5 or 1 ) )
 	self:SetAttachSoundPlayed( false )
+end
+
+function ENT:HandleHookHelper( predicted )
+	if CLIENT then
+		return
+	end
+	
+	if IsValid( hh ) then
+		return
+	end
+	
+	local hh = ents.Create( "sent_grapplehook_hookhelper" )
+	
+	if not IsValid( hh ) then
+		return
+	end
+	
+	hh:SetParent( self )
+	hh:Spawn()
+	
+	self:SetHookHelper( hh )
 end
 
 function ENT:HandleDetach( predicted , mv )
@@ -259,12 +292,20 @@ end
 function ENT:OnRemove()
 	if CLIENT then
 		self:RemoveModels()
+	else
+		if IsValid( self:GetHookHelper() ) then
+			self:GetHookHelper():Remove()
+		end
 	end
 	
 	self:StopSound( "grapplehook.reelsound" )
 	self:StopSound( "grapplehook.shootrope" )
 	
 	BaseClass.OnRemove( self )
+end
+
+function ENT:GetHookAttachment()
+	return LocalToWorld( self.HookAttachmentInfo.OffsetVec , self.HookAttachmentInfo.OffsetAng , self:GetPos() , self:GetAngles() )
 end
 
 if SERVER then
@@ -329,6 +370,39 @@ else
 		end
 	end
 	
+	--draws the rope and grapple
+	function ENT:DrawGrapple()
+		
+		local startgrapplepos , startgrappleang = self:GetHookAttachment()
+		
+		local endgrapplepos = vector_origin
+		local endgrappleang = angle_zero
+		
+		if self:GetIsAttached() then
+			endgrappleang = self:GetGrappleNormal():Angle()
+			
+			if self:GetAttachTime() >= CurTime() then
+				local travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
+				endgrapplepos = LerpVector( travelfraction , startgrapplepos , self:GetAttachedTo() )
+			else
+				endgrapplepos = self:GetAttachedTo()
+			end
+			
+			render.SetMaterial( self.CableMaterial )
+			
+			--TODO: if we haven't reached the hitpos yet then sway the rope with a sine wave
+			
+			render.StartBeam( 2 )
+				render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
+				render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
+			render.EndBeam()
+			
+			self:DrawHook( endgrapplepos , endgrappleang )
+			
+		end
+	end
+	
+	--draws the hook at the given position
 	function ENT:DrawHook( pos , ang )
 	
 	end
@@ -336,7 +410,16 @@ else
 	function ENT:Draw( flags )
 		if self:CanDraw() then
 			self:DrawModel()
+			
+			if not self:GetIsAttached() then
+				local pos , ang = self:GetHookAttachment()
+				self:DrawHook( pos , ang )
+			end
 		end
+	end
+	
+	function ENT:DrawFirstPerson( ply , vm )
+	
 	end
 
 end
