@@ -21,7 +21,7 @@ function PANEL:Think()
 		return
 	end
 	
-	if not IsValid( LocalPlayer():GetNWEntity( self:GetSlot() ) then
+	if not IsValid( LocalPlayer():GetNWEntity( self:GetSlot() ) ) then
 		--only delete when the entity actually gets deleted, because the user could just be lagging at the moment
 		return
 	end

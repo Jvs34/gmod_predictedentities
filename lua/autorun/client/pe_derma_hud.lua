@@ -11,7 +11,7 @@
 
 local PANEL = {}
 
-PANEL.HUDSide = --goes from 0 to 3 --CreateConVar
+PANEL.HUDSide = 0 --goes from 0 to 3 --CreateConVar
 
 function PANEL:Init()
 
