@@ -41,4 +41,4 @@ function PANEL:Setup( vars )
 	]]
 end
 
-derma.DefineControl( "DProperty_EditKey", "", PANEL, "DProperty_PickEnt" )
+derma.DefineControl( "DProperty_PickEnt", "", PANEL, "DProperty_Generic" )

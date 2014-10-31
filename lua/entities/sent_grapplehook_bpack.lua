@@ -230,7 +230,7 @@ function ENT:FireHook()
 		return
 	end
 	
-	self:SetNextFire( CurTime() + 3 )
+	self:SetNextFire( CurTime() + 0.5 )
 	
 	self:GetControllingPlayer():LagCompensation( true )
 	
