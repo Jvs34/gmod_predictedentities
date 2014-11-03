@@ -14,7 +14,7 @@ function PANEL:Setup( vars )
 	self:Clear()
 	
 	local ctrl = self:Add( "DBinder" )
-	ctrl:Dock( FILL )	--this'll look a bit ugly
+	ctrl:Dock( FILL )
 	
 	self.IsEditing = function( self )
 		return ctrl.Trapping
@@ -33,8 +33,6 @@ function PANEL:Setup( vars )
 	ctrl.OnChange = function( ctrl , newval )
 		self:ValueChanged( newval )
 	end
-	
-	--TODO: override the paint of the internal DBinder button?
 
 end
 

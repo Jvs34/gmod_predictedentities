@@ -9,12 +9,21 @@ function PANEL:Init()
 
 end
 
+function PANEL:GetEntity()
+	local entindex = tonumber( self:GetValue() )
+	if entindex then
+		return Entity( entindex )
+	end
+end
 
 function PANEL:Setup( vars )
 
 	self:Clear()
 	
 	--create a text entry, when the user clicks on it, start a world picker
+	
+	local ctrl = self:Add( "DButton" )
+	ctrl:SetText( "Choose Entity" )
 	
 	
 	--[[
