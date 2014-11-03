@@ -728,7 +728,7 @@ else
 		light.b = self.JetpackFireRed.b
 		light.Brightness = 3
 		light.Dir = normal
-		light.InnerAngle = -45 --don't light entities in a cone
+		light.InnerAngle = -45 --light entities in a cone
 		light.OuterAngle = 45 --
 		light.Size = 250 * scale -- 125 when the scale is 0.25
 		light.Style = 1	--this should do the flicker for us
@@ -790,7 +790,7 @@ function ENT:HandleShouldCollide( ent1 , ent2 )
 		return
 	end
 	
-	if IsValid( self:GetControllingPlayer() ) and ( ent2:GetOwner() == self:GetOwner() or self:GetOwner() == ent2 ) then
+	if IsValid( self:GetControllingPlayer() ) and ( ent2:GetOwner() == self:GetControllingPlayer() or self:GetControllingPlayer() == ent2 ) then
 		return false
 	end
 end

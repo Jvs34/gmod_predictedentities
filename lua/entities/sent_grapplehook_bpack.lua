@@ -17,6 +17,7 @@ ENT.HookMaxRange = 10000
 ENT.HookHullMins = Vector( -2 , -2 , -2 )
 ENT.HookHullMaxs = Vector( 2 , 2 , 2 )
 
+--TODO: position ourselves on the player's belt
 ENT.AttachmentInfo = {
 	BoneName = "ValveBiped.Bip01_Spine2",
 	OffsetVec = Vector( 3 , -5.6 , 0 ),
@@ -28,7 +29,23 @@ ENT.HookAttachmentInfo = {
 	OffsetAng = angle_zero,
 }
 
+--[[
+sound.Add( {
+	name = "grapplehook.hit",
+	channel = CHAN_ITEM,
+	volume = 0.7,
+	level = 75,
+	sound = "^vehicles/digger_grinder_loop1.wav"
+})
+]]
 
+sound.Add( {
+	name = "grapplehook.launch",
+	channel = CHAN_ITEM,
+	volume = 0.7,
+	level = 75,
+	sound = "^ambient/machines/catapult_throw.wav"
+})
 
 sound.Add( {
 	name = "grapplehook.reelsound",
@@ -178,7 +195,7 @@ function ENT:HandleSounds( predicted )
 				--play the hit sound only the controlling player and one on the world position
 				
 				if IsValid( self:GetControllingPlayer() ) then
-					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , nil , true , self:GetControllingPlayer() )
+					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , true , self:GetControllingPlayer() )
 				end
 				
 				--[[
@@ -248,7 +265,7 @@ function ENT:FireHook()
 		self:SetIsAttached( true )
 		self:SetGrappleNormal( self:GetDirection() )
 		
-		self:EmitPESound( "ambient/machines/catapult_throw.wav" , nil , nil , nil , nil , true )
+		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_WEAPON , true )
 	end
 
 end
@@ -261,13 +278,14 @@ function ENT:GetDirection()
 end
 
 function ENT:DoHookTrace()
+	--TODO: allow hooking to entities that never move, maybe trough the callback?
 	local tr = {
 		--TODO: custom filter callback?
 		filter = {
 			self:GetControllingPlayer(),
 			self,
 		},
-		mask = MASK_SOLID_BRUSHONLY,	--TODO: use the player solid mask?
+		mask = MASK_PLAYERSOLID_BRUSHONLY,
 		start = self:GetControllingPlayer():EyePos(),
 		endpos = self:GetControllingPlayer():EyePos() + self:GetControllingPlayer():GetAimVector() * self.HookMaxRange,
 		mins = self.HookHullMins,

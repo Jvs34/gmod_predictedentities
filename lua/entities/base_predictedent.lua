@@ -1,10 +1,9 @@
 AddCSLuaFile()
 
-
 --[[
 	This entity base is pretty much a streamlined version of my special action system ( that you might see used in scrapmatch )
 	The advantages over that system is that these entities can be treated as normal entities when not equipped by a player, and as such, should
-	allow for more freedom , such as being bundled in addons, editing some variables
+	allow for more freedom , such as being bundled in addons, editing variables with the right click
 ]]
 
 DEFINE_BASECLASS( "base_entity" )
@@ -655,17 +654,19 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 	if not chan then
 		chan = CHAN_AUTO
 	end
+	
 	if SERVER then
 		local plys = {}
 		if IsValid( activator ) and not predicted then
 			plys = activator
 		else
 			for i , v in pairs( player.GetHumans() ) do
-				if predicted and v ~= self:GetControllingPlayer() then
-					plys[#plys] = v
-				elseif not predicted then
-					plys[#plys] = v
+				
+				if predicted and v == self:GetControllingPlayer() then
+					continue
 				end
+				
+				plys[#plys] = v
 			end
 			
 			if #plys == 0 then
@@ -681,6 +682,7 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 			net.WriteFloat( volume )
 			net.WriteInt( chan , 8 )
 		net.Send( plys )
+		
 	else
 		self:EmitSound( soundname , level , pitch , volume , chan )
 	end
