@@ -17,7 +17,6 @@ if SERVER then
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
 else
 	ENT.RenderGroup = RENDERGROUP_OPAQUE
-	ENT.MainPanel = nil
 end
 
 ENT.Editable = true
@@ -376,19 +375,23 @@ else
 		end
 	end
 	
+	function ENT:GetMainPanel()
+		return PE_HUD
+	end
+	
 	function ENT:HandleDerma()
-		if IsValid( self.MainPanel ) then
+		if IsValid( self:GetMainPanel() ) then
 			
 			if self:IsCarriedByLocalPlayer() then
-			
-				if not self.MainPanel:HasSlot( self:GetSlotName() ) then
-					self:RegisterHUDInternal( self.MainPanel )
+				
+				if not self:GetMainPanel():HasSlot( self:GetSlotName() ) then
+					self:RegisterHUDInternal( self:GetMainPanel() )
 				end
 			
 			else
 				
-				if self.MainPanel:HasSlot( self:GetSlotName() ) then
-					self.MainPanel:RemovePanelBySlot( self:GetSlotName() )
+				if self:GetMainPanel():HasSlot( self:GetSlotName() ) then
+					self:GetMainPanel():RemovePanelBySlot( self:GetSlotName() )
 				end
 			end
 		end
@@ -398,9 +401,11 @@ else
 	function ENT:RegisterHUDInternal( parentpanel )
 		--the parentpanel is a DVerticalLayout or whatever, depending on the user settings on where to show it
 		--so we just want to create a button with a custom image display, and we'll leave the rest to the child class
-		local mypanel = parentpanel:Add( "DPredictedEnt" )
+		local mypanel = vgui.Create( "DPredictedEnt" )
 		mypanel:SetSlot( self:GetSlotName() )	--automatically get the entity from the slot, if it's not valid then remove ourselves
 		self:SetupCustomHUDElements( mypanel )
+		mypanel:SetParent( parentpanel )
+		print( "WHOO" )
 		return mypanel
 	end
 	
@@ -688,9 +693,9 @@ end
 
 function ENT:OnRemove()
 	if CLIENT then
-		if IsValid( self.MainPanel ) then
-			if self.MainPanel:HasSlot( self:GetSlotName() ) then
-				self.MainPanel:RemovePanelBySlot( self:GetSlotName() )
+		if IsValid( self:GetMainPanel() ) then
+			if self:GetMainPanel():HasSlot( self:GetSlotName() ) then
+				self:GetMainPanel():RemovePanelBySlot( self:GetSlotName() )
 			end
 		end
 	end

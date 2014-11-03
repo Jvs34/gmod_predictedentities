@@ -14,15 +14,50 @@ local PANEL = {}
 PANEL.HUDSide = 0 --goes from 0 to 3 --CreateConVar
 
 function PANEL:Init()
-
+	self.MyChildren = {}
 end
 
 function PANEL:Think()
 
 end
 
-function PANEL:Paint()
+function PANEL:Paint( w , h )
+--	surface.SetDrawColor( color_white )
+--	surface.DrawRect( 0 , 0 , w , h )
+end
 
+function PANEL:OnChildAdded( panel )
+	self.MyChildren[panel:GetSlot()] = panel
+end
+
+function PANEL:OnChildRemoved( panel )
+	self.MyChildren[panel:GetSlot()] = nil
+end
+
+function PANEL:HasSlot( slotname )
+	return IsValid( self.MyChildren[slotname] )
+end
+
+function PANEL:RemovePanelBySlot( slotname )
+	if IsValid( self.MyChildren[slotname] ) then
+		self.MyChildren[slotname]:Remove()
+		self.MyChildren[slotname] = nil
+	end
 end
 
 derma.DefineControl( "DPredictedEntManager", "", PANEL, "DPanel" )
+
+
+local function CreatePEHud()
+	
+	local panel = vgui.Create( "DPredictedEntManager" )
+	panel:ParentToHUD()
+	panel:Dock( FILL )
+	
+	return panel
+end
+
+
+hook.Add( "Initialize" , "PEHud" , function()
+	PE_HUD = CreatePEHud()
+end)
