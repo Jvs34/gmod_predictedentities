@@ -74,7 +74,7 @@ function ENT:SpawnFunction( ply, tr, ClassName )
 	local SpawnPos = tr.HitPos + tr.HitNormal * 36
 
 	local ent = ents.Create( ClassName )
-	ent:SetSlotName( ClassName )
+	ent:SetSlotName( ClassName )	--this is the best place to set the slot, don't modify it dynamically ingame
 	ent:SetPos( SpawnPos )
 	ent:SetAngles( Angle( 0 , 0 , 180 ) )
 	ent:Spawn()

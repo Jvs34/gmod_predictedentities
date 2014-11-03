@@ -40,9 +40,10 @@ function PANEL:Think()
 		local class = self:GetEntity():GetClass()
 		local mat = Material( "entities/" .. class .. ".png" )
 		
+		self.Label:SetText( "#"..class )	--will resolve to the Localize of that entity class
+		
 		if not mat:IsError() then
 			self:SetEntityMaterial( mat )
-			self.Label:SetText( "#"..class )	--will resolve to the Localize of that entity class
 		end
 		
 		self.RecheckMat = false
