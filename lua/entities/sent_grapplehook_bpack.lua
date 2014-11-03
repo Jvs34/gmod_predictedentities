@@ -1,5 +1,10 @@
 AddCSLuaFile()
 
+--[[
+	An entity that allows you to fire a grapple hook and automatically reel to it by holding the button
+	Like the jetpack, this works even when the player dies while using it.
+]]
+
 DEFINE_BASECLASS( "base_predictedent" )
 
 ENT.Spawnable = true
@@ -13,6 +18,7 @@ else
 end
 
 ENT.InButton = IN_GRENADE1
+ENT.HookMaxTime = 4	--max time in seconds the hook needs to reach the maxrange
 ENT.HookMaxRange = 10000
 ENT.HookHullMins = Vector( -2 , -2 , -2 )
 ENT.HookHullMaxs = Vector( 2 , 2 , 2 )
@@ -70,7 +76,7 @@ function ENT:SpawnFunction( ply, tr, ClassName )
 	local SpawnPos = tr.HitPos + tr.HitNormal * 36
 
 	local ent = ents.Create( ClassName )
-	ent:SetSlotName( ClassName )
+	ent:SetSlotName( ClassName )	--this is the best place to set the slot, don't modify it dynamically ingame
 	ent:SetPos( SpawnPos )
 	ent:Spawn()
 	return ent
@@ -83,6 +89,7 @@ function ENT:Initialize()
 		--TODO: change to a dummy model and set the collision bounds and render bounds manually
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		
+		self:SetPullSpeed( 2000 )
 		self:SetKey( 17 )	--the G key on my keyboard
 		self:InitPhysics()
 		
@@ -103,6 +110,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
 	self:DefineNWVar( "Entity" , "HookHelper" )
+	self:DefineNWVar( "Float" , "PullSpeed" )
 end
 
 
@@ -234,7 +242,7 @@ function ENT:PredictedMove( owner , mv )
 		mv:SetSideSpeed( 0 )
 		mv:SetUpSpeed( 0 )
 		--TODO: clamp the velocity
-		mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * 2000 * FrameTime() )
+		mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * self:GetPullSpeed() * FrameTime() )
 	end
 end
 
@@ -256,8 +264,8 @@ function ENT:FireHook()
 	
 	self:GetControllingPlayer():LagCompensation( false )
 	
-	if not result.HitSky and result.Hit then
-		local timetoreach = Lerp( result.Fraction , 0 , 4 )
+	if not result.HitSky and result.Hit and not result.HitNoDraw then
+		local timetoreach = Lerp( result.Fraction , 0 , self.HookMaxTime )
 		
 		self:SetAttachedTo( result.HitPos )
 		self:SetAttachTime( CurTime() + timetoreach )
@@ -285,7 +293,7 @@ function ENT:DoHookTrace()
 			self:GetControllingPlayer(),
 			self,
 		},
-		mask = MASK_PLAYERSOLID_BRUSHONLY,
+		mask = MASK_PLAYERSOLID_BRUSHONLY,	--anything that stops player movement stops the trace
 		start = self:GetControllingPlayer():EyePos(),
 		endpos = self:GetControllingPlayer():EyePos() + self:GetControllingPlayer():GetAimVector() * self.HookMaxRange,
 		mins = self.HookHullMins,
@@ -295,12 +303,11 @@ function ENT:DoHookTrace()
 end
 
 function ENT:ShouldStopPulling( mv )
-
 	if not IsValid( self:GetControllingPlayer() ) then
-		return ( self:NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45
+		return false
 	end
 	
-	return ( self:GetControllingPlayer():NearestPoint( self:GetAttachedTo() ) ):Distance( self:GetAttachedTo() ) <= 45 or not self:IsKeyDown( mv )
+	return not self:IsKeyDown( mv )
 end
 
 function ENT:CanPull( mv )
@@ -346,10 +353,12 @@ if SERVER then
 	--[[
 		function ENT:InitPhysics()
 			--create a bbox for us and set our movetype and solid to VPHYSICS
+			--also fire the callback OnInitPhysics
 		end
 		
 		function ENT:RemovePhysics()
 			--destroy the physobj and set the solid to BBOX, so we can be shot at like the jetpack
+			--also fire the callback OnRemovePhysics
 		end
 	]]
 	
@@ -365,7 +374,7 @@ if SERVER then
 		
 		if self:GetIsAttached() and not self:GetBeingHeld() and self:CanPull() then
 			physobj:Wake()
-			local force = self:GetDirection() * 1000
+			local force = self:GetDirection() * self:GetPullSpeed()
 			local angular = vector_origin
 			
 			return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
@@ -377,6 +386,12 @@ else
 	function ENT:CreateModels()
 		--create all the models, hook , our custom one, the pulley etc
 		self.CSModels = {}
+		
+		--[[
+		self.CSModels["bodybase"] = ClientsideModel( "" )
+		]]
+		
+		self.CSModels.Hook = {}
 		
 	end
 	
@@ -400,8 +415,14 @@ else
 		if self:GetIsAttached() then
 			endgrappleang = self:GetGrappleNormal():Angle()
 			
+			local dosway = false
+			local travelfraction = 0
+			
 			if self:GetAttachTime() >= CurTime() then
-				local travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
+				dosway = true
+				
+				travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
+				
 				endgrapplepos = LerpVector( travelfraction , startgrapplepos , self:GetAttachedTo() )
 			else
 				endgrapplepos = self:GetAttachedTo()
@@ -409,12 +430,25 @@ else
 			
 			render.SetMaterial( self.CableMaterial )
 			
-			--TODO: if we haven't reached the hitpos yet then sway the rope with a sine wave
+			if dosway then
+				--TODO: if we haven't reached the hitpos yet then sway the rope with a sine wave
+				
+				local sway = Lerp( travelfraction , 4 , 1 )
+				local swayres = 16
+				
+				render.StartBeam( 2 )
+					render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
+					render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
+				render.EndBeam()
+				
+			else
 			
-			render.StartBeam( 2 )
-				render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
-				render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
-			render.EndBeam()
+				render.StartBeam( 2 )
+					render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
+					render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
+				render.EndBeam()
+				
+			end
 			
 			self:DrawHook( endgrapplepos , endgrappleang )
 			
@@ -423,18 +457,36 @@ else
 	
 	--draws the hook at the given position
 	function ENT:DrawHook( pos , ang )
-	
+		
+		if not self.CSModels then
+			return
+		end
+		
+		for i , v in pairs( self.CSModels.Hook ) do
+			if not IsValid( v ) then
+				return
+			end
+		end
+		
+		
+		--draw
 	end
 	
 	function ENT:Draw( flags )
 		if self:CanDraw() then
-			self:DrawModel()
+			
+			self:DrawCSModel()
 			
 			if not self:GetIsAttached() then
 				local pos , ang = self:GetHookAttachment()
 				self:DrawHook( pos , ang )
 			end
 		end
+	end
+	
+	function ENT:DrawCSModel()
+		--draw
+		self:DrawModel()
 	end
 	
 	function ENT:DrawFirstPerson( ply , vm )

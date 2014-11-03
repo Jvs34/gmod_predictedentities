@@ -27,13 +27,9 @@ function PANEL:Setup( vars )
 	--DBinder doesn't have an onchange callback, so we must do this little hack to add it
 	ctrl.SetValue = function( self , val )
 		self:SetSelected( val )
-		self:OnChange( val )
-	end
-	
-	ctrl.OnChange = function( ctrl , newval )
-		self:ValueChanged( newval )
+		self:ValueChanged( val )
 	end
 
 end
 
-derma.DefineControl( "DProperty_EditKey", "", PANEL, "DProperty_Generic" )
+derma.DefineControl( "DProperty_EditKey" , "" , PANEL , "DProperty_Generic" )

@@ -35,7 +35,7 @@ ENT.AttachmentInfo = {
 --this is all going to change once vinh is done with prediction on his new NWVars system, until then, this'll stay here
 --actually, this'll stay here regardless, the editable thing garry added for the dt vars is quite neat
 
-function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , maxval , customelement )
+function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , maxval , customelement , filt )
 	if not self.DefinedDTVars[dttype] then
 		Error( "Wrong NWVar type " .. ( dttype or "nil" ) )
 		return
@@ -67,10 +67,12 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 		edit = {
 			KeyName = dtname:lower(),
 			Edit = {
-				title = beautifulname or dtname,
+				title = beautifulname or dtname,	--doesn't it do this internally already?
 				min = minval,
 				max = maxval,
 				type = customelement or self.DefinedDTVars[dttype].EditableElement,
+				filter = filt,	--can be either a function( like the util.TraceLine filter ) or a table of class name
+								--this is not used at all by garry's edit tools, but it might be useful for me
 			}
 		}
 	end
@@ -81,14 +83,10 @@ end
 function ENT:SetupDataTables()
 	
 	--eventually I'll create more editable elements based on garry's system
-	--also there's the problem that in some cases you might want the Vector to be editable with an actual world vector
-	--and in others as a direction
-	--and in some others as a color ( goddamn garry )
 	
 	self.DefinedDTVars = {
 		Entity = {
 			Max = GMOD_MAXDTVARS,
-		--	EditableElement = "PickEnt",	--TODO: an element that uses the worldpicker shit or the same the context menu uses
 		},
 		Float = {
 			Max = GMOD_MAXDTVARS,
@@ -97,7 +95,7 @@ function ENT:SetupDataTables()
 		Int = {
 			Max = GMOD_MAXDTVARS,
 			EditableElement = "Int",
-		--	EditableElement = "EditKey", --TODO: a copypaste of the one used by garry for the tools
+		--	EditableElement = "EditKey", --TODO: a copypaste of the one used by garry for the sandbox tools
 		},
 		Bool = {
 			Max = GMOD_MAXDTVARS,
@@ -105,14 +103,13 @@ function ENT:SetupDataTables()
 		},
 		Vector = {
 			Max = GMOD_MAXDTVARS,
-			--FUCK
+		--	EditableElement = "VectorOrigin",	--TODO, allow the player to choose a world position
 		--	EditableElement = "VectorNormal",	--TODO
-		--	EditableElement = "VectorOrigin",	--TODO
-		--	EditableElement = "VectorColor",
+		--	EditableElement = "VectorColor",	
 		},
 		Angle = {
 			Max = GMOD_MAXDTVARS,
-		--	EditableElement = "VectorNormal", --I guess?
+		--	EditableElement = "VectorNormal", --I guess
 		},
 		String = {
 			Max = 4, --as I said before, fuck strings
@@ -342,7 +339,7 @@ else
 	function ENT:DrawFirstPersonInternal( vm , ply , wpn )
 		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer() and self:GetControllingPlayer() == ply then
 			self:DrawFirstPerson( ply , vm ) --this will be moved to the renderscene hook
-			self:DrawOnViewModel( ply , vm ) -- this will stay here
+			self:DrawOnViewModel( ply , vm ) --this will stay here
 		end
 	end
 	
@@ -374,21 +371,18 @@ else
 		end
 	end
 	
+	--UGLEH
 	function ENT:GetMainPanel()
 		return PE_HUD
 	end
 	
 	function ENT:HandleDerma()
 		if IsValid( self:GetMainPanel() ) then
-			
 			if self:IsCarriedByLocalPlayer() then
-				
 				if not self:GetMainPanel():HasSlot( self:GetSlotName() ) then
 					self:RegisterHUDInternal( self:GetMainPanel() )
 				end
-			
 			else
-				
 				if self:GetMainPanel():HasSlot( self:GetSlotName() ) then
 					self:GetMainPanel():RemovePanelBySlot( self:GetSlotName() )
 				end
@@ -396,15 +390,12 @@ else
 		end
 	end
 
-	--NOTE: this works on a slot basis, not entity class, so it works 
+	--NOTE: this works on a slot basis, not entity class
 	function ENT:RegisterHUDInternal( parentpanel )
-		--the parentpanel is a DVerticalLayout or whatever, depending on the user settings on where to show it
-		--so we just want to create a button with a custom image display, and we'll leave the rest to the child class
 		local mypanel = vgui.Create( "DPredictedEnt" )
-		mypanel:SetSlot( self:GetSlotName() )	--automatically get the entity from the slot, if it's not valid then remove ourselves
+		mypanel:SetSlot( self:GetSlotName() )
 		self:SetupCustomHUDElements( mypanel )
-		mypanel:SetParent( parentpanel )
-		print( "WHOO" )
+		parentpanel:SetParent( mypanel )
 		return mypanel
 	end
 	

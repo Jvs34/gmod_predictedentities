@@ -14,8 +14,13 @@ PANEL.DefaultEntityMaterial = Material( "entities/npc_alyx.png" )
 PANEL.CircleMaskMaterial = Material( "" )
 
 function PANEL:Init()
-	self:SetSize( 64 , 64 )
-	--create a dlabel
+	self:SetSize( 64 , 64 )	--TODO: ask our parent for the best size scale
+	
+	self.RecheckMat = false
+	
+	self.Label = self:Add( "DLabel" )
+	self.Label:SetFont( "Default" )
+	self.Label:Dock( BOTTOM )
 end
 
 function PANEL:Think()
@@ -31,13 +36,16 @@ function PANEL:Think()
 	end
 	
 	--try to get the material from the entity class
-	if not self:IsEntityMaterialSet() then
-		local class = "sent_ball" 		--self:GetEntity():GetClass()
+	if not self:IsEntityMaterialSet() and self.RecheckMat then
+		local class = self:GetEntity():GetClass()
 		local mat = Material( "entities/" .. class .. ".png" )
 		
 		if not mat:IsError() then
 			self:SetEntityMaterial( mat )
+			self.Label:SetText( "#"..class )	--will resolve to the Localize of that entity class
 		end
+		
+		self.RecheckMat = false
 	end
 	
 	self:CustomThink()
@@ -71,7 +79,16 @@ function PANEL:CustomThink()
 end
 
 function PANEL:SetSlot( str )
+	self.RecheckMat = true
 	self.Slot = str
+end
+
+function PANEL:GetSlot()
+	return self.Slot
+end
+
+function PANEL:DoClick()
+	RunConsoleCommand( "pe_drop" , self:GetSlot() )
 end
 
 function PANEL:Paint( w , h )
@@ -82,4 +99,4 @@ function PANEL:Paint( w , h )
 	surface.DrawTexturedRect( 0 , 0 , w , h )
 end
 
-derma.DefineControl( "DPredictedEnt", "", PANEL, "DPanel" )
+derma.DefineControl( "DPredictedEnt", "", PANEL, "DButton" )

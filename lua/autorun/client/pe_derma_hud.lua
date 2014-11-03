@@ -31,12 +31,13 @@ function PANEL:Paint( w , h )
 --	surface.DrawRect( 0 , 0 , w , h )
 end
 
-function PANEL:OnChildAdded( panel )
+function PANEL:AddPEPanel( panel )
+	if not panel then
+		return
+	end
+	
 	self.MyChildren[panel:GetSlot()] = panel
-end
-
-function PANEL:OnChildRemoved( panel )
-	self.MyChildren[panel:GetSlot()] = nil
+	panel:SetParent( self.IconLayout )
 end
 
 function PANEL:HasSlot( slotname )
