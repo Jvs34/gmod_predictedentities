@@ -14,7 +14,12 @@ local PANEL = {}
 PANEL.HUDSide = 0 --goes from 0 to 3 --CreateConVar
 
 function PANEL:Init()
-
+	
+	self.IconLayout = self:Add( "DIconLayout" )
+	self.IconLayout:SetBorder( 1 )
+	self.IconLayout:SetSpaceX( 2 )
+	self.IconLayout:SetSpaceY( 2 )
+	self.IconLayout:Dock( BOTTOM )
 end
 
 function PANEL:Think()

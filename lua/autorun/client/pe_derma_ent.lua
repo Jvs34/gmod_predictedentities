@@ -14,8 +14,8 @@ PANEL.DefaultEntityMaterial = Material( "entities/npc_alyx.png" )
 PANEL.CircleMaskMaterial = Material( "" )
 
 function PANEL:Init()
+	self:SetSize( 64 , 64 )
 	--create a dlabel
-	
 end
 
 function PANEL:Think()
