@@ -100,6 +100,7 @@ function ENT:Initialize()
 		self:SetGoneApeshit( math.random( 0 , 100 ) > 95 ) --little chance that on spawn we're gonna be crazy!
 		self:SetGoneApeshitTime( 0 )
 		
+		self:SetDoGroundSlam( false )
 		self:SetAirResistance( 2.5 )
 		self:SetRemoveGravity( false )
 		self:SetJetpackSpeed( 224 )
@@ -125,6 +126,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "GoneApeshit" , true )	--set either when the owner dies with us active, or when we're being shot at
 	self:DefineNWVar( "Bool" , "RemoveGravity" )
 	self:DefineNWVar( "Bool" , "InfiniteFuel" , true , "Infinite Fuel" )
+	self:DefineNWVar( "Bool" , "DoGroundSlam" )
 	
 	self:DefineNWVar( "Float" , "Fuel" , true )
 	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
@@ -252,6 +254,10 @@ function ENT:HasFuel()
 	return self:GetFuel() > 0
 end
 
+function ENT:GetFuelFraction()
+	return self:GetFuel() / self:GetMaxFuel()
+end
+
 function ENT:CanFly( owner , mv )
 	
 	
@@ -263,7 +269,7 @@ function ENT:CanFly( owner , mv )
 			return owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and self:HasFuel()
 		end
 		
-		return ( mv:KeyDown( IN_JUMP ) or mv:KeyPressed( IN_DUCK ) ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:HasFuel()
+		return ( mv:KeyDown( IN_JUMP ) or mv:KeyPressed( IN_DUCK ) or mv:KeyPressed( IN_SPEED ) ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:HasFuel()
 	end
 
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
@@ -308,12 +314,22 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 			
 			vel.z = vel.z + self:GetJetpackVelocity() * FrameTime()
 		
-		elseif mv:KeyPressed( IN_DUCK ) and vel.z < 0 then
+		elseif mv:KeyDown( IN_SPEED ) and vel.z < 0 then
 
 			-- Apply just the right amount of thrust
 			
-			vel.z = math.Approach( vel.z, 0, self:GetJetpackVelocity() * FrameTime() )
+			vel.z = math.Approach( vel.z , 0 , self:GetJetpackVelocity() * FrameTime() )
 
+		end
+		
+		
+		
+		-- Quickly descend to do a ground slam, don't check for the velocity cap
+		
+		self:SetDoGroundSlam( mv:KeyDown( IN_DUCK ) )
+		
+		if mv:KeyDown( IN_DUCK ) then
+			vel.z = vel.z - self:GetJetpackVelocity() * FrameTime()
 		end
 
 		--
@@ -409,6 +425,22 @@ function ENT:PredictedFinishMove( owner , movedata )
 	end
 end
 
+function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
+	if self:GetDoGroundSlam() and speed >= self:GetJetpackVelocity() and not inwater then
+		
+		local fraction = self:GetJetpackStrafeVelocity() / speed	--because the fall speed might be higher than the jetpack one
+		
+		local effect = EffectData()
+		effect:SetEntity( ply )
+		effect:SetOrigin( ply:GetPos() )
+		effect:SetScale( 255 * fraction )
+		util.Effect( "ThumperDust" , effect , true , true )
+		
+		ply:AnimRestartGesture( GESTURE_SLOT_JUMP, ACT_LAND, true )
+		return true	--override the fall damage and other hooks
+	end
+end
+
 if SERVER then
 	
 	function ENT:OnTakeDamage( dmginfo )
@@ -429,12 +461,12 @@ if SERVER then
 			if IsValid( self:GetControllingPlayer() ) then
 				self:Drop( true )
 			end
-			self:Detonate()
+			self:Detonate( dmginfo:GetAttacker() )
 			return
 		end
 		
 		--roll a random, if we're not being held by a player and the random succeeds, go apeshit
-		if dmginfo:GetDamage() > 5 and not self:GetGoneApeshit() then
+		if dmginfo:GetDamage() > 3 and not self:GetGoneApeshit() then
 			local rand = math.random( 1 , 10 )
 			if rand <= 2 then
 				self:SetGoneApeshit( true )
@@ -515,11 +547,12 @@ if SERVER then
 		end
 	end
 	
+	--can't explode on impact if we're not active
 	function ENT:CheckDetonate( data , physobj )
 		return self:GetActive() and data.Speed > 500 and not self:GetBeingHeld()
 	end
 	
-	function ENT:Detonate()
+	function ENT:Detonate( attacker )
 		--you never know!
 		if self:IsEFlagSet( EFL_KILLME ) then 
 			return 
@@ -528,12 +561,13 @@ if SERVER then
 		self:Remove()
 		
 		local fuel = self:GetFuel()
+		local atk = IsValid( attacker ) and attacker or self
 		
 		--check how much fuel was left when we impacted
 		local dmg = 1.5 * fuel
 		local radius = 2.5 * fuel
 		
-		util.BlastDamage( self , self , self:GetPos() , radius , dmg )
+		util.BlastDamage( self , atk , self:GetPos() , radius , dmg )
 		
 		local effect = EffectData()
 		effect:SetOrigin( self:GetPos() )
@@ -545,35 +579,32 @@ if SERVER then
 else
 
 	function ENT:Draw( flags )
-		--if self:CanDraw() then
-			
-			local pos , ang = self:GetCustomParentOrigin()
-			
-			--even though the calcabsoluteposition hook should already prevent this, it doesn't on other players
-			--might as well not give it the benefit of the doubt in the first place
-			if pos and ang then
-				self:SetPos( pos )
-				self:SetAngles( ang )
-			end
-			
-			self:DrawModel()
-			
-			self:DrawWings()
-			
-			local atchpos , atchang = self:GetEffectsOffset()
-			
-			local effectsscale = self:GetEffectsScale()
-			
-			--technically we shouldn't draw the fire from here, it should be done in drawtranslucent
-			--but since we draw from the player and he's not translucent this won't get called despite us being translucent
-			--might as well just set us to opaque
-			
-			if self:GetActive() then	-- and bit.band( flags , STUDIO_TRANSPARENCY ) ~= 0 then
-				self:DrawJetpackFire( atchpos , atchang , effectsscale )
-			end
-			
-			self:DrawJetpackSmoke( atchpos , atchang , effectsscale )
-		--end
+		local pos , ang = self:GetCustomParentOrigin()
+		
+		--even though the calcabsoluteposition hook should already prevent this, it doesn't on other players
+		--might as well not give it the benefit of the doubt in the first place
+		if pos and ang then
+			self:SetPos( pos )
+			self:SetAngles( ang )
+		end
+		
+		self:DrawModel()
+		
+		self:DrawWings()
+		
+		local atchpos , atchang = self:GetEffectsOffset()
+		
+		local effectsscale = self:GetEffectsScale()
+		
+		--technically we shouldn't draw the fire from here, it should be done in drawtranslucent
+		--but since we draw from the player and he's not translucent this won't get called despite us being translucent
+		--might as well just set us to opaque
+		
+		if self:GetActive() then	-- and bit.band( flags , STUDIO_TRANSPARENCY ) ~= 0 then
+			self:DrawJetpackFire( atchpos , atchang , effectsscale )
+		end
+		
+		self:DrawJetpackSmoke( atchpos , atchang , effectsscale )
 	end
 	
 	--the less fuel we have, the smaller our particles will be
@@ -778,9 +809,26 @@ else
 	end
 	
 	
-	--TODO: add a fuel gauge or simply a blue rectangle for now
 	function ENT:SetupCustomHUDElements( panel )
 		
+		--TODO: use a vertical dprogress bar, easier than having to draw this ourselves
+		panel.FuelGauge = panel:Add( "DPanel" )
+		panel.FuelGauge:SetSize( panel:GetWidth() / 3 , panel:GetHeight() )
+		panel.FuelGauge:Dock( RIGHT )
+		
+		panel.FuelGauge.FuelColorEmpty = Color( 255 , 127 ,127 , 255 )
+		panel.FuelGauge.FuelColorFilled = Color( 127 , 127 , 255 , 255 )
+		panel.FuelGauge.Paint = function( self , w , h )
+			surface.SetDrawColor( self.FuelColorEmpty )
+			surface.DrawRect( 0 , 0 , w , h )
+			
+			surface.SetDrawColor( self.FuelColorFilled )
+			surface.DrawRect( 0 , h * ( 1 - self.FuelFraction ) , w , h )
+		end
+	
+		panel.CustomThink = function( self )
+			self.FuelGauge.FuelFraction = self:GetEntity():GetFuelFraction()
+		end
 	end
 
 end

@@ -27,8 +27,8 @@ function PANEL:Think()
 end
 
 function PANEL:Paint( w , h )
---	surface.SetDrawColor( color_white )
---	surface.DrawRect( 0 , 0 , w , h )
+	surface.SetDrawColor( Color( 255 , 255 , 255 , 70 )  )
+	surface.DrawRect( 0 , 0 , w , h )
 end
 
 function PANEL:AddPEPanel( panel )
@@ -53,20 +53,21 @@ end
 
 derma.DefineControl( "DPredictedEntManager", "", PANEL, "DPanel" )
 
---UGH, there has to be a better way then setting this
+--UGH, there has to be a better way than setting this
 local function CreatePEHud()
+	
+	if IsValid( PE_HUD ) then
+		PE_HUD:Remove()
+		PE_HUD = nil
+	end
 	
 	local panel = vgui.Create( "DPredictedEntManager" )
 	panel:ParentToHUD()
 	panel:Dock( FILL )
 	
-	return panel
-end
-
-
-hook.Add( "Initialize" , "PEHud" , function()
-	PE_HUD = CreatePEHud()
-
+	
+	PE_HUD = panel
+	
 	--this didn't work properly in my tests, I think it was autorefresh that fucked it up
 	--welp, guess I gotta add support for that as well
 	--[[
@@ -75,5 +76,8 @@ hook.Add( "Initialize" , "PEHud" , function()
 		tab.MainHUDPanel = PE_HUD
 	end
 	]]
+end
 
-end)
+
+hook.Add( "Initialize" , "PEHud" , CreatePEHud )
+hook.Add( "OnReloaded" , "PEHud" , CreatePEHud )

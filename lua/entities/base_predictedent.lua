@@ -139,7 +139,7 @@ function ENT:Initialize()
 	hook.Add( "Move", self, self.HandlePredictedMove )
 	hook.Add( "PlayerTick", self, self.HandlePredictedThink )
 	hook.Add( "FinishMove", self, self.HandlePredictedFinishMove )
-
+	hook.Add( "OnPlayerHitGround" , self , self.HandlePredictedHitGround )
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
 		hook.Add( "PostPlayerDeath" , self , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, event :KillSilent()
@@ -209,7 +209,7 @@ if SERVER then
 		self:PhysicsDestroy()
 		self:SetMoveType( MOVETYPE_NONE )
 		self:SetSolid( SOLID_NONE )
-		self:SetLagCompensated( false )
+		self:SetLagCompensated( false )--lag compensation works really lame with parenting due to vinh's fix to players being lag compensated in vehicles
 		self:OnRemovePhysics()
 	end
 
@@ -263,20 +263,6 @@ if SERVER then
 		self:SetControllingPlayer( activator )
 		
 		self:OnAttach( self:GetControllingPlayer() )
-		--add a new undo history to the player that allows him to drop this entity
-		--TODO: completely scratch this bullshit when I implement hud elements ( that can also be clicked with the context menu )
-		
-		undo.Create( self:GetClass() )
-			undo.SetPlayer( activator )
-			undo.AddFunction( function( tab , ent )
-				if IsValid( ent ) then
-					if ent:GetControllingPlayer() == tab.Owner then
-						ent:Drop( false )
-					end
-				end
-			end, self )
-			undo.SetCustomUndoText( "Dropped " .. ( self.PrintName or self:GetClass() ) )
-		undo.Finish()
 	end
 
 	function ENT:Drop( forced )
@@ -292,7 +278,6 @@ if SERVER then
 		self:OnDrop( self:GetControllingPlayer() , forced )
 		
 		if IsValid( self:GetControllingPlayer() ) then
-			--TODO: remove the undo block, is this even possible without hacking around?
 			self:GetControllingPlayer():SetNWEntity( self:GetSlotName() , NULL )
 		end
 
@@ -371,14 +356,12 @@ else
 	]]
 
 	function ENT:Draw( flags )
-		--if self:CanDraw() then
-			self:DrawModel()
-		--end
+		self:DrawModel()
 	end
 	
 	--UGLEH
 	function ENT:GetMainPanel()
-		return PE_HUD	--return self.MainHUDPanel
+		return PE_HUD or self.MainHUDPanel
 	end
 	
 	function ENT:HandleDerma()
@@ -395,7 +378,6 @@ else
 		end
 	end
 
-	--NOTE: this works on a slot basis, not entity class
 	function ENT:RegisterHUDInternal( parentpanel )
 		local mypanel = vgui.Create( "DPredictedEnt" )
 		mypanel:SetSlot( self:GetSlotName() )
@@ -431,23 +413,19 @@ function ENT:HandlePredictedStartCommand( ply , cmd )
 	if ply == self:GetControllingPlayer() then
 		local predictedent = ply:GetNWEntity( self:GetSlotName() )
 		if predictedent == self then
-		
 			--allows the user to have a fake keybind by manually checking his buttons instead of having the player bind a button to a command ( which most users don't even know anything about ).
 			--he can configure this key at anytime by editing the entity ( if it allows it in the first place )
-			
 			if CLIENT and self.InButton > 0 then
 				local mykey = self:GetKey()
 				if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
-					if mykey ~= BUTTON_CODE_NONE and mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
+					if mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
 						if input.IsButtonDown( mykey ) then
 							cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
 						end
 					end
 				end
 			end
-			
 			self:PredictedStartCommand( ply , cmd )
-			
 		end
 	end
 end
@@ -488,6 +466,17 @@ function ENT:HandlePredictedFinishMove( ply , mv )
 	end
 end
 
+function ENT:HandlePredictedHitGround( ply , inwater , onfloater , speed )
+	if ply == self:GetControllingPlayer() then
+		local predictedent = ply:GetNWEntity( self:GetSlotName() )
+		if predictedent == self then
+			if self:PredictedHitGround( ply , inwater , onfloater , speed ) then
+				return true
+			end
+		end
+	end
+end
+
 function ENT:PredictedStartCommand( ply , cmd )
 
 end
@@ -508,6 +497,9 @@ function ENT:PredictedFinishMove( ply , mv )
 
 end
 
+function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
+
+end
 
 --Allows for predicted movement simulation on non player entities, without disrupting the player movement itself
 --FinishMove should be the best place for this, since even in case of fuckups, the rest of the movement should be fine
@@ -529,8 +521,6 @@ end
 		
 	
 	end
-
-
 ]]
 
 local movedatameta = FindMetaTable( "CMoveData" )
@@ -576,7 +566,6 @@ function ENT:BackupMoveData( mv )
 end
 
 function ENT:RestoreMoveData( mv , sv )
-	--shouldn't be possible
 	if not mv or not sv then
 		return
 	end
@@ -700,37 +689,7 @@ function ENT:OnRemove()
 end
 --stuff that should be in an autorun file but that I can't be arsed to split up to
 
-if SERVER then
-	
-	util.AddNetworkString( "pe_pickup" )
-	util.AddNetworkString( "pe_playsound" )
-	
-	--can be either called manually or from the derma when the user uses the context menu
-	
-	concommand.Add( "pe_drop" , function( ply , cmd , args , fullstr )
-		
-		if not IsValid( ply ) then
-			return
-		end
-		
-		local nwslot = args[1]
-		
-		if not nwslot then
-			return
-		end
-		
-		local slotent = ply:GetNWEntity( nwslot )
-		
-		--user tried to drop an invalid or an entity which is not a predicted entity, or doesn't have a slot assigned
-		
-		if not IsValid( slotent ) or not slotent.IsPredictedEnt or slotent:GetSlotName() == "" then
-			return
-		end
-		
-		slotent:Drop( false )
-		
-	end)
-else
+if CLIENT then
 	
 	--tells the hud to show the player the entity pickup
 	language.Add( "invalid_entity" , "Invalid Entity" )
@@ -758,16 +717,4 @@ else
 		
 		ent:EmitPESound( soundname , level , pitch , volume , chan )
 	end)
-	
-	--register a panel of type DPredictedEntManager , which will create a vertical or horizontal layout depending on cvars
-	--it will also position itself where the user wants it to with convars
-	
-	
-	--register a panel of type DPredictedEnt , which will show a rounded button with stencils, that
-	--when pressed will execute drop_pe <slotname>
-	--the button will call a callback when it's drawn , which can be overridden by a child class to show variables
-	--such as fuel or whatever
-	
-	
-	
 end

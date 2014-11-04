@@ -434,7 +434,7 @@ else
 				--TODO: if we haven't reached the hitpos yet then sway the rope with a sine wave
 				
 				local sway = Lerp( travelfraction , 4 , 1 )
-				local swayres = 16
+				local swayres = 16	--number of segments to use for the sway
 				
 				render.StartBeam( 2 )
 					render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
@@ -473,15 +473,21 @@ else
 	end
 	
 	function ENT:Draw( flags )
-		--if self:CanDraw() then
-			
-			self:DrawCSModel()
-			
-			if not self:GetIsAttached() then
-				local pos , ang = self:GetHookAttachment()
-				self:DrawHook( pos , ang )
-			end
-		--end
+		local pos , ang = self:GetCustomParentOrigin()
+		
+		--even though the calcabsoluteposition hook should already prevent this, it doesn't on other players
+		--might as well not give it the benefit of the doubt in the first place
+		if pos and ang then
+			self:SetPos( pos )
+			self:SetAngles( ang )
+		end
+		
+		self:DrawCSModel()
+		
+		if not self:GetIsAttached() then
+			local hpos , hang = self:GetHookAttachment()
+			self:DrawHook( hpos , hang )
+		end
 	end
 	
 	function ENT:DrawCSModel()
