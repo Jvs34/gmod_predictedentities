@@ -305,9 +305,9 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 	self:HandleSounds( true )
 	
 	if self:GetActive() then
+		
 		local vel = mv:GetVelocity()
 		
-
 		if mv:KeyDown( IN_JUMP ) and vel.z < self:GetJetpackSpeed() then
 
 			-- Apply constant jetpack_velocity
@@ -324,7 +324,7 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		
 		
 		
-		-- Quickly descend to do a ground slam, don't check for the velocity cap
+		-- Quickly descend to do a ground slam, don't check for the velocity cap, we want to slam down as fast as we can
 		
 		self:SetDoGroundSlam( mv:KeyDown( IN_DUCK ) )
 		
@@ -350,7 +350,8 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		
 		local move_vel = Vector( 0, 0, 0 )
 
-		local ang = mv:GetMoveAngles();	ang.p = 0
+		local ang = mv:GetMoveAngles()
+		ang.p = 0
 
 		move_vel:Add( ang:Right() * mv:GetSideSpeed() )
 		move_vel:Add( ang:Forward() * mv:GetForwardSpeed() )
@@ -426,8 +427,11 @@ function ENT:PredictedFinishMove( owner , movedata )
 end
 
 function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
-	if self:GetDoGroundSlam() and speed >= self:GetJetpackVelocity() and not inwater then
-		
+	
+	local dogroundslam = self:GetDoGroundSlam() and speed >= self:GetJetpackVelocity() and not inwater
+	self:SetDoGroundSlam( false )
+	
+	if dogroundslam then
 		local fraction = self:GetJetpackStrafeVelocity() / speed	--because the fall speed might be higher than the jetpack one
 		
 		local effect = EffectData()
