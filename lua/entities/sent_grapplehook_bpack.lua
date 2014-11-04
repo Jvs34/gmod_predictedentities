@@ -473,7 +473,7 @@ else
 	end
 	
 	function ENT:Draw( flags )
-		if self:CanDraw() then
+		--if self:CanDraw() then
 			
 			self:DrawCSModel()
 			
@@ -481,7 +481,7 @@ else
 				local pos , ang = self:GetHookAttachment()
 				self:DrawHook( pos , ang )
 			end
-		end
+		--end
 	end
 	
 	function ENT:DrawCSModel()

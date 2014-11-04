@@ -19,7 +19,8 @@ else
 end
 
 ENT.Editable = true
-ENT.InButton = 0 --set this to an unused IN_ enum and make sure it's not used by other predicted entities
+ENT.InButton = 0	--set this to an unused IN_ enum ( using a raw number is fine, as long as it's below 32 bits ) and make sure it's not used by other predicted entities
+					--if left 0 the user won't even see the key edit option
 
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
@@ -356,7 +357,10 @@ else
 			self:DrawModel()
 		end
 	end
-
+	
+	--returns whether this entity can draw, mainly used when this attaches to a player and we don't want to draw it in first person
+	--this doesn't really matter if the entity is EF_NODRAW'n
+	--[[
 	function ENT:CanDraw()
 		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer() then
 			return self:GetControllingPlayer():ShouldDrawLocalPlayer()
@@ -364,16 +368,17 @@ else
 			return true
 		end
 	end
+	]]
 
 	function ENT:Draw( flags )
-		if self:CanDraw() then
+		--if self:CanDraw() then
 			self:DrawModel()
-		end
+		--end
 	end
 	
 	--UGLEH
 	function ENT:GetMainPanel()
-		return PE_HUD
+		return PE_HUD	--return self.MainHUDPanel
 	end
 	
 	function ENT:HandleDerma()

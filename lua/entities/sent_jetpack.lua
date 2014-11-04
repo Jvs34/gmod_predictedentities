@@ -545,7 +545,7 @@ if SERVER then
 else
 
 	function ENT:Draw( flags )
-		if self:CanDraw() then
+		--if self:CanDraw() then
 			
 			local pos , ang = self:GetCustomParentOrigin()
 			
@@ -573,7 +573,7 @@ else
 			end
 			
 			self:DrawJetpackSmoke( atchpos , atchang , effectsscale )
-		end
+		--end
 	end
 	
 	--the less fuel we have, the smaller our particles will be

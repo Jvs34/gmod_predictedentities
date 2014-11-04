@@ -53,7 +53,7 @@ end
 
 derma.DefineControl( "DPredictedEntManager", "", PANEL, "DPanel" )
 
-
+--UGH, there has to be a better way then setting this
 local function CreatePEHud()
 	
 	local panel = vgui.Create( "DPredictedEntManager" )
@@ -66,4 +66,14 @@ end
 
 hook.Add( "Initialize" , "PEHud" , function()
 	PE_HUD = CreatePEHud()
+
+	--this didn't work properly in my tests, I think it was autorefresh that fucked it up
+	--welp, guess I gotta add support for that as well
+	--[[
+	local tab = scripted_ents.GetStored( "base_predictedent" )
+	if tab then
+		tab.MainHUDPanel = PE_HUD
+	end
+	]]
+
 end)
