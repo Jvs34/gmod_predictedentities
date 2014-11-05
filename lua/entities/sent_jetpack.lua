@@ -269,7 +269,7 @@ function ENT:CanFly( owner , mv )
 			return owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and self:HasFuel()
 		end
 		
-		return ( mv:KeyDown( IN_JUMP ) or mv:KeyPressed( IN_DUCK ) or mv:KeyPressed( IN_SPEED ) ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:HasFuel()
+		return ( mv:KeyDown( IN_JUMP ) or mv:KeyDown( IN_DUCK ) or mv:KeyDown( IN_SPEED ) ) and not owner:OnGround() and owner:WaterLevel() == 0 and owner:GetMoveType() == MOVETYPE_WALK and owner:Alive() and self:HasFuel()
 	end
 
 	--making it so the jetpack can also fly on its own without an owner ( in the case we want it go go nuts if the player dies or some shit )
