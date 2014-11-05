@@ -161,6 +161,14 @@ function ENT:HandleFly( predicted , owner , movedata , usercmd )
 		return
 	end
 	
+	--fixes a bug where if you set goneapeshit manually via the contextmenu and the physobj is asleep it wouldn't apply the simulated forces
+	if SERVER and not predicted and self:GetGoneApeshit() then
+		local physobj = self:GetPhysicsObject()
+		if IsValid( physobj ) and physobj:IsAsleep() then
+			physobj:Wake()
+		end
+	end
+	
 	--if we have an apeshit timeout, calm us down ( this doesn't check for infinite fuel, in case we did this manually )
 	if self:GetGoneApeshit() and self:GetGoneApeshitTime() ~= 0 and self:GetGoneApeshitTime() <= CurTime() then
 		self:SetGoneApeshit( false )
