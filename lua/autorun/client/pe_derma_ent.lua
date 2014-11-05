@@ -96,6 +96,7 @@ function PANEL:Paint( w , h )
 	local mat = self:GetEntityMaterial()
 	
 	--TODO: apply stencils
+	surface.SetDrawColor( color_white  )
 	surface.SetMaterial( mat )
 	surface.DrawTexturedRect( 0 , 0 , w , h )
 end

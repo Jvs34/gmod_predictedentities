@@ -451,7 +451,7 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 		local effect = EffectData()
 		effect:SetEntity( ply )
 		effect:SetOrigin( ply:WorldSpaceCenter() )	--apparently the player is considered in the ground in this hook and stuff doesn't spawn
-		effect:SetScale( 250 * fraction )
+		effect:SetScale( 64 )
 		util.Effect( "ThumperDust" , effect , true )	--todo, make our own effect where the particles start from the player and expand in a circle
 														--can even copy the code from c_thumper_dust
 		--self:EmitPESound( "" , nil , nil , nil , nil , true )	--find the sound smod uses when the player hits the ground

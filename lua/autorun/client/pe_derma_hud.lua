@@ -27,8 +27,8 @@ function PANEL:Think()
 end
 
 function PANEL:Paint( w , h )
-	surface.SetDrawColor( Color( 255 , 255 , 255 , 70 )  )
-	surface.DrawRect( 0 , 0 , w , h )
+	surface.SetDrawColor( color_white  )
+	surface.DrawRect( 0 , 0 , 0 , 0 )
 end
 
 function PANEL:AddPEPanel( panel )
