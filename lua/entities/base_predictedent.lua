@@ -382,7 +382,7 @@ else
 		local mypanel = vgui.Create( "DPredictedEnt" )
 		mypanel:SetSlot( self:GetSlotName() )
 		self:SetupCustomHUDElements( mypanel )
-		parentpanel:SetParent( mypanel )
+		parentpanel:AddPEPanel( mypanel )
 		return mypanel
 	end
 	

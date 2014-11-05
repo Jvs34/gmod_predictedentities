@@ -437,7 +437,7 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 		local effect = EffectData()
 		effect:SetEntity( ply )
 		effect:SetOrigin( ply:GetPos() )
-		effect:SetScale( 255 * fraction )
+		effect:SetScale( 250 )
 		util.Effect( "ThumperDust" , effect , true , true )
 		
 		ply:AnimRestartGesture( GESTURE_SLOT_JUMP, ACT_LAND, true )
@@ -814,10 +814,9 @@ else
 	
 	
 	function ENT:SetupCustomHUDElements( panel )
-		
 		--TODO: use a vertical dprogress bar, easier than having to draw this ourselves
 		panel.FuelGauge = panel:Add( "DPanel" )
-		panel.FuelGauge:SetSize( panel:GetWidth() / 3 , panel:GetHeight() )
+		panel.FuelGauge:SetSize( panel:GetWide() / 3 , panel:GetTall() )
 		panel.FuelGauge:Dock( RIGHT )
 		
 		panel.FuelGauge.FuelColorEmpty = Color( 255 , 127 ,127 , 255 )
