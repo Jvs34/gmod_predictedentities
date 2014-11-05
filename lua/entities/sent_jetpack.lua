@@ -444,7 +444,8 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 		effect:SetEntity( ply )
 		effect:SetOrigin( ply:WorldSpaceCenter() )	--apparently the player is considered in the ground in this hook and stuff doesn't spawn
 		effect:SetScale( 250 * fraction )
-		util.Effect( "ThumperDust" , effect , true )
+		util.Effect( "ThumperDust" , effect , true )	--todo, make our own effect where the particles start from the player and expand in a circle
+														--can even copy the code from c_thumper_dust
 		--self:EmitPESound( "" , nil , nil , nil , nil , true )	--find the sound smod uses when the player hits the ground
 		if SERVER then
 			--TODO: get the code from the sdk and replicate this on my own
@@ -503,7 +504,7 @@ if SERVER then
 	end
 	
 	function ENT:OnAttach( ply )
-		self:SetActive( false )
+		self:SetDoGroundSlam( false )
 		self:SetSolid( SOLID_BBOX )	--we can still be hit when on the player's back
 	end
 
@@ -817,6 +818,7 @@ else
 			if particle then
 				--only increase the time on a successful particle
 				self:SetNextParticle( UnPredictedCurTime() + 0.01 )
+				particle:SetLighting( true )
 				particle:SetCollide( true )
 				particle:SetBounce( 0.25 )
 				particle:SetVelocity( normal * self:GetJetpackSpeed() )
