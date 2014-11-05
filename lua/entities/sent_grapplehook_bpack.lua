@@ -17,6 +17,9 @@ else
 	ENT.ShowPickupNotice = true
 end
 
+ENT.MinBounds = Vector( -8 , -8 , -8 )
+ENT.MaxBounds = Vector( 8 , 8 , 8 )
+
 ENT.InButton = IN_GRENADE1
 ENT.HookMaxTime = 4	--max time in seconds the hook needs to reach the maxrange
 ENT.HookMaxRange = 10000
@@ -87,7 +90,8 @@ function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
 		--TODO: change to a dummy model and set the collision bounds and render bounds manually
-		self:SetModel( "models/thrusters/jetpack.mdl" )
+		self:SetModel( "models/props_junk/wood_crate001a.mdl" )
+		self:DrawShadow( false )
 		
 		self:SetPullSpeed( 2000 )
 		self:SetKey( 17 )	--the G key on my keyboard
@@ -350,20 +354,32 @@ if SERVER then
 	
 	--TODO: override the physics because we use a dummy model
 	
-	--[[
-		function ENT:InitPhysics()
-			--create a bbox for us and set our movetype and solid to VPHYSICS
-			--also fire the callback OnInitPhysics
+	
+	function ENT:InitPhysics()
+		if IsValid( self:GetPhysicsObject() ) then
+			return
 		end
-		
-		function ENT:RemovePhysics()
-			--destroy the physobj and set the solid to BBOX, so we can be shot at like the jetpack
-			--also fire the callback OnRemovePhysics
-		end
-	]]
+
+		self:PhysicsInitBox( self.MinBounds , self.MaxBounds )
+		self:SetCollisionBounds( self.MinBounds , self.MaxBounds )
+		self:SetMoveType( MOVETYPE_VPHYSICS )
+		self:SetSolid( SOLID_VPHYSICS )
+		self:PhysWake()
+		self:SetLagCompensated( true )
+		self:OnInitPhysics( self:GetPhysicsObject() )
+	end
+	
+	function ENT:RemovePhysics()
+		self:PhysicsDestroy()
+		self:SetMoveType( MOVETYPE_NONE )
+		self:SetSolid( SOLID_NONE )
+		self:SetLagCompensated( false )--lag compensation works really lame with parenting due to vinh's fix to players being lag compensated in vehicles
+		self:OnRemovePhysics()
+	end
 	
 	function ENT:OnInitPhysics( physobj )
 		self:StartMotionController()
+		physobj:SetMass( 120 )
 	end
 
 	function ENT:OnRemovePhysics()
@@ -387,9 +403,10 @@ else
 		--create all the models, hook , our custom one, the pulley etc
 		self.CSModels = {}
 		
-		--[[
-		self.CSModels["bodybase"] = ClientsideModel( "" )
-		]]
+		
+		
+		self.CSModels["bodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
+		self.CSModels["bodybase"]:SetNoDraw( true )
 		
 		self.CSModels.Hook = {}
 		
@@ -482,7 +499,7 @@ else
 			self:SetAngles( ang )
 		end
 		
-		self:DrawCSModel()
+		self:DrawCSModel( self:GetPos() , self:GetAngles() )
 		
 		if not self:GetIsAttached() then
 			local hpos , hang = self:GetHookAttachment()
@@ -490,9 +507,10 @@ else
 		end
 	end
 	
-	function ENT:DrawCSModel()
-		--draw
-		self:DrawModel()
+	function ENT:DrawCSModel( pos , ang )
+		self.CSModels["bodybase"]:SetPos( pos )
+		self.CSModels["bodybase"]:SetAngles( ang )
+		self.CSModels["bodybase"]:DrawModel()
 	end
 	
 	function ENT:DrawFirstPerson( ply , vm )
