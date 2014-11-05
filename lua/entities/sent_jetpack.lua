@@ -426,6 +426,12 @@ function ENT:PredictedFinishMove( owner , movedata )
 	end
 end
 
+local	SF_PHYSEXPLOSION_NODAMAGE			=	0x0001
+local	SF_PHYSEXPLOSION_PUSH_PLAYER		=	0x0002
+local	SF_PHYSEXPLOSION_RADIAL				=	0x0004
+local	SF_PHYSEXPLOSION_TEST_LOS			=	0x0008
+local	SF_PHYSEXPLOSION_DISORIENT_PLAYER	=	0x0010
+
 function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 	
 	local dogroundslam = self:GetDoGroundSlam() and speed >= self:GetJetpackVelocity() and not inwater
@@ -436,9 +442,27 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 		
 		local effect = EffectData()
 		effect:SetEntity( ply )
-		effect:SetOrigin( ply:GetPos() )
-		effect:SetScale( 250 )
-		util.Effect( "ThumperDust" , effect , true , true )
+		effect:SetOrigin( ply:WorldSpaceCenter() )	--apparently the player is considered in the ground in this hook and stuff doesn't spawn
+		effect:SetScale( 250 * fraction )
+		util.Effect( "ThumperDust" , effect , true )
+		--self:EmitPESound( "" , nil , nil , nil , nil , true )	--find the sound smod uses when the player hits the ground
+		if SERVER then
+			--TODO: get the code from the sdk and replicate this on my own
+			ply:LagCompensation( true )
+			
+			local physexpl = ents.Create( "env_physexplosion" )
+			if IsValid( physexpl ) then
+				physexpl:SetPos( ply:WorldSpaceCenter() )
+				physexpl:SetKeyValue( "spawnflags" , bit.bor( SF_PHYSEXPLOSION_NODAMAGE , SF_PHYSEXPLOSION_RADIAL , SF_PHYSEXPLOSION_TEST_LOS ) )
+				physexpl:SetKeyValue( "magnitude" , 500 * fraction )
+				physexpl:SetKeyValue( "radius" , 250 * fraction )
+				physexpl:Spawn()
+				physexpl:Fire( "Explode" , "" , 0 )
+				physexpl:Fire( "Kill" , "" , 0.1 )
+			end
+			
+			ply:LagCompensation( false )
+		end
 		
 		ply:AnimRestartGesture( GESTURE_SLOT_JUMP, ACT_LAND, true )
 		return true	--override the fall damage and other hooks
@@ -814,7 +838,7 @@ else
 	
 	
 	function ENT:SetupCustomHUDElements( panel )
-		--TODO: use a vertical dprogress bar, easier than having to draw this ourselves
+		--TODO: use a vertical dprogress bar, easier than having to draw this ourselves, is there even one?
 		panel.FuelGauge = panel:Add( "DPanel" )
 		panel.FuelGauge:SetSize( panel:GetWide() / 3 , panel:GetTall() )
 		panel.FuelGauge:Dock( RIGHT )
