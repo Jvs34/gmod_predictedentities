@@ -302,6 +302,16 @@ else
 		return LocalPlayer() == self:GetControllingPlayer()
 	end
 	
+	function ENT:IsLocalPlayerUsingMySlot()
+		local ent = LocalPlayer():GetNWEntity( self:GetSlotName() )
+			
+		if not IsValid( ent ) then
+			return false
+		end
+			
+		return ent ~= self
+	end
+	
 	--TODO: when the update gets pushed with the new behaviour, change this to self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
 	
 	function ENT:HandlePrediction()
@@ -365,33 +375,39 @@ else
 	end
 	
 	function ENT:HandleDerma()
-		if IsValid( self:GetMainPanel() ) then
+		--we only want to do these operations if the player does not have another entity in this slot
+		if IsValid( self:GetMainPanel() ) and not self:IsLocalPlayerUsingMySlot() then
 			if self:IsCarriedByLocalPlayer() then
-				if not self:GetMainPanel():HasSlot( self:GetSlotName() ) then
-					self:RegisterHUDInternal( self:GetMainPanel() )
-				end
+				self:RegisterHUDInternal( self:GetMainPanel() )
 			else
-				if self:GetMainPanel():HasSlot( self:GetSlotName() ) then
-					self:GetMainPanel():RemovePanelBySlot( self:GetSlotName() )
-				end
+				self:RemoveHUDPanel( self:GetMainPanel() )
 			end
 		end
 	end
 
 	function ENT:RegisterHUDInternal( parentpanel )
+		if parentpanel:HasSlot( self:GetSlotName() ) then
+			return
+		end
+		
 		local mypanel = vgui.Create( "DPredictedEnt" )
 		mypanel:SetSlot( self:GetSlotName() )
 		self:SetupCustomHUDElements( mypanel )
 		parentpanel:AddPEPanel( mypanel )
-		return mypanel
 	end
 	
+	function ENT:RemoveHUDPanel( panel )
+		if not panel:HasSlot( self:GetSlotName() ) then
+			return
+		end
+		
+		panel:RemovePanelBySlot( self:GetSlotName() )
+	end
 	--use this to add custom elements to the entity button in the HUD
 	
 	function ENT:SetupCustomHUDElements( panel )
 		
 	end
-	
 end
 
 function ENT:IsKeyDown( mv )
@@ -680,13 +696,12 @@ end
 
 function ENT:OnRemove()
 	if CLIENT then
-		if IsValid( self:GetMainPanel() ) then
-			if self:GetMainPanel():HasSlot( self:GetSlotName() ) then
-				self:GetMainPanel():RemovePanelBySlot( self:GetSlotName() )
-			end
+		if IsValid( self:GetMainPanel() ) and not self:IsLocalPlayerUsingMySlot() then
+			self:RemoveHUDPanel( self:GetMainPanel() )
 		end
 	end
 end
+
 --stuff that should be in an autorun file but that I can't be arsed to split up to
 
 if CLIENT then
