@@ -50,10 +50,10 @@ sound.Add( {
 
 sound.Add( {
 	name = "grapplehook.launch",
-	channel = CHAN_ITEM,
-	volume = 0.7,
+	channel = CHAN_WEAPON,
+	volume = 1,
 	level = 75,
-	sound = "^ambient/machines/catapult_throw.wav"
+	sound = "ambient/machines/catapult_throw.wav"
 })
 
 sound.Add( {
@@ -177,7 +177,7 @@ function ENT:HandleDetach( predicted , mv )
 	
 	if self:GetIsAttached() then 
 		if self:ShouldStopPulling( mv ) or self:IsRopeObstructed() then
-			--self:Detach( true )
+			self:Detach( true )
 			return
 		end
 	end
@@ -297,7 +297,7 @@ function ENT:FireHook()
 		self:SetIsAttached( true )
 		self:SetGrappleNormal( self:GetDirection() )
 		
-		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_WEAPON , true )
+		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_BODY , true )
 	end
 
 end
@@ -491,24 +491,26 @@ else
 			render.SetMaterial( self.CableMaterial )
 			
 			if dosway then
-				local sway = Lerp( travelfraction , 4 , 1 )
+				local sway = Lerp( travelfraction , 4 , 0 )
 				
 				local lengthfraction = ( endgrapplepos - startgrapplepos ):Length() / self.HookMaxRange
 				
-				local segments = math.floor( Lerp( lengthfraction , 128 , 32 ) )
+				local segments = math.floor( Lerp( lengthfraction , 64 , 16 ) )
 				local ang = ( endgrapplepos - startgrapplepos ):Angle()
 				local swayres = segments	--number of segments to use for the sway
 				
 				
-				render.StartBeam( swayres + 1 )
+				render.StartBeam( swayres + 2 )
 					render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
-					for i = 0 , swayres - 1 do
+					for i = 1 , swayres do
 						local frac = i / ( swayres - 1 )
 						local curendpos = Lerp( frac , startgrapplepos , endgrapplepos )
-						--swayres : 1 = i : x
-						local swayvec = ang:Right() * math.sin( UnPredictedCurTime() * 1000 * frac ) * sway
+						local t = UnPredictedCurTime() * 25 + 50 * frac
+						local swayvec = ang:Right() * math.sin( t ) * sway
+						swayvec = swayvec + ang:Up() * math.cos( t ) * sway
 						render.AddBeam( curendpos + swayvec , 0.5 , 3 , color_white )
 					end
+					render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
 				render.EndBeam()
 			else
 				

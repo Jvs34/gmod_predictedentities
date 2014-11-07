@@ -662,6 +662,11 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 	end
 	
 	if SERVER then
+	
+		if game.SinglePlayer() then
+			predicted = false
+		end
+		
 		local plys = {}
 		if IsValid( activator ) and not predicted then
 			plys = activator
