@@ -696,8 +696,10 @@ end
 
 function ENT:OnRemove()
 	if CLIENT then
-		if IsValid( self:GetMainPanel() ) and not self:IsLocalPlayerUsingMySlot() then
-			self:RemoveHUDPanel( self:GetMainPanel() )
+		if IsValid( LocalPlayer() ) then
+			if IsValid( self:GetMainPanel() ) and not self:IsLocalPlayerUsingMySlot() then
+				self:RemoveHUDPanel( self:GetMainPanel() )
+			end
 		end
 	end
 end

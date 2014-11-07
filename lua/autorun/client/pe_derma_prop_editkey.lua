@@ -25,8 +25,8 @@ function PANEL:Setup( vars )
 	end
 	
 	--DBinder doesn't have an onchange callback, so we must do this little hack to add it
-	ctrl.SetValue = function( self , val )
-		self:SetSelected( val )
+	ctrl.SetValue = function( ctrl , val )
+		ctrl:SetSelected( val )
 		self:ValueChanged( val )
 	end
 

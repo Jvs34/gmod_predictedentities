@@ -176,12 +176,17 @@ function ENT:HandleDetach( predicted , mv )
 	end
 	
 	if self:GetIsAttached() then 
-		if self:GetAttachTime() < CurTime() then
-			if self:ShouldStopPulling( mv ) then
-				self:Detach( true )
-			end
+		if self:ShouldStopPulling( mv ) or self:IsRopeObstructed() then
+			--self:Detach( true )
+			return
 		end
 	end
+end
+
+function ENT:IsRopeObstructed()
+	--local result = self:DoHookTrace( true )
+	
+	return false
 end
 
 function ENT:HandleSounds( predicted )
@@ -209,6 +214,21 @@ function ENT:HandleSounds( predicted )
 				if IsValid( self:GetControllingPlayer() ) then
 					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , true , self:GetControllingPlayer() )
 				end
+				
+				local tr = self:DoHookTrace( true )
+				
+				local e = EffectData()
+				e:SetOrigin( tr.HitPos )
+				e:SetStart( tr.StartPos )
+				e:SetSurfaceProp( tr.SurfaceProps )
+				e:SetDamageType( DMG_BULLET )
+				e:SetHitBox( tr.HitBox )
+				if CLIENT then
+					e:SetEntity( tr.Entity )
+				else
+					e:SetEntIndex( tr.Entity:EntIndex() )
+				end
+				util.Effect( "Impact", e )
 				
 				--[[
 				--precache sound doesn't add the sound to the sound precache list, and thus EmitSound whines 
@@ -289,8 +309,25 @@ function ENT:GetDirection()
 	return ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):GetNormalized()
 end
 
-function ENT:DoHookTrace()
+function ENT:DoHookTrace( checkdetach )
 	--TODO: allow hooking to entities that never move, maybe trough the callback?
+	local startpos = self:GetPos()
+	local normal = self:GetUp()
+	
+	if checkdetach then
+		normal = self:GetDirection()
+	end
+	
+	local endpos = startpos + normal * self.HookMaxRange
+	
+	if IsValid( self:GetControllingPlayer() ) then
+		if not checkdetach then
+			normal = self:GetControllingPlayer():GetAimVector()
+		end
+		startpos = self:GetControllingPlayer():EyePos()
+		endpos = startpos + normal * self.HookMaxRange
+	end
+	
 	local tr = {
 		--TODO: custom filter callback?
 		filter = {
@@ -298,8 +335,8 @@ function ENT:DoHookTrace()
 			self,
 		},
 		mask = MASK_PLAYERSOLID_BRUSHONLY,	--anything that stops player movement stops the trace
-		start = self:GetControllingPlayer():EyePos(),
-		endpos = self:GetControllingPlayer():EyePos() + self:GetControllingPlayer():GetAimVector() * self.HookMaxRange,
+		start = startpos,
+		endpos = endpos,
 		mins = self.HookHullMins,
 		maxs = self.HookHullMax
 	}
@@ -409,7 +446,13 @@ else
 		self.CSModels["bodybase"]:SetNoDraw( true )
 		
 		self.CSModels.Hook = {}
+		self.CSModels.Hook["hook"] = ClientsideModel( "models/hunter/misc/cone1x1.mdl" )
+		self.CSModels.Hook["hook"]:SetNoDraw( true )
+		self.CSModels.Hook["hook"]:SetMaterial( "phoenix_storms/cube" )
 		
+		local hookmatrix = Matrix()
+		hookmatrix:Scale( Vector( 0.5 , 0.5 , 1 ) * 0.05 )
+		self.CSModels.Hook["hook"]:EnableMatrix( "RenderMultiply" , hookmatrix )
 	end
 	
 	function ENT:RemoveModels()
@@ -448,18 +491,27 @@ else
 			render.SetMaterial( self.CableMaterial )
 			
 			if dosway then
-				--TODO: if we haven't reached the hitpos yet then sway the rope with a sine wave
-				
 				local sway = Lerp( travelfraction , 4 , 1 )
-				local swayres = 16	--number of segments to use for the sway
 				
-				render.StartBeam( 2 )
+				local lengthfraction = ( endgrapplepos - startgrapplepos ):Length() / self.HookMaxRange
+				
+				local segments = math.floor( Lerp( lengthfraction , 128 , 32 ) )
+				local ang = ( endgrapplepos - startgrapplepos ):Angle()
+				local swayres = segments	--number of segments to use for the sway
+				
+				
+				render.StartBeam( swayres + 1 )
 					render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
-					render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
+					for i = 0 , swayres - 1 do
+						local frac = i / ( swayres - 1 )
+						local curendpos = Lerp( frac , startgrapplepos , endgrapplepos )
+						--swayres : 1 = i : x
+						local swayvec = ang:Right() * math.sin( UnPredictedCurTime() * 1000 * frac ) * sway
+						render.AddBeam( curendpos + swayvec , 0.5 , 3 , color_white )
+					end
 				render.EndBeam()
-				
 			else
-			
+				
 				render.StartBeam( 2 )
 					render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
 					render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
@@ -484,6 +536,12 @@ else
 				return
 			end
 		end
+		
+		local hookang = ang * 1
+		hookang:RotateAroundAxis( ang:Right() , -90 )
+		self.CSModels.Hook["hook"]:SetPos( pos )
+		self.CSModels.Hook["hook"]:SetAngles( hookang )
+		self.CSModels.Hook["hook"]:DrawModel()
 		
 		
 		--draw

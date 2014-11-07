@@ -837,7 +837,7 @@ else
 				particle:SetEndSize( 64 * scale )
 				particle:SetRoll( math.Rand( -10 , 10  ) )
 				particle:SetRollDelta( math.Rand( -0.2 , 0.2 ) )
-				particle:SetColor( 200 , 200 , 200 )
+				particle:SetColor( 255 , 255 , 255 )
 			end
 		end
 		
