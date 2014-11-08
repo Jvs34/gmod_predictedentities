@@ -29,13 +29,13 @@ ENT.HookHullMaxs = ENT.HookHullMins * -1
 
 --TODO: position ourselves on the player's belt
 ENT.AttachmentInfo = {
-	BoneName = "ValveBiped.Bip01_Spine2",
+	BoneName = "ValveBiped.Bip01_Spine1",
 	OffsetVec = Vector( 0 , 2.5 , 0 ),
 	OffsetAng = Angle( 0 , 90 , -90 ),
 }
 
 ENT.HookAttachmentInfo = {
-	OffsetVec = Vector( 8 , 0 , 2 ),
+	OffsetVec = Vector( 8 , 0 , 2.4 ),
 	OffsetAng = angle_zero,
 }
 
@@ -94,6 +94,7 @@ function ENT:Initialize()
 		self:SetModel( "models/props_junk/wood_crate001a.mdl" )
 		self:DrawShadow( false )
 		
+		self:SetPullMode( 1 )
 		self:SetPullSpeed( 2000 )
 		self:SetKey( 17 )	--the G key on my keyboard
 		self:InitPhysics()
@@ -110,12 +111,15 @@ function ENT:SetupDataTables()
 	
 	self:DefineNWVar( "Float" , "AttachTime" )
 	self:DefineNWVar( "Float" , "AttachStart" )
+	self:DefineNWVar( "Float" , "PullSpeed" )
+	self:DefineNWVar( "Int" , "PullMode" , true , "Air Resistance" , 1 , 2 )
+	
 	self:DefineNWVar( "Vector" , "AttachedTo" )
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
 	self:DefineNWVar( "Entity" , "HookHelper" )
-	self:DefineNWVar( "Float" , "PullSpeed" )
+	
 end
 
 
@@ -268,7 +272,11 @@ function ENT:PredictedMove( owner , mv )
 		mv:SetSideSpeed( 0 )
 		mv:SetUpSpeed( 0 )
 		--TODO: clamp the velocity
-		mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * self:GetPullSpeed() * FrameTime() )
+		if self:GetPullMode() == 2 then
+			mv:SetVelocity( self:GetDirection() * self:GetPullSpeed() )
+		else
+			mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * self:GetPullSpeed() * FrameTime() )
+		end
 	end
 end
 
@@ -571,7 +579,7 @@ else
 			render.SetMaterial( self.CableMaterial )
 			
 			if dosway and self:IsCarriedByLocalPlayer() then
-				local sway = Lerp( travelfraction , 4 , 0 )
+				local sway = Lerp( travelfraction , 2 , 0 )
 				
 				local lengthfraction = ( endgrapplepos - startgrapplepos ):Length() / self.HookMaxRange
 				
