@@ -8,7 +8,7 @@ AddCSLuaFile()
 DEFINE_BASECLASS( "base_predictedent" )
 
 ENT.Spawnable = true
-ENT.PrintName = "Grappling hook Backpack"
+ENT.PrintName = "Grappling hook Belt"
 
 if CLIENT then
 	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
@@ -220,18 +220,17 @@ function ENT:HandleSounds( predicted )
 					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , true , self:GetControllingPlayer() )
 				end
 				
-				local tr = self:DoHookTrace( true )
 				if IsFirstTimePredicted() then
 					local e = EffectData()
-					e:SetOrigin( tr.HitPos )
-					e:SetStart( tr.StartPos )
-					e:SetSurfaceProp( tr.SurfaceProps )
+					e:SetOrigin( self:GetAttachedTo() - self:GetDirection() * -1 )
+					e:SetStart( self:GetAttachedTo() )
+					e:SetSurfaceProp( 48 )
 					e:SetDamageType( DMG_BULLET )
-					e:SetHitBox( tr.HitBox )
+					e:SetHitBox( 0 )
 					if CLIENT then
-						e:SetEntity( tr.Entity )
+						e:SetEntity( game.GetWorld() )
 					else
-						e:SetEntIndex( tr.Entity:EntIndex() )
+						e:SetEntIndex( 0 )
 					end
 					util.Effect( "Impact", e )
 				end

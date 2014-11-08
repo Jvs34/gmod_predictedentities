@@ -442,16 +442,18 @@ local	SF_PHYSEXPLOSION_DISORIENT_PLAYER	=	0x0010
 
 function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 	
-	local dogroundslam = self:GetDoGroundSlam() and speed >= self:GetJetpackVelocity() and not inwater
+	local dogroundslam = self:GetDoGroundSlam()
 	self:SetDoGroundSlam( false )
 	
-	if dogroundslam then
+	if dogroundslam and speed > 500 then
+		
+		ply:EmitSound( "Player.FallDamage" )
 		local fraction = self:GetJetpackStrafeVelocity() / speed	--because the fall speed might be higher than the jetpack one
 		
 		local effect = EffectData()
 		effect:SetEntity( ply )
 		effect:SetOrigin( ply:WorldSpaceCenter() )	--apparently the player is considered in the ground in this hook and stuff doesn't spawn
-		effect:SetScale( 64 )
+		effect:SetScale( 128 )
 		util.Effect( "ThumperDust" , effect , true )	--todo, make our own effect where the particles start from the player and expand in a circle
 														--can even copy the code from c_thumper_dust
 		--self:EmitPESound( "" , nil , nil , nil , nil , true )	--find the sound smod uses when the player hits the ground
@@ -464,7 +466,7 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 				physexpl:SetPos( ply:WorldSpaceCenter() )
 				physexpl:SetKeyValue( "spawnflags" , bit.bor( SF_PHYSEXPLOSION_NODAMAGE , SF_PHYSEXPLOSION_RADIAL , SF_PHYSEXPLOSION_TEST_LOS ) )
 				physexpl:SetKeyValue( "magnitude" , 500 * fraction )
-				physexpl:SetKeyValue( "radius" , 250 * fraction )
+				physexpl:SetKeyValue( "radius" , 250 )
 				physexpl:Spawn()
 				physexpl:Fire( "Explode" , "" , 0 )
 				physexpl:Fire( "Kill" , "" , 0.1 )
