@@ -24,8 +24,8 @@ ENT.MaxBounds = Vector( 10 , 8 , 4.5 )
 ENT.InButton = IN_GRENADE1
 ENT.HookMaxTime = 4	--max time in seconds the hook needs to reach the maxrange
 ENT.HookMaxRange = 10000
-ENT.HookHullMins = Vector( -0.5 , -1.6 , -1.6 )
-ENT.HookHullMaxs = Vector( 1.6 , 1.6 , 2 )
+ENT.HookHullMins = Vector( -2 , -2 , -2 )
+ENT.HookHullMaxs = ENT.HookHullMins * -1
 
 --TODO: position ourselves on the player's belt
 ENT.AttachmentInfo = {
