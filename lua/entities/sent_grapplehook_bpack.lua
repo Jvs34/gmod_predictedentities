@@ -112,7 +112,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "AttachTime" )
 	self:DefineNWVar( "Float" , "AttachStart" )
 	self:DefineNWVar( "Float" , "PullSpeed" )
-	self:DefineNWVar( "Int" , "PullMode" , true , "Air Resistance" , 1 , 2 )
+	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 2 )
 	
 	self:DefineNWVar( "Vector" , "AttachedTo" )
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
