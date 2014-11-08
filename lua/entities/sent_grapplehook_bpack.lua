@@ -13,28 +13,29 @@ ENT.PrintName = "Grappling hook Backpack"
 if CLIENT then
 	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
 	ENT.CableMaterial = Material( "cable/cable2" )
+	ENT.WireFrame = Material( "models/wireframe" )
 else
 	ENT.ShowPickupNotice = true
 end
 
-ENT.MinBounds = Vector( -8 , -8 , -8 )
-ENT.MaxBounds = Vector( 8 , 8 , 8 )
+ENT.MinBounds = Vector( -8.3 , -7.8 , 0 )
+ENT.MaxBounds = Vector( 10 , 8 , 4.5 )
 
 ENT.InButton = IN_GRENADE1
 ENT.HookMaxTime = 4	--max time in seconds the hook needs to reach the maxrange
 ENT.HookMaxRange = 10000
-ENT.HookHullMins = Vector( -2 , -2 , -2 )
-ENT.HookHullMaxs = Vector( 2 , 2 , 2 )
+ENT.HookHullMins = Vector( -0.5 , -1.6 , -1.6 )
+ENT.HookHullMaxs = Vector( 1.6 , 1.6 , 2 )
 
 --TODO: position ourselves on the player's belt
 ENT.AttachmentInfo = {
 	BoneName = "ValveBiped.Bip01_Spine2",
-	OffsetVec = Vector( 3 , -5.6 , 0 ),
-	OffsetAng = Angle( 180 , 90 , -90 ),
+	OffsetVec = Vector( 0 , 2.5 , 0 ),
+	OffsetAng = Angle( 0 , 90 , -90 ),
 }
 
 ENT.HookAttachmentInfo = {
-	OffsetVec = vector_origin,
+	OffsetVec = Vector( 8 , 0 , 2 ),
 	OffsetAng = angle_zero,
 }
 
@@ -216,19 +217,20 @@ function ENT:HandleSounds( predicted )
 				end
 				
 				local tr = self:DoHookTrace( true )
-				
-				local e = EffectData()
-				e:SetOrigin( tr.HitPos )
-				e:SetStart( tr.StartPos )
-				e:SetSurfaceProp( tr.SurfaceProps )
-				e:SetDamageType( DMG_BULLET )
-				e:SetHitBox( tr.HitBox )
-				if CLIENT then
-					e:SetEntity( tr.Entity )
-				else
-					e:SetEntIndex( tr.Entity:EntIndex() )
+				if IsFirstTimePredicted() then
+					local e = EffectData()
+					e:SetOrigin( tr.HitPos )
+					e:SetStart( tr.StartPos )
+					e:SetSurfaceProp( tr.SurfaceProps )
+					e:SetDamageType( DMG_BULLET )
+					e:SetHitBox( tr.HitBox )
+					if CLIENT then
+						e:SetEntity( tr.Entity )
+					else
+						e:SetEntIndex( tr.Entity:EntIndex() )
+					end
+					util.Effect( "Impact", e )
 				end
-				util.Effect( "Impact", e )
 				
 				--[[
 				--precache sound doesn't add the sound to the sound precache list, and thus EmitSound whines 
@@ -338,7 +340,7 @@ function ENT:DoHookTrace( checkdetach )
 		start = startpos,
 		endpos = endpos,
 		mins = self.HookHullMins,
-		maxs = self.HookHullMax
+		maxs = self.HookHullMaxs
 	}
 	return util.TraceHull( tr )
 end
@@ -440,23 +442,101 @@ else
 		--create all the models, hook , our custom one, the pulley etc
 		self.CSModels = {}
 		
-		
+		local bodybasematrix = Matrix()
+		bodybasematrix:Scale( Vector( 0.25 , 0.25 , 0.5 ) )
 		
 		self.CSModels["bodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
 		self.CSModels["bodybase"]:SetNoDraw( true )
+		self.CSModels["bodybase"]:EnableMatrix( "RenderMultiply" , bodybasematrix )
 		
-		self.CSModels.Hook = {}
-		self.CSModels.Hook["hook"] = ClientsideModel( "models/hunter/misc/cone1x1.mdl" )
-		self.CSModels.Hook["hook"]:SetNoDraw( true )
-		self.CSModels.Hook["hook"]:SetMaterial( "phoenix_storms/cube" )
+		local backbasematrix = Matrix()
+		backbasematrix:Scale( Vector( 0.25 , 0.25 , 0.5 ) )
+		backbasematrix:SetAngles( Angle( 0 , 180 , 0 ) )
+		
+		self.CSModels["backbodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
+		self.CSModels["backbodybase"]:SetNoDraw( true )
+		self.CSModels["backbodybase"]:EnableMatrix( "RenderMultiply" , backbasematrix )
+		
 		
 		local hookmatrix = Matrix()
-		hookmatrix:Scale( Vector( 0.5 , 0.5 , 1 ) * 0.05 )
+		hookmatrix:SetAngles( Angle( 90 , 0 , 0 ) )
+		hookmatrix:Scale( Vector( 1 , 1 , 0.1 ) / 4 )
+		
+		self.CSModels.Hook = {}
+		self.CSModels.Hook["hook"] = ClientsideModel( "models/props_lab/jar01b.mdl" )
+		self.CSModels.Hook["hook"]:SetNoDraw( true )
 		self.CSModels.Hook["hook"]:EnableMatrix( "RenderMultiply" , hookmatrix )
+		
+		local hookgibmatrixleft = Matrix()
+		hookgibmatrixleft:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+		hookgibmatrixleft:SetAngles( Angle( -45 + 90 , 0 , 90 ) )
+		hookgibmatrixleft:SetTranslation( Vector( 0.5 , 0 , -1 ) )
+		self.CSModels.Hook["hookgibleft"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
+		self.CSModels.Hook["hookgibleft"]:SetNoDraw( true )
+		self.CSModels.Hook["hookgibleft"]:EnableMatrix( "RenderMultiply" , hookgibmatrixleft )
+
+		local hookgibmatrixright = Matrix()
+		hookgibmatrixright:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+		hookgibmatrixright:SetAngles( Angle( 0 , -45 , 0 ) )
+		hookgibmatrixright:SetTranslation( Vector( 0.5 , -1 , 0 ) )
+		self.CSModels.Hook["hookgibright"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
+		self.CSModels.Hook["hookgibright"]:SetNoDraw( true )
+		self.CSModels.Hook["hookgibright"]:EnableMatrix( "RenderMultiply" , hookgibmatrixright )
+		
+		local hookgibmatrixup = Matrix()
+		hookgibmatrixup:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+		hookgibmatrixup:SetAngles( Angle( -45 , 0 , -90 ) )
+		hookgibmatrixup:SetTranslation( Vector( 0.5, 0 , 1 ) )
+		self.CSModels.Hook["hookgibup"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
+		self.CSModels.Hook["hookgibup"]:SetNoDraw( true )
+		self.CSModels.Hook["hookgibup"]:EnableMatrix( "RenderMultiply" , hookgibmatrixup )
+		
+		local hookgibmatrixdown = Matrix()
+		hookgibmatrixdown:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+		hookgibmatrixdown:SetAngles( Angle( 0 , 90 - 45 , 180 ) )
+		hookgibmatrixdown:SetTranslation( Vector( 0.5, 1 , 0 ) )
+		self.CSModels.Hook["hookgibdown"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
+		self.CSModels.Hook["hookgibdown"]:SetNoDraw( true )
+		self.CSModels.Hook["hookgibdown"]:EnableMatrix( "RenderMultiply" , hookgibmatrixdown )
 	end
+	
+	--[[
+	
+				{
+					model = "models/props_lab/jar01b.mdl",
+					transform = {Vector(0,0,0), Angle(0,0,0), Vector(1,1,0.1)/2},
+
+				},
+				{
+					model = "models/Gibs/manhack_gib05.mdl",
+					transform = {Vector(0,2.3,1),Angle(-45,90,90), Vector(1,1,5)/3},
+
+				},
+				{
+					model = "models/Gibs/manhack_gib05.mdl",
+					transform = {Vector(0,-2.3,1),Angle(-45,-90,90), Vector(1,1,5)/3},
+
+				},
+				{
+					model = "models/Gibs/manhack_gib05.mdl",
+					transform = {Vector(-2.3,0,1),Angle(-45,180,90), Vector(1,1,5)/3},
+
+				},
+				{
+					model = "models/Gibs/manhack_gib05.mdl",
+					transform = {Vector(2.3,0,1),Angle(-45,0,90), Vector(1,1,5)/3},
+
+				},
+	]]
 	
 	function ENT:RemoveModels()
 		for i , v in pairs( self.CSModels ) do
+			if IsValid( v ) then
+				v:Remove()
+			end
+		end
+		
+		for i , v in pairs( self.CSModels.Hook ) do
 			if IsValid( v ) then
 				v:Remove()
 			end
@@ -490,7 +570,7 @@ else
 			
 			render.SetMaterial( self.CableMaterial )
 			
-			if dosway then
+			if dosway and self:IsCarriedByLocalPlayer() then
 				local sway = Lerp( travelfraction , 4 , 0 )
 				
 				local lengthfraction = ( endgrapplepos - startgrapplepos ):Length() / self.HookMaxRange
@@ -505,7 +585,7 @@ else
 					for i = 1 , swayres do
 						local frac = i / ( swayres - 1 )
 						local curendpos = Lerp( frac , startgrapplepos , endgrapplepos )
-						local t = UnPredictedCurTime() * 25 + 50 * frac
+						local t = UnPredictedCurTime() * 25 + 50 * frac --+ math.random()
 						local swayvec = ang:Right() * math.sin( t ) * sway
 						swayvec = swayvec + ang:Up() * math.cos( t ) * sway
 						render.AddBeam( curendpos + swayvec , 0.5 , 3 , color_white )
@@ -534,19 +614,17 @@ else
 		end
 		
 		for i , v in pairs( self.CSModels.Hook ) do
-			if not IsValid( v ) then
-				return
+			if IsValid( v ) then
+				v:SetPos( pos )
+				v:SetAngles( ang )
+				v:DrawModel()
 			end
 		end
 		
-		local hookang = ang * 1
-		hookang:RotateAroundAxis( ang:Right() , -90 )
-		self.CSModels.Hook["hook"]:SetPos( pos )
-		self.CSModels.Hook["hook"]:SetAngles( hookang )
-		self.CSModels.Hook["hook"]:DrawModel()
-		
-		
-		--draw
+		--[[
+		render.SetMaterial( self.WireFrame )
+		render.DrawBox( pos, ang, self.HookHullMins, self.HookHullMaxs, color_white, true )
+		]]
 	end
 	
 	function ENT:Draw( flags )
@@ -568,9 +646,18 @@ else
 	end
 	
 	function ENT:DrawCSModel( pos , ang )
-		self.CSModels["bodybase"]:SetPos( pos )
-		self.CSModels["bodybase"]:SetAngles( ang )
-		self.CSModels["bodybase"]:DrawModel()
+		for i , v in pairs( self.CSModels ) do
+			if IsValid( v ) then	--we may encounter nested tables but it doesn't matter because they don't have .IsValid
+				v:SetPos( pos )
+				v:SetAngles( ang )
+				v:DrawModel()
+			end
+		end
+		
+		--[[
+		render.SetMaterial( self.WireFrame )
+		render.DrawBox( pos, ang, self.MinBounds , self.MaxBounds, color_white, true )
+		]]
 	end
 	
 	function ENT:DrawFirstPerson( ply , vm )

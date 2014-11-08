@@ -695,7 +695,9 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		net.Send( plys )
 		
 	else
-		self:EmitSound( soundname , level , pitch , volume , chan )
+		if predicted and IsFirstTimePredicted() then
+			self:EmitSound( soundname , level , pitch , volume , chan )
+		end
 	end
 end
 
