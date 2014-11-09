@@ -112,6 +112,8 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "AttachTime" )
 	self:DefineNWVar( "Float" , "AttachStart" )
 	self:DefineNWVar( "Float" , "PullSpeed" )
+	self:DefineNWVar( "Float" , "HookTraveledFraction" )
+	
 	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 2 )
 	
 	self:DefineNWVar( "Vector" , "AttachedTo" )
@@ -124,7 +126,6 @@ end
 
 
 function ENT:Think()
-	
 	self:HandleHookHelper( false )
 	
 	if not IsValid( self:GetControllingPlayer() ) then
@@ -148,12 +149,15 @@ end
 function ENT:Detach( forced )
 	self:SetIsAttached( false )
 	self:SetAttachTime( CurTime() )
-	self:SetAttachStart( CurTime() )
-	self:SetNextFire( CurTime() + ( forced and 0.5 or 1 ) )
+	
+	local returntime = Lerp( self:GetHookTraveledFraction() , 0 , self.HookMaxTime )
+	self:SetAttachStart( CurTime() + returntime )
+	self:SetNextFire( CurTime() + returntime )
 	self:SetAttachSoundPlayed( false )
 end
 
 function ENT:HandleHookHelper( predicted )
+	
 	if CLIENT then
 		return
 	end
@@ -180,6 +184,18 @@ function ENT:HandleDetach( predicted , mv )
 		return
 	end
 	
+	if self:GetAttachedTo() ~= vector_origin then
+		local atchpos , atchang = self:GetHookAttachment()
+	
+		local travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
+
+		local destpos = LerpVector( travelfraction , atchpos , self:GetAttachedTo() )
+		
+		local frac = ( destpos - atchpos ):Length() / self.HookMaxRange
+		frac = math.Clamp( frac , 0 , 1 )
+		self:SetHookTraveledFraction( frac )
+	end
+	
 	if self:GetIsAttached() then 
 		if self:ShouldStopPulling( mv ) or self:IsRopeObstructed() then
 			self:Detach( true )
@@ -192,6 +208,10 @@ function ENT:IsRopeObstructed()
 	--local result = self:DoHookTrace( true )
 	
 	return false
+end
+
+function ENT:IsHookReturning()
+	return self:GetAttachStart() >= CurTime() and self:GetAttachTime() <= CurTime() and not self:GetIsAttached() and self:GetAttachedTo() ~= vector_origin
 end
 
 function ENT:HandleSounds( predicted )
@@ -507,35 +527,6 @@ else
 		self.CSModels.Hook["hookgibdown"]:EnableMatrix( "RenderMultiply" , hookgibmatrixdown )
 	end
 	
-	--[[
-	
-				{
-					model = "models/props_lab/jar01b.mdl",
-					transform = {Vector(0,0,0), Angle(0,0,0), Vector(1,1,0.1)/2},
-
-				},
-				{
-					model = "models/Gibs/manhack_gib05.mdl",
-					transform = {Vector(0,2.3,1),Angle(-45,90,90), Vector(1,1,5)/3},
-
-				},
-				{
-					model = "models/Gibs/manhack_gib05.mdl",
-					transform = {Vector(0,-2.3,1),Angle(-45,-90,90), Vector(1,1,5)/3},
-
-				},
-				{
-					model = "models/Gibs/manhack_gib05.mdl",
-					transform = {Vector(-2.3,0,1),Angle(-45,180,90), Vector(1,1,5)/3},
-
-				},
-				{
-					model = "models/Gibs/manhack_gib05.mdl",
-					transform = {Vector(2.3,0,1),Angle(-45,0,90), Vector(1,1,5)/3},
-
-				},
-	]]
-	
 	function ENT:RemoveModels()
 		for i , v in pairs( self.CSModels ) do
 			if IsValid( v ) then
@@ -559,13 +550,13 @@ else
 		local endgrapplepos = vector_origin
 		local endgrappleang = angle_zero
 		
-		if self:GetIsAttached() then
+		if self:GetIsAttached() or self:IsHookReturning() then
 			endgrappleang = self:GetGrappleNormal():Angle()
 			
 			local dosway = false
 			local travelfraction = 0
 			
-			if self:GetAttachTime() >= CurTime() then
+			if self:GetAttachTime() >= CurTime() or self:IsHookReturning() then
 				dosway = true
 				
 				travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
@@ -577,7 +568,7 @@ else
 			
 			render.SetMaterial( self.CableMaterial )
 			
-			if dosway and self:IsCarriedByLocalPlayer() then
+			if dosway and self:IsCarriedByLocalPlayer() and not self:IsHookReturning() then
 				local sway = Lerp( travelfraction , 2 , 0 )
 				
 				local lengthfraction = ( endgrapplepos - startgrapplepos ):Length() / self.HookMaxRange
@@ -646,7 +637,7 @@ else
 		
 		self:DrawCSModel( self:GetPos() , self:GetAngles() )
 		
-		if not self:GetIsAttached() then
+		if not self:GetIsAttached() and not self:IsHookReturning() then
 			local hpos , hang = self:GetHookAttachment()
 			self:DrawHook( hpos , hang )
 		end
