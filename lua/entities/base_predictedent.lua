@@ -88,6 +88,7 @@ function ENT:SetupDataTables()
 	self.DefinedDTVars = {
 		Entity = {
 			Max = GMOD_MAXDTVARS,
+		--	EditableElement = "ChooseEnt", --unfortunately can't do this because there's no fromstring for entity
 		},
 		Float = {
 			Max = GMOD_MAXDTVARS,
@@ -97,6 +98,7 @@ function ENT:SetupDataTables()
 			Max = GMOD_MAXDTVARS,
 			EditableElement = "Int",
 		--	EditableElement = "EditKey", --TODO: a copypaste of the one used by garry for the sandbox tools
+		--	EditableElement = "ChooseEnt", --TODO: we're gonna have to set the entity index here
 		},
 		Bool = {
 			Max = GMOD_MAXDTVARS,
@@ -232,7 +234,11 @@ if SERVER then
 
 	end
 
-	function ENT:Attach( activator )
+	function ENT:Attach( activator , forced )
+		
+		if forced then
+			self:Drop( forced )
+		end
 	
 		if not IsValid( activator ) or not activator:IsPlayer() then
 			return
@@ -254,9 +260,11 @@ if SERVER then
 		if self.ShowPickupNotice then
 			self:EmitSound( "HL2Player.PickupWeapon" )
 			
-			net.Start( "pe_pickup" )
-				net.WriteString( self:GetClass() )
-			net.Send( activator )
+			if not activator:IsBot() then
+				net.Start( "pe_pickup" )
+					net.WriteString( self:GetClass() )
+				net.Send( activator )
+			end
 		end
 		
 		activator:SetNWEntity( self:GetSlotName() , self )
@@ -299,7 +307,7 @@ if SERVER then
 else
 
 	function ENT:IsCarriedByLocalPlayer()
-		return LocalPlayer() == self:GetControllingPlayer()
+		return self:IsCarriedBy( LocalPlayer() )
 	end
 	
 	function ENT:IsLocalPlayerUsingMySlot()
@@ -333,7 +341,7 @@ else
 	--TODO: stop using the viewmodel draw hook and simply create a new 3d cam from renderscene
 	--viewmodels don't draw without an associated weapon ( this is due to garryness, they always do in source )
 	function ENT:DrawFirstPersonInternal( vm , ply , wpn )
-		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer() and self:GetControllingPlayer() == ply then
+		if self.AttachesToPlayer and self:IsCarriedBy( ply ) then
 			self:DrawFirstPerson( ply , vm ) --this will be moved to the renderscene hook
 			self:DrawOnViewModel( ply , vm ) --this will stay here
 		end
@@ -352,18 +360,6 @@ else
 			self:DrawModel()
 		end
 	end
-	
-	--returns whether this entity can draw, mainly used when this attaches to a player and we don't want to draw it in first person
-	--this doesn't really matter if the entity is EF_NODRAW'n
-	--[[
-	function ENT:CanDraw()
-		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer() then
-			return self:GetControllingPlayer():ShouldDrawLocalPlayer()
-		else
-			return true
-		end
-	end
-	]]
 
 	function ENT:Draw( flags )
 		self:DrawModel()
@@ -410,6 +406,10 @@ else
 	end
 end
 
+function ENT:IsCarriedBy( ply )
+	return IsValid( ply ) and ply == self:GetControllingPlayer() and self:GetControllingPlayer():GetNWEntity( self:GetSlotName() ) == self
+end
+
 function ENT:IsKeyDown( mv )
 	if self.InButton == 0 then
 		return false
@@ -426,69 +426,52 @@ function ENT:IsKeyDown( mv )
 end
 
 function ENT:HandlePredictedStartCommand( ply , cmd )
-	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self:GetSlotName() )
-		if predictedent == self then
-			--allows the user to have a fake keybind by manually checking his buttons instead of having the player bind a button to a command ( which most users don't even know anything about ).
-			--he can configure this key at anytime by editing the entity ( if it allows it in the first place )
-			if CLIENT and self.InButton > 0 then
-				local mykey = self:GetKey()
-				if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
-					if mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
-						if input.IsButtonDown( mykey ) then
-							cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
-						end
+	if self:IsCarriedBy( ply ) then
+		--allows the user to have a fake keybind by manually checking his buttons instead of having the player bind a button to a command ( which most users don't even know anything about ).
+		--he can configure this key at anytime by editing the entity ( if it allows it in the first place )
+		if CLIENT and self.InButton > 0 then
+			local mykey = self:GetKey()
+			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
+				if mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
+					if input.IsButtonDown( mykey ) then
+						cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
 					end
 				end
 			end
-			self:PredictedStartCommand( ply , cmd )
 		end
+		
+		self:PredictedStartCommand( ply , cmd )
 	end
 end
 
 function ENT:HandlePredictedSetupMove( ply , mv , cmd )
-	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self:GetSlotName() )
-		if predictedent == self then
-			self:PredictedSetupMove( ply , mv , cmd )
-		end
+	if self:IsCarriedBy( ply ) then
+		self:PredictedSetupMove( ply , mv , cmd )
 	end
 end
 
 function ENT:HandlePredictedMove( ply , mv )
-	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self:GetSlotName() )
-		if predictedent == self then
-			self:PredictedMove( ply , mv )
-		end
+	if self:IsCarriedBy( ply ) then
+		self:PredictedMove( ply , mv )
 	end
 end
 
 function ENT:HandlePredictedThink( ply , mv )
-	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self:GetSlotName() )
-		if predictedent == self then
-			self:PredictedThink( ply , mv )
-		end
+	if self:IsCarriedBy( ply ) then
+		self:PredictedThink( ply , mv )
 	end
 end
 
 function ENT:HandlePredictedFinishMove( ply , mv )
-	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self:GetSlotName() )
-		if predictedent == self then
-			self:PredictedFinishMove( ply , mv )
-		end
+	if self:IsCarriedBy( ply ) then
+		self:PredictedFinishMove( ply , mv )
 	end
 end
 
 function ENT:HandlePredictedHitGround( ply , inwater , onfloater , speed )
-	if ply == self:GetControllingPlayer() then
-		local predictedent = ply:GetNWEntity( self:GetSlotName() )
-		if predictedent == self then
-			if self:PredictedHitGround( ply , inwater , onfloater , speed ) then
-				return true
-			end
+	if self:IsCarriedBy( ply ) then
+		if self:PredictedHitGround( ply , inwater , onfloater , speed ) then
+			return true
 		end
 	end
 end
@@ -668,7 +651,7 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		end
 		
 		local plys = {}
-		if IsValid( activator ) and not predicted then
+		if IsValid( activator ) and not predicted and not activator:IsBot() then
 			plys = activator
 		else
 			for i , v in pairs( player.GetHumans() ) do
@@ -677,7 +660,9 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 					continue
 				end
 				
-				plys[#plys] = v
+				if not v:IsBot() then
+					plys[#plys] = v
+				end
 			end
 			
 			if #plys == 0 then

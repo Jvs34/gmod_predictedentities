@@ -23,7 +23,7 @@ function ENT:Think()
 				self:Remove()
 			end
 		else
-			if self:GetParent():GetIsAttached() then
+			if self:GetParent():GetIsAttached() or self:GetParent():IsHookReturning() then
 				--yeah this might seem like a big fucking deal, but the env_laser and the physics gun all do the same, so shush, I'm doing it the valve way
 				self:SetRenderBoundsWS( self:GetPos() , self:GetParent():GetAttachedTo() )
 			else

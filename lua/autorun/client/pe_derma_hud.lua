@@ -76,6 +76,5 @@ local function CreatePEHud()
 	]]
 end
 
-
 hook.Add( "Initialize" , "PEHud" , CreatePEHud )
 hook.Add( "OnReloaded" , "PEHud" , CreatePEHud )
