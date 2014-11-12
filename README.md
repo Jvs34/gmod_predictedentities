@@ -13,6 +13,8 @@ Static variables, not to be modified in real time
 
 SHARED ENT.IsPredictedEnt
 
+SHARED ENT.ShowPickupNotice whether we should call HUDItemPickedUp clientside with this item class
+
 SERVER ENT.DropOnDeath whether to drop this entity on player's death
 
 SHARED ENT.AttachesToPlayer we attach to a player, use ENT.AttachmentInfo for the positions

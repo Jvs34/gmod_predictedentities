@@ -850,11 +850,10 @@ else
 	
 	
 	function ENT:SetupCustomHUDElements( panel )
-		--TODO: use a vertical dprogress bar, easier than having to draw this ourselves, is there even one?
-		--[[
+		--TODO: use a quarter of a circle instead
 		panel.FuelGauge = panel:Add( "DPanel" )
-		panel.FuelGauge:SetSize( panel:GetWide() / 4 , panel:GetTall() )
-		panel.FuelGauge:Dock( RIGHT )
+		panel.FuelGauge:SetSize( panel:GetWide() , panel:GetTall() / 4 )
+		panel.FuelGauge:Dock( BOTTOM )
 		
 		panel.FuelGauge.FuelColorEmpty = Color( 255 , 127 ,127 , 255 )
 		panel.FuelGauge.FuelColorFilled = Color( 127 , 127 , 255 , 255 )
@@ -863,13 +862,12 @@ else
 			surface.DrawRect( 0 , 0 , w , h )
 			
 			surface.SetDrawColor( self.FuelColorFilled )
-			surface.DrawRect( 0 , h * ( 1 - self.FuelFraction ) , w , h )
+			surface.DrawRect( w * ( 1 - self.FuelFraction ) , 0 , w , h )
 		end
 	
 		panel.CustomThink = function( self )
 			self.FuelGauge.FuelFraction = self:GetEntity():GetFuelFraction()
 		end
-		]]
 	end
 
 end

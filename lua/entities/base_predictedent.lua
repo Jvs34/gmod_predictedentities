@@ -446,13 +446,17 @@ end
 
 function ENT:HandlePredictedSetupMove( ply , mv , cmd )
 	if self:IsCarriedBy( ply ) then
-		self:PredictedSetupMove( ply , mv , cmd )
+		if self:PredictedSetupMove( ply , mv , cmd ) then
+			return true
+		end
 	end
 end
 
 function ENT:HandlePredictedMove( ply , mv )
 	if self:IsCarriedBy( ply ) then
-		self:PredictedMove( ply , mv )
+		if self:PredictedMove( ply , mv ) then
+			return true
+		end
 	end
 end
 
@@ -464,7 +468,9 @@ end
 
 function ENT:HandlePredictedFinishMove( ply , mv )
 	if self:IsCarriedBy( ply ) then
-		self:PredictedFinishMove( ply , mv )
+		if self:PredictedFinishMove( ply , mv ) then
+			return true
+		end
 	end
 end
 
