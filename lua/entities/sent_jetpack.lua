@@ -128,7 +128,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "InfiniteFuel" , true , "Infinite Fuel" )
 	self:DefineNWVar( "Bool" , "DoGroundSlam" )
 	
-	self:DefineNWVar( "Float" , "Fuel" , true )
+	self:DefineNWVar( "Float" , "Fuel" )
 	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
 	self:DefineNWVar( "Float" , "FuelDrain" , true , "Seconds to drain fuel" , 1 , 60 ) --how many seconds it's gonna take to drain all the fuel
 	self:DefineNWVar( "Float" , "FuelRecharge" , true , "Seconds to recharge the fuel" , 1 , 60 ) --how many seconds it should take to fully recharge this
@@ -851,8 +851,9 @@ else
 	
 	function ENT:SetupCustomHUDElements( panel )
 		--TODO: use a vertical dprogress bar, easier than having to draw this ourselves, is there even one?
+		--[[
 		panel.FuelGauge = panel:Add( "DPanel" )
-		panel.FuelGauge:SetSize( panel:GetWide() / 3 , panel:GetTall() )
+		panel.FuelGauge:SetSize( panel:GetWide() / 4 , panel:GetTall() )
 		panel.FuelGauge:Dock( RIGHT )
 		
 		panel.FuelGauge.FuelColorEmpty = Color( 255 , 127 ,127 , 255 )
@@ -868,6 +869,7 @@ else
 		panel.CustomThink = function( self )
 			self.FuelGauge.FuelFraction = self:GetEntity():GetFuelFraction()
 		end
+		]]
 	end
 
 end

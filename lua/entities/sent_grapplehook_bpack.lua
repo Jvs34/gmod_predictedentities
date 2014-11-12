@@ -35,7 +35,7 @@ ENT.AttachmentInfo = {
 }
 
 ENT.HookAttachmentInfo = {
-	OffsetVec = Vector( 8 , 0 , 2.4 ),
+	OffsetVec = Vector( 8.3 , 0 , 2.4 ),
 	OffsetAng = angle_zero,
 }
 
@@ -111,10 +111,10 @@ function ENT:SetupDataTables()
 	
 	self:DefineNWVar( "Float" , "AttachTime" )
 	self:DefineNWVar( "Float" , "AttachStart" )
-	self:DefineNWVar( "Float" , "PullSpeed" )
-	self:DefineNWVar( "Float" , "HookTraveledFraction" )
+	self:DefineNWVar( "Float" , "PullSpeed" , true , "Pull speed" , 0 , 3500 )
+	self:DefineNWVar( "Float" , "GrappleFraction" )
 	
-	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 2 )
+	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 4 )
 	
 	self:DefineNWVar( "Vector" , "AttachedTo" )
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
@@ -150,7 +150,7 @@ function ENT:Detach( forced )
 	self:SetIsAttached( false )
 	self:SetAttachTime( CurTime() )
 	
-	local returntime = Lerp( self:GetHookTraveledFraction() , 0 , self.HookMaxTime )
+	local returntime = 0.5 --Lerp( self:GetHookTraveledFraction() , 0 , self.HookMaxTime )
 	self:SetAttachStart( CurTime() + returntime )
 	self:SetNextFire( CurTime() + returntime )
 	self:SetAttachSoundPlayed( false )
@@ -183,7 +183,7 @@ function ENT:HandleDetach( predicted , mv )
 	if CLIENT and not predicted then
 		return
 	end
-	
+	--[[
 	if self:GetAttachedTo() ~= vector_origin then
 		local atchpos , atchang = self:GetHookAttachment()
 	
@@ -195,6 +195,7 @@ function ENT:HandleDetach( predicted , mv )
 		frac = math.Clamp( frac , 0 , 1 )
 		self:SetHookTraveledFraction( frac )
 	end
+	]]
 	
 	if self:GetIsAttached() then 
 		if self:ShouldStopPulling( mv ) or self:IsRopeObstructed() then
@@ -211,7 +212,8 @@ function ENT:IsRopeObstructed()
 end
 
 function ENT:IsHookReturning()
-	return self:GetAttachStart() >= CurTime() and self:GetAttachTime() <= CurTime() and not self:GetIsAttached() and self:GetAttachedTo() ~= vector_origin
+	return false
+	--return self:GetAttachStart() >= CurTime() and self:GetAttachTime() <= CurTime() and not self:GetIsAttached() and self:GetAttachedTo() ~= vector_origin
 end
 
 function ENT:HandleSounds( predicted )
@@ -286,13 +288,17 @@ end
 
 function ENT:PredictedMove( owner , mv )
 	if self:CanPull( mv ) then
+		
 		owner:SetGroundEntity( NULL )
-		mv:SetForwardSpeed( 0 )
-		mv:SetSideSpeed( 0 )
-		mv:SetUpSpeed( 0 )
-		--TODO: clamp the velocity
+		
 		if self:GetPullMode() == 2 then
 			mv:SetVelocity( self:GetDirection() * self:GetPullSpeed() )
+		elseif self:GetPullMode() == 3 then
+			local currenthooklength = Lerp( self:GetGrappleFraction() , 0 , self.HookMaxRange )
+			local curdistance = ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length()
+			if curdistance > currenthooklength then
+				mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * mv:GetVelocity():Length() * 0.5 )
+			end
 		else
 			mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * self:GetPullSpeed() * FrameTime() )
 		end
@@ -325,6 +331,7 @@ function ENT:FireHook()
 		self:SetAttachStart( CurTime() )
 		self:SetIsAttached( true )
 		self:SetGrappleNormal( self:GetDirection() )
+		self:SetGrappleFraction( result.Fraction )
 		
 		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_BODY , true )
 	end

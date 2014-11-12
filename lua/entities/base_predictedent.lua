@@ -245,7 +245,7 @@ if SERVER then
 		end
 		
 		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
-			self:EmitPESound( "HL2Player.UseDeny" , nil , nil , nil , nil , nil , activator )
+			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
 			return
 		end
 		
@@ -644,12 +644,12 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		chan = CHAN_AUTO
 	end
 	
+	if game.SinglePlayer() then
+		predicted = false
+	end
+	
 	if SERVER then
 	
-		if game.SinglePlayer() then
-			predicted = false
-		end
-		
 		local plys = {}
 		if IsValid( activator ) and not predicted and not activator:IsBot() then
 			plys = activator
@@ -680,9 +680,9 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		net.Send( plys )
 		
 	else
-		if predicted and IsFirstTimePredicted() then
+		--if IsFirstTimePredicted() then
 			self:EmitSound( soundname , level , pitch , volume , chan )
-		end
+		--end
 	end
 end
 

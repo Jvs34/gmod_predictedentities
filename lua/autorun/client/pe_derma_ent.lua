@@ -9,18 +9,49 @@
 
 
 local PANEL = {}
-
+PANEL.WhiteTex = surface.GetTextureID( "vgui/white" )
 PANEL.DefaultEntityMaterial = Material( "entities/npc_alyx.png" )
 PANEL.CircleMaskMaterial = Material( "" )
 
 function PANEL:Init()
-	self:SetSize( 128 , 128 )	--TODO: ask our parent for the best size scale
+	self:SetMouseInputEnabled( true )
+	self:SetWorldClicker( false )
+	self:SetSize( 64 , 64 )	--TODO: ask our parent for the best size scale
 	self:SetText( "" )
 	self.RecheckMat = false
 	
+	--[[
 	self.Label = self:Add( "DLabel" )
 	self.Label:SetFont( "Default" )
 	self.Label:Dock( BOTTOM )
+	self.Label:SetContentAlignment( 5 )
+	]]
+end
+
+function PANEL:GenerateCircleVertices( x, y, radius, ang_start, ang_size )
+
+    local vertices = {}
+    local passes = radius -- Seems to look pretty enough
+    self.PolySize = radius
+    -- Ensure vertices resemble sector and not a chord
+    vertices[ 1 ] = { 
+        x = x,
+        y = y
+    }
+
+    for i = 0, passes do
+
+        local ang = math.rad( -90 + ang_start + ang_size * i / passes )
+
+        vertices[ i + 2 ] = {
+            x = x + math.cos( ang ) * radius,
+            y = y + math.sin( ang ) * radius
+        }
+
+    end
+	
+    return vertices
+
 end
 
 function PANEL:Think()
@@ -40,13 +71,19 @@ function PANEL:Think()
 		local class = self:GetEntity():GetClass()
 		local mat = Material( "entities/" .. class .. ".png" )
 		
-		self.Label:SetText( "#"..class )	--will resolve to the Localize of that entity class
+		if self.Label then
+			self.Label:SetText( "#"..class )	--will resolve to the Localize of that entity class
+		end
 		
 		if not mat:IsError() then
 			self:SetEntityMaterial( mat )
 		end
 		
 		self.RecheckMat = false
+	end
+	
+	if self.PolySize ~= self:GetTall() / 2 then
+		self.Poly = self:GenerateCircleVertices( self:GetWide() / 2 , self:GetTall() / 2 , self:GetTall() / 2 , 0 , 360 )
 	end
 	
 	self:CustomThink()
@@ -95,10 +132,41 @@ end
 function PANEL:Paint( w , h )
 	local mat = self:GetEntityMaterial()
 	
-	--TODO: apply stencils
-	surface.SetDrawColor( color_white  )
-	surface.SetMaterial( mat )
-	surface.DrawTexturedRect( 0 , 0 , w , h )
+	if self.Poly then
+	render.SetStencilEnable( true )
+
+		render.SetStencilReferenceValue( 1 )
+		render.SetStencilWriteMask( 1 )
+		render.SetStencilTestMask( 1 )
+
+		render.SetStencilPassOperation( STENCIL_REPLACE )
+		render.SetStencilFailOperation( STENCIL_KEEP )
+		render.SetStencilZFailOperation( STENCIL_KEEP )
+
+		render.ClearStencil()
+
+		render.SetStencilCompareFunction( STENCIL_NOTEQUAL )
+			
+			surface.SetTexture( self.WhiteTex )
+			surface.SetDrawColor( color_white )
+			surface.DrawPoly( self.Poly )
+		
+		render.SetStencilCompareFunction( STENCIL_EQUAL )
+	end
+	
+			surface.SetDrawColor( color_white )
+			surface.SetMaterial( mat )
+			surface.DrawTexturedRect( 0 , 0 , w , h )
+			self:CustomPaint( w , h )
+	if self.Poly then
+		render.ClearStencil()
+
+	render.SetStencilEnable( false )
+	end
+end
+
+function PANEL:CustomPaint()
+	
 end
 
 derma.DefineControl( "DPredictedEnt", "", PANEL, "DButton" )

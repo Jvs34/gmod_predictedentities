@@ -14,15 +14,29 @@ local PANEL = {}
 PANEL.HUDSide = 0 --goes from 0 to 3 --CreateConVar
 
 function PANEL:Init()
+	self:SetMouseInputEnabled( true )
+	self:SetWorldClicker( false )
+	
 	self.MyChildren = {}
 	self.IconLayout = self:Add( "DIconLayout" )
+	self.IconLayout:SetSize( 128 , 128 )
 	self.IconLayout:SetBorder( 1 )
 	self.IconLayout:SetSpaceX( 2 )
 	self.IconLayout:SetSpaceY( 2 )
-	self.IconLayout:Dock( BOTTOM )
+	self.IconLayout:Dock( RIGHT )
+	
 end
 
 function PANEL:Think()
+
+end
+
+function PANEL:PerformLayout( w , h )
+
+	
+	local margin = h * 0.25
+	self.IconLayout:DockMargin( 0 , margin , 0 , 0 )
+	
 
 end
 
@@ -53,16 +67,15 @@ derma.DefineControl( "DPredictedEntManager", "", PANEL, "DPanel" )
 
 --UGH, there has to be a better way than setting this
 local function CreatePEHud()
-	
 	if IsValid( PE_HUD ) then
 		PE_HUD:Remove()
 		PE_HUD = nil
 	end
 	
 	local panel = vgui.Create( "DPredictedEntManager" )
+	panel:SetVisible( true )
 	panel:ParentToHUD()
 	panel:Dock( FILL )
-	
 	
 	PE_HUD = panel
 	
@@ -76,5 +89,9 @@ local function CreatePEHud()
 	]]
 end
 
+if IsValid( PE_HUD ) then
+	CreatePEHud()
+end
+
+
 hook.Add( "Initialize" , "PEHud" , CreatePEHud )
-hook.Add( "OnReloaded" , "PEHud" , CreatePEHud )
