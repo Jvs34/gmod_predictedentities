@@ -9,7 +9,7 @@ It has support for custom keybindings and right click editing.
 
 Inherited properties:
 
-Static variables, not to be modified in real tmie
+Static variables, not to be modified in real time
 
 SHARED ENT.IsPredictedEnt
 
