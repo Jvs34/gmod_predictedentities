@@ -10,9 +10,9 @@ DEFINE_BASECLASS( "base_entity" )
 ENT.Spawnable = false
 ENT.IsPredictedEnt = true
 ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, when true this removes physics and draws the entity on the player
-ENT.DropOnDeath = true
 
 if SERVER then
+	ENT.DropOnDeath = true
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
 else
 	ENT.RenderGroup = RENDERGROUP_OPAQUE
@@ -270,7 +270,7 @@ if SERVER then
 		activator:SetNWEntity( self:GetSlotName() , self )
 		self:SetControllingPlayer( activator )
 		
-		self:OnAttach( self:GetControllingPlayer() )
+		self:OnAttach( self:GetControllingPlayer() , forced )
 	end
 
 	function ENT:Drop( forced )
@@ -293,13 +293,13 @@ if SERVER then
 	end
 
 	function ENT:OnControllerRemoved( ent )
-		if ent == self:GetControllingPlayer() then
+		if self:IsCarriedBy( ent ) then
 			self:Drop( true )
 		end
 	end
 	
 	function ENT:OnControllerDeath( ply )
-		if self.DropOnDeath and IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
+		if self.DropOnDeath and self:IsCarriedBy( ply ) then
 			self:Drop( true )
 		end
 	end
@@ -356,7 +356,7 @@ else
 	end
 	
 	function ENT:DrawOnPlayer( ply )
-		if self.AttachesToPlayer and IsValid( self:GetControllingPlayer() ) and self:GetControllingPlayer() == ply then
+		if self.AttachesToPlayer and self:IsCarriedBy( ply ) then
 			self:DrawModel()
 		end
 	end

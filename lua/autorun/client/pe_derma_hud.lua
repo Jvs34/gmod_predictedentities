@@ -17,14 +17,14 @@ function PANEL:Init()
 	self:SetMouseInputEnabled( true )
 	self:SetWorldClicker( false )
 	
+	--since they're being added to the IconLayout, they're not technically my children, so keep track of them manually
+	
 	self.MyChildren = {}
 	self.IconLayout = self:Add( "DIconLayout" )
 	self.IconLayout:SetSize( 128 , 128 )
 	self.IconLayout:SetBorder( 1 )
 	self.IconLayout:SetSpaceX( 2 )
 	self.IconLayout:SetSpaceY( 2 )
-	self.IconLayout:Dock( RIGHT )
-	
 end
 
 function PANEL:Think()
@@ -34,6 +34,9 @@ end
 function PANEL:PerformLayout( w , h )
 
 	
+	self.IconLayout:Dock( RIGHT )	--TODO: get from the convar
+	
+	--TODO: calculate from the convar
 	local margin = h * 0.25
 	self.IconLayout:DockMargin( 0 , margin , 0 , 0 )
 	
