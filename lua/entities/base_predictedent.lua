@@ -161,6 +161,9 @@ end
 
 function ENT:InstallHook( hookname , handler )
 	self.HandledHooks[hookname] = handler
+	if GetConVar( "developer" ):GetBool() then
+		print( "Installed "..hookname.. " on " .. self:GetClass() .. "[" .. self:EntIndex() .. "]" )
+	end
 end
 
 function ENT:HandleHooks()
