@@ -238,7 +238,7 @@ function ENT:HandleSounds( predicted )
 				--play the hit sound only the controlling player and one on the world position
 				
 				if IsValid( self:GetControllingPlayer() ) then
-					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , true , self:GetControllingPlayer() )
+					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , predicted , self:GetControllingPlayer() )
 				end
 				
 				if IsFirstTimePredicted() then
@@ -539,6 +539,12 @@ else
 		local endgrapplepos = vector_origin
 		local endgrappleang = angle_zero
 		
+		if self:IsCarriedByLocalPlayer() and not self:GetControllingPlayer():ShouldDrawLocalPlayer() then
+			local eyepos = self:GetControllingPlayer():EyePos()
+			local aimvecang = self:GetControllingPlayer():EyeAngles()
+			startgrapplepos = eyepos + aimvecang:Up() * - 30
+		end
+		
 		if self:GetIsAttached() or self:IsHookReturning() then
 			endgrappleang = self:GetGrappleNormal():Angle()
 			
@@ -602,6 +608,7 @@ else
 		
 		for i , v in pairs( self.CSModels.Hook ) do
 			if IsValid( v ) then
+				v:SetupBones()
 				v:SetPos( pos )
 				v:SetAngles( ang )
 				v:DrawModel()
@@ -635,6 +642,7 @@ else
 	function ENT:DrawCSModel( pos , ang )
 		for i , v in pairs( self.CSModels ) do
 			if IsValid( v ) then	--we may encounter nested tables but it doesn't matter because they don't have .IsValid
+				v:SetupBones()
 				v:SetPos( pos )
 				v:SetAngles( ang )
 				v:DrawModel()
