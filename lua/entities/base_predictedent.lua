@@ -223,9 +223,10 @@ if SERVER then
 		if IsValid( self:GetPhysicsObject() ) then
 			return
 		end
-
-		self:DoInitPhysics()
+		
 		self:SetLagCompensated( true )
+		
+		self:DoInitPhysics()
 		self:OnInitPhysics( self:GetPhysicsObject() )
 	end
 	
@@ -240,10 +241,13 @@ if SERVER then
 		if not IsValid( self:GetPhysicsObject() ) then
 			return
 		end
-
+		
+		if self.AttachesToPlayer then
+			self:SetLagCompensated( false )--lag compensation works really lame with parenting due to vinh's fix to players being lag compensated in vehicles
+		end
+		
+		self:OnRemovePhysics( self:GetPhysicsObject() )
 		self:DoRemovePhysics()
-		self:SetLagCompensated( false )--lag compensation works really lame with parenting due to vinh's fix to players being lag compensated in vehicles
-		self:OnRemovePhysics()
 	end
 	
 	function ENT:DoRemovePhysics()
@@ -253,7 +257,7 @@ if SERVER then
 	end
 	
 	function ENT:OnAttach( ply )
-
+		
 	end
 
 	function ENT:OnDrop( ply , fromuser )
