@@ -26,6 +26,7 @@ ENT.HookMaxTime = 4	--max time in seconds the hook needs to reach the maxrange
 ENT.HookMaxRange = 10000
 ENT.HookHullMins = Vector( -2 , -2 , -2 )
 ENT.HookHullMaxs = ENT.HookHullMins * -1
+ENT.HookCableSize = 0.5
 
 --TODO: position ourselves on the player's belt
 ENT.AttachmentInfo = {
@@ -98,7 +99,14 @@ function ENT:Initialize()
 		self:SetKey( KEY_G )
 		self:InitPhysics()
 		
-		self:ResetGrapple()
+		self:SetDoReturn( false )
+		self:SetNextFire( CurTime() + 1 )
+		self:SetAttachTime( CurTime() )
+		self:SetAttachStart( CurTime() )
+		self:SetAttachedTo( vector_origin )
+		self:SetGrappleNormal( vector_origin )
+		self:SetIsAttached( false )
+		self:SetAttachSoundPlayed( false )
 		self:Detach()
 	else
 		self:CreateModels()
@@ -112,13 +120,12 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "AttachStart" )
 	self:DefineNWVar( "Float" , "PullSpeed" , true , "Pull speed" , 0 , 3500 )
 	self:DefineNWVar( "Float" , "GrappleFraction" )
-	
 	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 4 )
-	
 	self:DefineNWVar( "Vector" , "AttachedTo" )
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
+	self:DefineNWVar( "Bool" , "DoReturn" , true , "Hook returns" )
 	self:DefineNWVar( "Entity" , "HookHelper" )
 	
 end
@@ -135,21 +142,11 @@ function ENT:Think()
 	return BaseClass.Think( self )
 end
 
-function ENT:ResetGrapple()
-	self:SetNextFire( CurTime() + 1 )
-	self:SetAttachTime( CurTime() )
-	self:SetAttachStart( CurTime() )
-	self:SetAttachedTo( vector_origin )
-	self:SetGrappleNormal( vector_origin )
-	self:SetIsAttached( false )
-	self:SetAttachSoundPlayed( false )
-end
-
 function ENT:Detach( forced )
 	self:SetIsAttached( false )
 	self:SetAttachTime( CurTime() )
 	
-	local returntime = 0.5 --Lerp( self:GetHookTraveledFraction() , 0 , self.HookMaxTime )
+	local returntime = self:GetDoReturn() and Lerp( self:GetHookTraveledFraction() , 0 , self.HookMaxTime ) or 0.5
 	self:SetAttachStart( CurTime() + returntime )
 	self:SetNextFire( CurTime() + returntime )
 	self:SetAttachSoundPlayed( false )
@@ -182,8 +179,8 @@ function ENT:HandleDetach( predicted , mv )
 	if CLIENT and not predicted then
 		return
 	end
-	--[[
-	if self:GetAttachedTo() ~= vector_origin then
+	
+	if self:GetDoReturn() and self:GetAttachedTo() ~= vector_origin then
 		local atchpos , atchang = self:GetHookAttachment()
 	
 		local travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
@@ -194,11 +191,10 @@ function ENT:HandleDetach( predicted , mv )
 		frac = math.Clamp( frac , 0 , 1 )
 		self:SetHookTraveledFraction( frac )
 	end
-	]]
 	
 	if self:GetIsAttached() then 
-		if self:ShouldStopPulling( mv ) or self:IsRopeObstructed() then
-			self:Detach( true )
+		if self:ShouldStopPulling( mv ) then
+			self:Detach()
 			return
 		end
 	end
@@ -206,13 +202,11 @@ end
 
 function ENT:IsRopeObstructed()
 	--local result = self:DoHookTrace( true )
-	
 	return false
 end
 
 function ENT:IsHookReturning()
-	return false
-	--return self:GetAttachStart() >= CurTime() and self:GetAttachTime() <= CurTime() and not self:GetIsAttached() and self:GetAttachedTo() ~= vector_origin
+	return self:GetDoReturn() and self:GetAttachStart() >= CurTime() and self:GetAttachTime() <= CurTime() and not self:GetIsAttached() and self:GetAttachedTo() ~= vector_origin
 end
 
 function ENT:HandleSounds( predicted )
@@ -269,7 +263,7 @@ function ENT:HandleSounds( predicted )
 			self.ReelSound:PlayEx( 0.3 , 200 )
 			self.LaunchSound:Stop()
 		else
-			self.LaunchSound:PlayEx( 1 , 100 )
+			self.LaunchSound:PlayEx( 1 , 100 / self.HookCableSize )
 		end
 	else
 		self.LaunchSound:Stop()
@@ -420,7 +414,6 @@ if SERVER then
 			return
 		end
 		
-		self:ResetGrapple()
 		self:Detach( not forced )
 	end
 	
@@ -455,7 +448,7 @@ if SERVER then
 else
 	
 	function ENT:CreateModels()
-		--create all the models, hook , our custom one, the pulley etc
+		--create all the models, use EnableMatrix to setup the offsets because it's easier and faster than doing that everytime
 		self.CSModels = {}
 		
 		local bodybasematrix = Matrix()
@@ -472,8 +465,7 @@ else
 		self.CSModels["backbodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
 		self.CSModels["backbodybase"]:SetNoDraw( true )
 		self.CSModels["backbodybase"]:EnableMatrix( "RenderMultiply" , backbasematrix )
-		
-		
+				
 		local hookmatrix = Matrix()
 		hookmatrix:SetAngles( Angle( 90 , 0 , 0 ) )
 		hookmatrix:Scale( Vector( 1 , 1 , 0.1 ) / 4 )
@@ -482,6 +474,8 @@ else
 		self.CSModels.Hook["hook"] = ClientsideModel( "models/props_lab/jar01b.mdl" )
 		self.CSModels.Hook["hook"]:SetNoDraw( true )
 		self.CSModels.Hook["hook"]:EnableMatrix( "RenderMultiply" , hookmatrix )
+		
+		--yes this is lame, yes I don't care
 		
 		local hookgibmatrixleft = Matrix()
 		hookgibmatrixleft:SetScale( Vector( 1 , 1 , 5 ) / 6 )
@@ -517,6 +511,7 @@ else
 	end
 	
 	function ENT:RemoveModels()
+		--really can't be arsed to make a DeepRemove function
 		for i , v in pairs( self.CSModels ) do
 			if IsValid( v ) then
 				v:Remove()
@@ -533,6 +528,8 @@ else
 	--draws the rope and grapple
 	
 	function ENT:DrawGrapple()
+		
+		local cablesize = self.HookCableSize
 		
 		local startgrapplepos , startgrappleang = self:GetHookAttachment()
 		
@@ -552,44 +549,65 @@ else
 			local travelfraction = 0
 			
 			if self:GetAttachTime() >= CurTime() or self:IsHookReturning() then
-				dosway = true
+				
+				dosway = self:IsCarriedByLocalPlayer()
 				
 				travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
 				
 				endgrapplepos = LerpVector( travelfraction , startgrapplepos , self:GetAttachedTo() )
+				
 			else
+			
 				endgrapplepos = self:GetAttachedTo()
+				
 			end
 			
 			render.SetMaterial( self.CableMaterial )
 			
-			if dosway and self:IsCarriedByLocalPlayer() and not self:IsHookReturning() then
-				local sway = Lerp( travelfraction , 2 , 0 )
+			--only do this expensive rendering when carried by the local player
+			
+			if dosway and not self:IsHookReturning() then
+				
+				local swayamount = Lerp( travelfraction , 4 * cablesize , 0 )	--bigger cable = bigger sway
 				
 				local lengthfraction = ( endgrapplepos - startgrapplepos ):Length() / self.HookMaxRange
 				
-				local segments = math.floor( Lerp( lengthfraction , 64 , 16 ) )
 				local ang = ( endgrapplepos - startgrapplepos ):Angle()
-				local swayres = segments	--number of segments to use for the sway
-				
+				local swayres = math.floor( Lerp( lengthfraction , 64 , 16 ) )	--number of segments to use for the swayamount
 				
 				render.StartBeam( swayres + 2 )
-					render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
+				
+					render.AddBeam( startgrapplepos , cablesize , 2 , color_white )
+					
 					for i = 1 , swayres do
+						
 						local frac = i / ( swayres - 1 )
+						
 						local curendpos = Lerp( frac , startgrapplepos , endgrapplepos )
-						local t = UnPredictedCurTime() * 25 + 50 * frac --+ math.random()
-						local swayvec = ang:Right() * math.sin( t ) * sway
-						swayvec = swayvec + ang:Up() * math.cos( t ) * sway
-						render.AddBeam( curendpos + swayvec , 0.5 , 3 , color_white )
+						
+						local t = UnPredictedCurTime() * 25 + 50 * frac
+						
+						local swayvec = Vector( 0 , 0 , 0 )
+						
+						--TODO: individual checks for when returning and shooting?
+						
+						swayvec:Add( ang:Right() * math.sin( t ) * swayamount )
+						
+						swayvec:Add( ang:Up() * math.cos( t ) * swayamount )
+						
+						render.AddBeam( curendpos + swayvec , cablesize , 3 , color_white )
+						
 					end
-					render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
+					
+					render.AddBeam( endgrapplepos , cablesize , 3 , color_white )
+					
 				render.EndBeam()
+				
 			else
 				
 				render.StartBeam( 2 )
-					render.AddBeam( startgrapplepos , 0.5 , 2 , color_white )
-					render.AddBeam( endgrapplepos , 0.5 , 3 , color_white )
+					render.AddBeam( startgrapplepos , cablesize , 2 , color_white )
+					render.AddBeam( endgrapplepos , cablesize , 3 , color_white )
 				render.EndBeam()
 				
 			end
