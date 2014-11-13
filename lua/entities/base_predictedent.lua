@@ -135,24 +135,52 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Initialize()
-
+	self.HandledHooks = {}
+	
+	--predicted hooks hooking with hookers, but not blackjack
 	hook.Add( "StartCommand", self, self.HandlePredictedStartCommand )
 	hook.Add( "SetupMove", self, self.HandlePredictedSetupMove )
 	hook.Add( "Move", self, self.HandlePredictedMove )
 	hook.Add( "PlayerTick", self, self.HandlePredictedThink )
 	hook.Add( "FinishMove", self, self.HandlePredictedFinishMove )
 	hook.Add( "OnPlayerHitGround" , self , self.HandlePredictedHitGround )
+	
 	if SERVER then
 		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
 		hook.Add( "PostPlayerDeath" , self , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, event :KillSilent()
-		self:SetUseType( SIMPLE_USE ) --don't allow continuous use
+		self:SetUseType( SIMPLE_USE ) --don't allow continuous use, 
 	else
 		hook.Add( "PostDrawViewModel" , self , self.DrawFirstPersonInternal )
 		hook.Add( "PostPlayerDraw" , self , self.DrawOnPlayer )
 	end
 end
 
+--I haven't tested this yet, but I believe this is needed mostly for clientside hooks, since IsValid might return false when we're out of PVS
+--and when hook.Call tries to call on an invalid entity it removes the hook, so we need to reinstall them when that happens and the entity gets back in the PVS
+--prediction and other shit like drawing on a player might fuck up since the hooks get removed
+
+--[[
+function ENT:InstallHook( hookname , handler )
+	self.HandledHooks[hookname] = handler
+end
+
+function ENT:HandleHooks()
+
+	--this is direct access to the hook table, but it's not slow at all
+	local hooktable = hook.GetTable()
+	
+	for i , v in pairs( self.HandleHooks ) do
+		if not hooktable[i] or not hooktable[i][self]then
+			hook.Add( i , self , v )
+		end
+	end
+end
+]]
+
 function ENT:Think()
+
+	--self:HandleHooks()
+	
 	if SERVER then
 	
 		--check if this guy is still my parent and owner, maybe something is forcibly unparenting us from him, if so, drop
@@ -195,12 +223,16 @@ if SERVER then
 			return
 		end
 
+		self:DoInitPhysics()
+		self:SetLagCompensated( true )
+		self:OnInitPhysics( self:GetPhysicsObject() )
+	end
+	
+	function ENT:DoInitPhysics()
 		self:PhysicsInit( SOLID_VPHYSICS )
 		self:SetMoveType( MOVETYPE_VPHYSICS )
 		self:SetSolid( SOLID_VPHYSICS )
 		self:PhysWake()
-		self:SetLagCompensated( true )
-		self:OnInitPhysics( self:GetPhysicsObject() )
 	end
 
 	function ENT:RemovePhysics()
@@ -208,13 +240,17 @@ if SERVER then
 			return
 		end
 
-		self:PhysicsDestroy()
-		self:SetMoveType( MOVETYPE_NONE )
-		self:SetSolid( SOLID_NONE )
+		self:DoRemovePhysics()
 		self:SetLagCompensated( false )--lag compensation works really lame with parenting due to vinh's fix to players being lag compensated in vehicles
 		self:OnRemovePhysics()
 	end
-
+	
+	function ENT:DoRemovePhysics()
+		self:PhysicsDestroy()
+		self:SetMoveType( MOVETYPE_NONE )
+		self:SetSolid( SOLID_NONE )
+	end
+	
 	function ENT:OnAttach( ply )
 
 	end
@@ -236,17 +272,18 @@ if SERVER then
 
 	function ENT:Attach( activator , forced )
 		
+		--we were forced to attach to this player, so drop first to clear out values
 		if forced then
 			self:Drop( forced )
 		end
 	
 		if not IsValid( activator ) or not activator:IsPlayer() then
-			return
+			return false
 		end
 		
 		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
 			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
-			return
+			return false
 		end
 		
 		if self.AttachesToPlayer then
@@ -271,6 +308,7 @@ if SERVER then
 		self:SetControllingPlayer( activator )
 		
 		self:OnAttach( self:GetControllingPlayer() , forced )
+		return true
 	end
 
 	function ENT:Drop( forced )
@@ -290,6 +328,7 @@ if SERVER then
 		end
 
 		self:SetControllingPlayer( NULL )
+		return true
 	end
 
 	function ENT:OnControllerRemoved( ent )

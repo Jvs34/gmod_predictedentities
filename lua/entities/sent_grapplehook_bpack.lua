@@ -90,13 +90,12 @@ end
 function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
-		--TODO: change to a dummy model and set the collision bounds and render bounds manually
 		self:SetModel( "models/props_junk/wood_crate001a.mdl" )
 		self:DrawShadow( false )
 		
 		self:SetPullMode( 1 )
 		self:SetPullSpeed( 2000 )
-		self:SetKey( 17 )	--the G key on my keyboard
+		self:SetKey( KEY_G )
 		self:InitPhysics()
 		
 		self:ResetGrapple()
@@ -425,29 +424,12 @@ if SERVER then
 		self:Detach( not forced )
 	end
 	
-	--TODO: override the physics because we use a dummy model
-	
-	
-	function ENT:InitPhysics()
-		if IsValid( self:GetPhysicsObject() ) then
-			return
-		end
-
+	function ENT:DoInitPhysics()
 		self:PhysicsInitBox( self.MinBounds , self.MaxBounds )
 		self:SetCollisionBounds( self.MinBounds , self.MaxBounds )
 		self:SetMoveType( MOVETYPE_VPHYSICS )
 		self:SetSolid( SOLID_VPHYSICS )
 		self:PhysWake()
-		self:SetLagCompensated( true )
-		self:OnInitPhysics( self:GetPhysicsObject() )
-	end
-	
-	function ENT:RemovePhysics()
-		self:PhysicsDestroy()
-		self:SetMoveType( MOVETYPE_NONE )
-		self:SetSolid( SOLID_NONE )
-		self:SetLagCompensated( false )--lag compensation works really lame with parenting due to vinh's fix to players being lag compensated in vehicles
-		self:OnRemovePhysics()
 	end
 	
 	function ENT:OnInitPhysics( physobj )

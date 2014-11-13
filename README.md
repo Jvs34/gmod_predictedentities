@@ -87,15 +87,23 @@ SHARED ENT:RestoreMoveData( movedata , saveddata )
 
 restores the backed up data from the table
 
-Hooks
+Hooks that you can override without calling to the base function
 
 SERVER ENT:OnInitPhysics( physobj ) 
 
 called when the entity is first created or dropped ( if AttachesToPlayer is true )
 
-SERVER ENT:OnRemovePhysics( physobj ) 
+SERVER ENT:OnRemovePhysics() 
 
 called when the entity is picked up and AttachesToPlayer is true
+
+SERVER ENT:DoInitPhysics()
+
+override this to implement your own physics boxes and whatever
+
+SERVER ENT:DoRemovePhysics()
+
+override this to remove physics your own way? what
 
 SERVER ENT:OnAttach( ply , forced ) 
 
