@@ -116,7 +116,7 @@ function ENT:Initialize()
 	end
 	
 	self:SetCustomCollisionCheck( true )
-	hook.Add( "ShouldCollide" , self , self.HandleShouldCollide )
+	self:InstallHook( "ShouldCollide" , self.HandleShouldCollide )
 end
 
 function ENT:SetupDataTables()

@@ -138,20 +138,20 @@ function ENT:Initialize()
 	self.HandledHooks = {}
 	
 	--predicted hooks hooking with hookers, but not blackjack
-	hook.Add( "StartCommand", self, self.HandlePredictedStartCommand )
-	hook.Add( "SetupMove", self, self.HandlePredictedSetupMove )
-	hook.Add( "Move", self, self.HandlePredictedMove )
-	hook.Add( "PlayerTick", self, self.HandlePredictedThink )
-	hook.Add( "FinishMove", self, self.HandlePredictedFinishMove )
-	hook.Add( "OnPlayerHitGround" , self , self.HandlePredictedHitGround )
+	self:InstallHook( "StartCommand" , self.HandlePredictedStartCommand )
+	self:InstallHook( "SetupMove" , self.HandlePredictedSetupMove )
+	self:InstallHook( "Move" , self.HandlePredictedMove )
+	self:InstallHook( "PlayerTick" , self.HandlePredictedThink )
+	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove )
+	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround )
 	
 	if SERVER then
-		hook.Add( "EntityRemoved" , self , self.OnControllerRemoved )
-		hook.Add( "PostPlayerDeath" , self , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, event :KillSilent()
+		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
+		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, event :KillSilent()
 		self:SetUseType( SIMPLE_USE ) --don't allow continuous use, 
 	else
-		hook.Add( "PostDrawViewModel" , self , self.DrawFirstPersonInternal )
-		hook.Add( "PostPlayerDraw" , self , self.DrawOnPlayer )
+		self:InstallHook( "PostDrawViewModel" , self.DrawFirstPersonInternal )
+		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
 	end
 end
 
@@ -159,7 +159,6 @@ end
 --and when hook.Call tries to call on an invalid entity it removes the hook, so we need to reinstall them when that happens and the entity gets back in the PVS
 --prediction and other shit like drawing on a player might fuck up since the hooks get removed
 
---[[
 function ENT:InstallHook( hookname , handler )
 	self.HandledHooks[hookname] = handler
 end
@@ -175,11 +174,10 @@ function ENT:HandleHooks()
 		end
 	end
 end
-]]
 
 function ENT:Think()
 
-	--self:HandleHooks()
+	self:HandleHooks()
 	
 	if SERVER then
 	

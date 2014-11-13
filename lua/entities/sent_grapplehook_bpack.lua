@@ -3,6 +3,13 @@ AddCSLuaFile()
 --[[
 	An entity that allows you to fire a grapple hook and automatically reel to it by holding the button
 	Like the jetpack, this works even when the player dies while using it.
+	
+	Right now the hook is fired once and then the hook has a simulated travel time from 0 up to 4 seconds,
+	by calculating the time fraction I draw the fancy rope effects and it's pretty smooth
+	once the traveltime expires the player is pulled and shit starts to happen
+	
+	What I want to do is actually simulate the hook like an actual projectile, but we'd need interpolation to draw smoothly
+	The plus side would be that gravity can affect it, and we can simulate the return easily instead of the hacky mess I'm doing right now
 ]]
 
 DEFINE_BASECLASS( "base_predictedent" )
@@ -96,7 +103,7 @@ function ENT:Initialize()
 		
 		self:SetPullMode( 1 )
 		self:SetPullSpeed( 2000 )
-		self:SetKey( KEY_G )
+		self:SetKey( KEY_G )	--the starting key to trigger us
 		self:InitPhysics()
 		
 		self:SetDoReturn( false )
@@ -122,10 +129,12 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "GrappleFraction" )
 	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 4 )
 	self:DefineNWVar( "Vector" , "AttachedTo" )
+	
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
+	
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
-	self:DefineNWVar( "Bool" , "DoReturn" , true , "Hook returns" )
+	self:DefineNWVar( "Bool" , "DoReturn" , true , "Hook returns on detach" )
 	self:DefineNWVar( "Entity" , "HookHelper" )
 	
 end
@@ -181,7 +190,11 @@ function ENT:HandleDetach( predicted , mv )
 	end
 	
 	if self:GetDoReturn() and self:GetAttachedTo() ~= vector_origin then
-		local atchpos , atchang = self:GetHookAttachment()
+		local atchpos = self:GetPos()
+		
+		if IsValid( self:GetControllingPlayer() ) then
+			atchpos = self:GetControllingPlayer():EyePos()
+		end
 	
 		local travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
 
@@ -239,7 +252,7 @@ function ENT:HandleSounds( predicted )
 					local e = EffectData()
 					e:SetOrigin( self:GetAttachedTo() - self:GetDirection() * -1 )
 					e:SetStart( self:GetAttachedTo() )
-					e:SetSurfaceProp( 48 )
+					e:SetSurfaceProp( 48 )	--idk, I just took it from flatgrass's wall
 					e:SetDamageType( DMG_BULLET )
 					e:SetHitBox( 0 )
 					if CLIENT then
@@ -308,7 +321,7 @@ function ENT:FireHook()
 		return
 	end
 	
-	self:SetNextFire( CurTime() + 0.5 )
+	self:SetNextFire( CurTime() + 0.1 )
 	
 	self:GetControllingPlayer():LagCompensation( true )
 	
