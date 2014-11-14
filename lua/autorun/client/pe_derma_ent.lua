@@ -88,6 +88,7 @@ function PANEL:Think()
 		self.Poly = self:GenerateCircleVertices( self:GetWide() / 2 , self:GetTall() / 2 , self:GetTall() / 2 , 0 , 360 )
 	end
 	
+	--only fires if the entity is valid
 	self:CustomThink()
 end
 
@@ -135,7 +136,7 @@ function PANEL:Paint( w , h )
 	local mat = self:GetEntityMaterial()
 	
 	if self.Poly then
-	render.SetStencilEnable( true )
+		render.SetStencilEnable( true )
 
 		render.SetStencilReferenceValue( 1 )
 		render.SetStencilWriteMask( 1 )
@@ -148,22 +149,23 @@ function PANEL:Paint( w , h )
 		render.ClearStencil()
 
 		render.SetStencilCompareFunction( STENCIL_NOTEQUAL )
-			
-			surface.SetTexture( self.WhiteTex )
-			surface.SetDrawColor( color_white )
-			surface.DrawPoly( self.Poly )
-		
+
+		surface.SetTexture( self.WhiteTex )
+		surface.SetDrawColor( color_white )
+		surface.DrawPoly( self.Poly )
+
 		render.SetStencilCompareFunction( STENCIL_EQUAL )
 	end
 	
-			surface.SetDrawColor( color_white )
-			surface.SetMaterial( mat )
-			surface.DrawTexturedRect( 0 , 0 , w , h )
-			self:CustomPaint( w , h )
+	surface.SetDrawColor( color_white )
+	surface.SetMaterial( mat )
+	surface.DrawTexturedRect( 0 , 0 , w , h )
+	self:CustomPaint( w , h )
+	
 	if self.Poly then
 		render.ClearStencil()
 
-	render.SetStencilEnable( false )
+		render.SetStencilEnable( false )
 	end
 end
 
