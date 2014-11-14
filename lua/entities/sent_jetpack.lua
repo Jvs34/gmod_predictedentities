@@ -803,7 +803,7 @@ else
 		light.Size = 250 * scale -- 125 when the scale is 0.25
 		light.Style = 1	--this should do the flicker for us
 		light.Decay = 1000
-		light.DieTime = CurTime() + 1 --can't use UnPredictedCurTime() since they check against CurTime() internally
+		light.DieTime = UnPredictedCurTime() + 1
 	end
 
 	function ENT:DrawJetpackSmoke( pos , normal , scale )
@@ -850,7 +850,9 @@ else
 	
 	
 	function ENT:SetupCustomHUDElements( panel )
+		
 		--TODO: use a quarter of a circle instead
+		
 		panel.FuelGauge = panel:Add( "DPanel" )
 		panel.FuelGauge:SetSize( panel:GetWide() , panel:GetTall() / 4 )
 		panel.FuelGauge:Dock( BOTTOM )

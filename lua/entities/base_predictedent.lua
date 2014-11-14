@@ -159,12 +159,13 @@ end
 
 --I haven't tested this yet, but I believe this is needed mostly for clientside hooks, since IsValid might return false when we're out of PVS
 --and when hook.Call tries to call on an invalid entity it removes the hook, so we need to reinstall them when that happens and the entity gets back in the PVS
---prediction and other shit like drawing on a player might fuck up since the hooks get removed
+--prediction and other shit like drawing on a player might fuck up since the hooks got removed
 
-function ENT:InstallHook( hookname , handler )
-	self.HandledHooks[hookname] = handler
-	if GetConVar( "developer" ):GetBool() then
-		print( "Installed "..hookname.. " on " .. self:GetClass() .. "[" .. self:EntIndex() .. "]" )
+function ENT:InstallHook( hookname , handler , iscallback )
+	if iscallback then
+		self:AddCallback( hookname , handler )
+	else
+		self.HandledHooks[hookname] = handler
 	end
 end
 
@@ -337,7 +338,10 @@ if SERVER then
 		self:SetControllingPlayer( NULL )
 		return true
 	end
-
+	
+	--we want to get properly dropped when the player entity gets removed ( aka after a disconnect )
+	--why not use the disconnect hook? no.
+	
 	function ENT:OnControllerRemoved( ent )
 		if self:IsCarriedBy( ent ) then
 			self:Drop( true )
@@ -398,7 +402,7 @@ else
 	function ENT:DrawFirstPersonInternal( vm , ply , wpn )
 		if self.AttachesToPlayer and self:IsCarriedBy( ply ) then
 			self:DrawFirstPerson( ply , vm ) --this will be moved to the renderscene hook
-			self:DrawOnViewModel( ply , vm ) --this will stay here
+			self:DrawOnViewModel( ply , vm , ply:GetHands() ) --this will stay here
 		end
 	end
 	
@@ -406,7 +410,9 @@ else
 		
 	end
 	
-	function ENT:DrawOnViewModel( ply , vm )
+	--mainly used to draw stuff like shields, gloves or whatever on the viewmodel hands
+	
+	function ENT:DrawOnViewModel( ply , vm , hands )
 	
 	end
 	
@@ -426,7 +432,7 @@ else
 	end
 	
 	function ENT:HandleDerma()
-		--we only want to do these operations if the player does not have another entity in this slot
+		--we only want to do these operations if the player does NOT have another entity in this slot
 		if IsValid( self:GetMainPanel() ) and not self:IsLocalPlayerUsingMySlot() then
 			if self:IsCarriedByLocalPlayer() then
 				self:RegisterHUDInternal( self:GetMainPanel() )

@@ -11,11 +11,11 @@
 
 local PANEL = {}
 
-PANEL.HUDSide = 0 --goes from 0 to 3 --CreateConVar
+PANEL.HUDSide = CreateConVar( "pe_hud_side" , "0", FCVAR_ARCHIVE , "" )
 PANEL.PanelDeleteTimeOut = 5	--after 5 seconds a stranded ent panel will be removed
 
 PANEL.VerticalMargin = 0.25
-PANEL.HorizontalMargin = 0.5
+PANEL.HorizontalMargin = 0.35
 
 function PANEL:Init()
 	--since they're being added to the IconLayout, they're not technically my children, so keep track of them manually
@@ -36,20 +36,19 @@ end
 
 function PANEL:PerformLayout( w , h )
 	
-	local dockpos = RIGHT
+	local dockpos = math.Clamp( self.HUDSide:GetInt() + 2 , LEFT , BOTTOM )
 	
-	self.IconLayout:Dock( dockpos )	--TODO: get from the convar
+	self.IconLayout:Dock( dockpos )
 	
 	local margin = 0
 	
 	if dockpos == RIGHT or dockpos == LEFT then
 		margin = h * self.VerticalMargin
 		self.IconLayout:DockMargin( 0 , margin , 0 , margin )
-	else
+	elseif dockpos == TOP or dockpos == BOTTOM then
 		margin = w * self.HorizontalMargin
 		self.IconLayout:DockMargin( margin , 0 , margin , 0 )
 	end
-
 end
 
 function PANEL:Paint( w , h )
