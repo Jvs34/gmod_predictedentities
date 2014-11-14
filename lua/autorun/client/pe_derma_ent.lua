@@ -66,6 +66,8 @@ function PANEL:Think()
 		return
 	end
 	
+	self.LastSlotKnown = UnPredictedCurTime()
+	
 	--try to get the material from the entity class
 	if not self:IsEntityMaterialSet() and self.RecheckMat then
 		local class = self:GetEntity():GetClass()

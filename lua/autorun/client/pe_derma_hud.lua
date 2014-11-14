@@ -6,37 +6,52 @@
 	but this, of course may depend on the user
 	
 	The entity buttons register themselves from the entities they originate from, and they're associated to slots
-	Once the entity in that slot has been removed
 ]]
 
 local PANEL = {}
 
-PANEL.HUDSide = CreateConVar( "pe_hud_side" , "0", FCVAR_ARCHIVE , "" )
+PANEL.HUDSideConVar = CreateConVar( "cl_pe_hud_side" , "0", FCVAR_ARCHIVE , "" )
 PANEL.PanelDeleteTimeOut = 5	--after 5 seconds a stranded ent panel will be removed
 
 PANEL.VerticalMargin = 0.25
 PANEL.HorizontalMargin = 0.35
 
 function PANEL:Init()
+	self:SetMouseInputEnabled( true )
 	--since they're being added to the IconLayout, they're not technically my children, so keep track of them manually
 	self.MyChildren = {}
 	
-	self.IconSize = 64
+	if not self.IconSize then
+		self.IconSize = 64
+	end
 	
 	self.IconLayout = self:Add( "DIconLayout" )
+	self.IconLayout:Dock( LEFT )
 	self.IconLayout:SetSize( self.IconSize , self.IconSize )
 	self.IconLayout:SetBorder( 1 )
-	self.IconLayout:SetSpaceX( 2 )
-	self.IconLayout:SetSpaceY( 2 )
+	self.IconLayout:SetSpaceX( 1 )
+	self.IconLayout:SetSpaceY( 1 )
 end
 
 function PANEL:Think()
+	if self.IconLayout:GetDock() ~= self:GetHUDSide() then
+		self:InvalidateLayout()
+	end
+	
+	for i , v in pairs( self.MyChildren ) do
+		if IsValid( v ) and v.LastSlotKnown <= UnPredictedCurTime() - self.PanelDeleteTimeOut then
+			self:RemovePanelBySlot( i )
+		end
+	end
+end
 
+function PANEL:GetHUDSide()
+	return math.Clamp( self.HUDSideConVar:GetInt() + 2 , LEFT , BOTTOM )
 end
 
 function PANEL:PerformLayout( w , h )
 	
-	local dockpos = math.Clamp( self.HUDSide:GetInt() + 2 , LEFT , BOTTOM )
+	local dockpos = self:GetHUDSide()
 	
 	self.IconLayout:Dock( dockpos )
 	
@@ -49,9 +64,12 @@ function PANEL:PerformLayout( w , h )
 		margin = w * self.HorizontalMargin
 		self.IconLayout:DockMargin( margin , 0 , margin , 0 )
 	end
+	self.IconLayout:InvalidateLayout()
+	
 end
 
 function PANEL:Paint( w , h )
+
 end
 
 function PANEL:AddPEPanel( panel )
@@ -79,33 +97,21 @@ end
 
 derma.DefineControl( "DPredictedEntManager", "", PANEL, "DPanel" )
 
---UGH, there has to be a better way than setting this
 local function CreatePEHud()
-	if IsValid( PE_HUD ) then
-		PE_HUD:Remove()
-		PE_HUD = nil
-	end
-	
 	local panel = vgui.Create( "DPredictedEntManager" )
 	panel:SetVisible( true )
 	panel:ParentToHUD()
 	panel:Dock( FILL )
 	
-	PE_HUD = panel
-	
-	--this didn't work properly in my tests, I think it was autorefresh that fucked it up
-	--welp, guess I gotta add support for that as well
-	--[[
 	local tab = scripted_ents.GetStored( "base_predictedent" )
 	if tab then
-		tab.MainHUDPanel = PE_HUD
+	
+		if IsValid( tab.MainHUDPanel ) then
+			tab.MainHUDPanel:Remove()
+		end
+	
+		tab.MainHUDPanel = panel
 	end
-	]]
 end
-
-if IsValid( PE_HUD ) then
-	CreatePEHud()
-end
-
 
 hook.Add( "Initialize" , "PEHud" , CreatePEHud )
