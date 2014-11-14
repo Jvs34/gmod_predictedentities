@@ -149,7 +149,7 @@ function ENT:Initialize()
 	if SERVER then
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, event :KillSilent()
-		self:SetUseType( SIMPLE_USE ) --don't allow continuous use, 
+		self:SetUseType( SIMPLE_USE )
 	else
 		self:InstallHook( "PostDrawViewModel" , self.DrawFirstPersonInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
@@ -160,6 +160,7 @@ end
 --I haven't tested this yet, but I believe this is needed mostly for clientside hooks, since IsValid might return false when we're out of PVS
 --and when hook.Call tries to call on an invalid entity it removes the hook, so we need to reinstall them when that happens and the entity gets back in the PVS
 --prediction and other shit like drawing on a player might fuck up since the hooks got removed
+--Now this also works for adding a callback
 
 function ENT:InstallHook( hookname , handler , iscallback )
 	if iscallback then
@@ -175,7 +176,7 @@ function ENT:HandleHooks()
 	local hooktable = hook.GetTable()
 	
 	for i , v in pairs( self.HandledHooks ) do
-		if not hooktable[i] or not hooktable[i][self]then
+		if not hooktable[i] or not hooktable[i][self] then
 			hook.Add( i , self , v )
 		end
 	end
@@ -284,7 +285,7 @@ if SERVER then
 		if forced then
 			self:Drop( forced )
 		end
-	
+		
 		if not IsValid( activator ) or not activator:IsPlayer() then
 			return false
 		end
@@ -591,7 +592,9 @@ end
 	end
 ]]
 
+
 local movedatameta = FindMetaTable( "CMoveData" )
+--who knows, it might be renamed in the future!
 
 local emptyvalues = {
 	[TYPE_VECTOR] = vector_origin,
@@ -601,7 +604,7 @@ local emptyvalues = {
 
 function ENT:BackupMoveData( mv )
 	
-	if not mv then
+	if not mv or not movedatameta then
 		return
 	end
 	
@@ -634,7 +637,7 @@ function ENT:BackupMoveData( mv )
 end
 
 function ENT:RestoreMoveData( mv , sv )
-	if not mv or not sv then
+	if not mv or not sv or not movedatameta then
 		return
 	end
 	

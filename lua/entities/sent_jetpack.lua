@@ -448,6 +448,8 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 	if dogroundslam and speed > 500 then
 		
 		ply:EmitSound( "Player.FallDamage" )
+		--self:EmitPESound( "" , nil , nil , nil , nil , true )	--find the sound smod uses when the player hits the ground in smod
+		
 		local fraction = self:GetJetpackStrafeVelocity() / speed	--because the fall speed might be higher than the jetpack one
 		
 		local effect = EffectData()
@@ -456,7 +458,6 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 		effect:SetScale( 128 )
 		util.Effect( "ThumperDust" , effect , true )	--todo, make our own effect where the particles start from the player and expand in a circle
 														--can even copy the code from c_thumper_dust
-		--self:EmitPESound( "" , nil , nil , nil , nil , true )	--find the sound smod uses when the player hits the ground
 		if SERVER then
 			--TODO: get the code from the sdk and replicate this on my own
 			ply:LagCompensation( true )
