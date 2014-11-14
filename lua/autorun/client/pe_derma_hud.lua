@@ -12,16 +12,19 @@
 local PANEL = {}
 
 PANEL.HUDSide = 0 --goes from 0 to 3 --CreateConVar
+PANEL.PanelDeleteTimeOut = 5	--after 5 seconds a stranded ent panel will be removed
+
+PANEL.VerticalMargin = 0.25
+PANEL.HorizontalMargin = 0.5
 
 function PANEL:Init()
-	self:SetMouseInputEnabled( true )
-	self:SetWorldClicker( false )
-	
 	--since they're being added to the IconLayout, they're not technically my children, so keep track of them manually
-	
 	self.MyChildren = {}
+	
+	self.IconSize = 64
+	
 	self.IconLayout = self:Add( "DIconLayout" )
-	self.IconLayout:SetSize( 128 , 128 )
+	self.IconLayout:SetSize( self.IconSize , self.IconSize )
 	self.IconLayout:SetBorder( 1 )
 	self.IconLayout:SetSpaceX( 2 )
 	self.IconLayout:SetSpaceY( 2 )
@@ -32,14 +35,20 @@ function PANEL:Think()
 end
 
 function PANEL:PerformLayout( w , h )
-
 	
-	self.IconLayout:Dock( RIGHT )	--TODO: get from the convar
+	local dockpos = RIGHT
 	
-	--TODO: calculate from the convar
-	local margin = h * 0.25
-	self.IconLayout:DockMargin( 0 , margin , 0 , 0 )
+	self.IconLayout:Dock( dockpos )	--TODO: get from the convar
 	
+	local margin = 0
+	
+	if dockpos == RIGHT or dockpos == LEFT then
+		margin = h * self.VerticalMargin
+		self.IconLayout:DockMargin( 0 , margin , 0 , margin )
+	else
+		margin = w * self.HorizontalMargin
+		self.IconLayout:DockMargin( margin , 0 , margin , 0 )
+	end
 
 end
 
@@ -47,9 +56,12 @@ function PANEL:Paint( w , h )
 end
 
 function PANEL:AddPEPanel( panel )
+	
 	if not panel then
 		return
 	end
+	
+	panel:SetSize( self.IconSize , self.IconSize )
 	
 	self.MyChildren[panel:GetSlot()] = panel
 	panel:SetParent( self.IconLayout )

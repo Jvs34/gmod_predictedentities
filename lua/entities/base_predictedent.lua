@@ -37,6 +37,7 @@ ENT.AttachmentInfo = {
 --actually, this'll stay here regardless, the editable thing garry added for the dt vars is quite neat
 
 function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , maxval , customelement , filt )
+	
 	if not self.DefinedDTVars[dttype] then
 		Error( "Wrong NWVar type " .. ( dttype or "nil" ) )
 		return
@@ -48,7 +49,7 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 	for i = 0 , maxindex - 1 do
 		
 		--we either didn't find anything in this slot or we found the requested one again
-		--in which case just override again?
+		--in which case just override it again, someone might want to inherit and add an edit table or something
 		if not self.DefinedDTVars[dttype][i] or self.DefinedDTVars[dttype][i] == dtname then
 			index = i
 			break
@@ -56,7 +57,7 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 	end
 
 	if index == -1 then
-		Error( "Not enough slots on "..dttype )
+		Error( "Not enough slots on "..dttype .. ",	could not add ".. dtname )
 		return
 	end
 
@@ -106,13 +107,13 @@ function ENT:SetupDataTables()
 		},
 		Vector = {
 			Max = GMOD_MAXDTVARS,
-		--	EditableElement = "VectorOrigin",	--TODO, allow the player to choose a world position
-		--	EditableElement = "VectorNormal",	--TODO
+		--	EditableElement = "VectorOrigin",	--TODO: allow the player to choose a world position
+		--	EditableElement = "VectorNormal",	--TODO: make players move a 3d arrow in a model panel?
 		--	EditableElement = "VectorColor",	
 		},
 		Angle = {
 			Max = GMOD_MAXDTVARS,
-		--	EditableElement = "VectorNormal", --I guess
+		--	EditableElement = "VectorNormalToAngle", --TODO: inherited from VectorNormal
 		},
 		String = {
 			Max = 4, --as I said before, fuck strings
@@ -152,6 +153,7 @@ function ENT:Initialize()
 	else
 		self:InstallHook( "PostDrawViewModel" , self.DrawFirstPersonInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
+		self:InstallHook( "NetworkEntityCreated" , self.HandleFullPacketUpdate )
 	end
 end
 
@@ -364,6 +366,15 @@ else
 		return ent ~= self
 	end
 	
+	--when a full packet gets received by the client, this hook is called, so we need to reset the IsPredictable var because this shit sucks!
+	--TODO: when the update gets pushed with the new behaviour, disable this
+	
+	function ENT:HandleFullPacketUpdate( ent )
+		if ent == self then
+			self.IsPredictable = false
+		end
+	end
+	
 	--TODO: when the update gets pushed with the new behaviour, change this to self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
 	
 	function ENT:HandlePrediction()
@@ -409,7 +420,7 @@ else
 		self:DrawModel()
 	end
 	
-	--UGLEH
+	--UGLEH as sin
 	function ENT:GetMainPanel()
 		return PE_HUD or self.MainHUDPanel
 	end
@@ -443,6 +454,7 @@ else
 		
 		panel:RemovePanelBySlot( self:GetSlotName() )
 	end
+	
 	--use this to add custom elements to the entity button in the HUD
 	
 	function ENT:SetupCustomHUDElements( panel )
@@ -455,7 +467,8 @@ function ENT:IsCarriedBy( ply )
 end
 
 function ENT:IsKeyDown( mv )
-	if self.InButton == 0 then
+
+	if self.InButton <= 0 then
 		return false
 	end
 	
@@ -730,9 +743,9 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		net.Send( plys )
 		
 	else
-		--if IsFirstTimePredicted() then
+		if ( IsFirstTimePredicted() and predicted ) or not predicted then
 			self:EmitSound( soundname , level , pitch , volume , chan )
-		--end
+		end
 	end
 end
 
@@ -774,6 +787,6 @@ if CLIENT then
 		local volume = net.ReadFloat()
 		local chan = net.ReadInt( 8 )
 		
-		ent:EmitPESound( soundname , level , pitch , volume , chan )
+		ent:EmitPESound( soundname , level , pitch , volume , chan , false )
 	end)
 end
