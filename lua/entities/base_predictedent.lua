@@ -171,7 +171,7 @@ function ENT:HandleHooks()
 	--this is direct access to the hook table, but it's not slow at all
 	local hooktable = hook.GetTable()
 	
-	for i , v in pairs( self.HandleHooks ) do
+	for i , v in pairs( self.HandledHooks ) do
 		if not hooktable[i] or not hooktable[i][self]then
 			hook.Add( i , self , v )
 		end

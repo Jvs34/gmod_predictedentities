@@ -155,7 +155,7 @@ function ENT:Detach( forced )
 	self:SetIsAttached( false )
 	self:SetAttachTime( CurTime() )
 	
-	local returntime = self:GetDoReturn() and Lerp( self:GetHookTraveledFraction() , 0 , self.HookMaxTime ) or 0.5
+	local returntime = self:GetDoReturn() and Lerp( self:GetGrappleFraction() , 0 , self.HookMaxTime ) or 0.5
 	self:SetAttachStart( CurTime() + returntime )
 	self:SetNextFire( CurTime() + returntime )
 	self:SetAttachSoundPlayed( false )
@@ -189,6 +189,7 @@ function ENT:HandleDetach( predicted , mv )
 		return
 	end
 	
+	--[[
 	if self:GetDoReturn() and self:GetAttachedTo() ~= vector_origin then
 		local atchpos = self:GetPos()
 		
@@ -204,6 +205,7 @@ function ENT:HandleDetach( predicted , mv )
 		frac = math.Clamp( frac , 0 , 1 )
 		self:SetHookTraveledFraction( frac )
 	end
+	]]
 	
 	if self:GetIsAttached() then 
 		if self:ShouldStopPulling( mv ) then
@@ -276,7 +278,7 @@ function ENT:HandleSounds( predicted )
 			self.ReelSound:PlayEx( 0.3 , 200 )
 			self.LaunchSound:Stop()
 		else
-			self.LaunchSound:PlayEx( 1 , 100 / self.HookCableSize )
+			self.LaunchSound:PlayEx( 1 , 50 / self.HookCableSize )
 		end
 	else
 		self.LaunchSound:Stop()
