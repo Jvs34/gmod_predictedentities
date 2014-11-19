@@ -608,6 +608,7 @@ if SERVER then
 		local radius = 2.5 * fuel
 		
 		util.BlastDamage( self , atk , self:GetPos() , radius , dmg )
+		util.ScreenShake( self:GetPos() , 1.5 , dmg , 0.25 , radius * 2 )
 		
 		local effect = EffectData()
 		effect:SetOrigin( self:GetPos() )
