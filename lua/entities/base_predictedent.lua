@@ -8,7 +8,7 @@ AddCSLuaFile()
 
 DEFINE_BASECLASS( "base_entity" )
 
-ENT.UseNWVars = true
+ENT.UseNWVars = false
 
 ENT.NWVarsLimit = 100
 
