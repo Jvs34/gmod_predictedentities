@@ -143,7 +143,7 @@ end
 function ENT:Think()
 	self:HandleHookHelper( false )
 	
-	if not IsValid( self:GetControllingPlayer() ) then
+	if not self:IsCarried() then
 		self:HandleDetach( false )
 		self:HandleSounds( false )
 	end
@@ -347,7 +347,7 @@ function ENT:FireHook()
 end
 
 function ENT:GetDirection()
-	if not IsValid( self:GetControllingPlayer() ) then
+	if not self:IsCarried() then
 		return ( self:GetAttachedTo() - self:GetPos() ):GetNormalized()
 	end
 	return ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):GetNormalized()
@@ -388,7 +388,7 @@ function ENT:DoHookTrace( checkdetach )
 end
 
 function ENT:ShouldStopPulling( mv )
-	if not IsValid( self:GetControllingPlayer() ) then
+	if not self:IsCarried() then
 		return false
 	end
 	

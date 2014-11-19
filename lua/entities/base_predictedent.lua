@@ -7,6 +7,11 @@ AddCSLuaFile()
 ]]
 
 DEFINE_BASECLASS( "base_entity" )
+
+ENT.UseNWVars = true
+
+ENT.NWVarsLimit = 100
+
 ENT.Spawnable = false
 ENT.IsPredictedEnt = true
 ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, when true this removes physics and draws the entity on the player
@@ -79,7 +84,25 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 		}
 	end
 	
-	self:NetworkVar( dttype , index , dtname , edit )
+	if self.UseNWVars then
+		--TODO: there's no edit stuff for NWVars yet, it'll come later on
+		--[[
+			self["Set"..dtname] = function( self , val )
+				if self["SetNW"..dttype] then
+					self["SetNW"..dttype]( self , dtname , val )
+				end
+			end
+			
+			self["Get"..dtname] = function( self )
+				if self["GetNW"..dttype] then
+					return self["SetNW"..dttype]( self , dtname )
+				end
+			end
+		]]
+		self:NetworkVar( dttype , index , dtname , edit )
+	else
+		self:NetworkVar( dttype , index , dtname , edit )
+	end
 end
 
 function ENT:SetupDataTables()
@@ -120,6 +143,12 @@ function ENT:SetupDataTables()
 			EditableElement = "Generic",
 		},
 	}
+	
+	if self.UseNWVars then
+		for i , v in pairs( self.DefinedDTVars ) do
+			v.Max = self.NWVarsLimit
+		end
+	end
 
 	self:DefineNWVar( "Entity" , "ControllingPlayer" )
 	self:DefineNWVar( "Bool" , "BeingHeld" )
@@ -189,7 +218,7 @@ function ENT:Think()
 	if SERVER then
 	
 		--check if this guy is still my parent and owner, maybe something is forcibly unparenting us from him, if so, drop
-		if self.AttachesToPlayer and IsValid( self:GetControllingPlayer() ) then
+		if self.AttachesToPlayer and self:IsCarried() then
 			local ply = self:GetControllingPlayer()
 			if self:GetParent() ~= ply or self:GetOwner() ~= ply then
 				self:Drop( true )
@@ -290,7 +319,7 @@ if SERVER then
 			return false
 		end
 		
-		if IsValid( self:GetControllingPlayer() ) or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
+		if self:IsCarried() or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
 			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
 			return false
 		end
@@ -332,7 +361,7 @@ if SERVER then
 		
 		self:OnDrop( self:GetControllingPlayer() , forced )
 		
-		if IsValid( self:GetControllingPlayer() ) then
+		if self:IsCarried() then
 			self:GetControllingPlayer():SetNWEntity( self:GetSlotName() , NULL )
 		end
 
@@ -467,6 +496,11 @@ else
 	function ENT:SetupCustomHUDElements( panel )
 		
 	end
+end
+
+--LOOK I DON'T CARE
+function ENT:IsCarried()
+	return self:IsCarriedBy( self:GetControllingPlayer() )
 end
 
 function ENT:IsCarriedBy( ply )
@@ -693,7 +727,7 @@ end
 --this is called shared, yes it's more expensive than source's normal parenting but it's worth it
 
 function ENT:CalcAbsolutePosition( pos , ang )
-	if self.AttachesToPlayer and IsValid( self:GetControllingPlayer() ) then
+	if self.AttachesToPlayer and self:IsCarried() then
 		return self:GetCustomParentOrigin()
 	end
 end

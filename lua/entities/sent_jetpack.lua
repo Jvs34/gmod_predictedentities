@@ -291,7 +291,7 @@ end
 function ENT:Think()
 
 	--still act if we're not being held by a player
-	if not IsValid( self:GetControllingPlayer() ) then
+	if not self:IsCarried() then
 		self:HandleFly( false )
 		self:HandleFuel( false )
 		self:HandleSounds( false )
