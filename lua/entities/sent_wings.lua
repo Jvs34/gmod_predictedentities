@@ -101,8 +101,8 @@ function ENT:CanFly()
 	return self:GetControllingPlayer():GetMoveType() == MOVETYPE_WALK and not self:GetControllingPlayer():OnGround()
 end
 
-function ENT:GetLocalVel( owner , currentvel )
-	local eye = owner:EyeAngles()
+function ENT:GetLocalVel( currentvel )
+	local eye = self:GetControllingPlayer():EyeAngles()
 	eye.p = eye.p + self.PitchOffset
 	return ( { WorldToLocal( currentvel , Angle( self.PitchOffset , 0 , 0 ) , Vector( 0  , 0 , 0 ) , eye ) } )[1]
 end
