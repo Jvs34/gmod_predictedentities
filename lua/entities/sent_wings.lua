@@ -19,8 +19,6 @@ ENT.PitchOffset = 90
 
 if CLIENT then
 	language.Add( "sent_wings" , ENT.PrintName )
-else
-	ENT.ShowPickupNotice = true
 	ENT.WingBoneResize = {
 		{
 			name = "Crow.Humerus_R",
@@ -37,6 +35,8 @@ else
 		},
 		]]
 	}
+else
+	ENT.ShowPickupNotice = true
 end
 
 ENT.MinBounds = Vector( -5 , -5 , -5 )
