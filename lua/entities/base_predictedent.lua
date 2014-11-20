@@ -175,6 +175,7 @@ function ENT:Initialize()
 	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove )
 	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround )
 	
+	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity )
 	if SERVER then
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, event :KillSilent()
@@ -521,6 +522,19 @@ function ENT:IsKeyDown( mv )
 	end
 	
 	return false
+end
+
+function ENT:HandleCalcMainActivity( ply , velocity )
+	if self:IsCarriedBy( ply ) then
+		local calcideal , calcseqovr = self:HandleMainActivityOverride( ply , velocity )
+		if calcideal and calcseqovr then
+			return calcideal , calcseqovr
+		end
+	end
+end
+
+function ENT:HandleMainActivityOverride( ply , velocity )
+
 end
 
 function ENT:HandlePredictedStartCommand( ply , cmd )
