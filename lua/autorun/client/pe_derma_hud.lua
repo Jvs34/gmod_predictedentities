@@ -27,10 +27,12 @@ function PANEL:Init()
 	
 	self.IconLayout = self:Add( "DIconLayout" )
 	self.IconLayout:Dock( LEFT )
-	self.IconLayout:SetSize( self.IconSize , self.IconSize )
-	self.IconLayout:SetBorder( 1 )
-	self.IconLayout:SetSpaceX( 1 )
-	self.IconLayout:SetSpaceY( 1 )
+	self.IconLayout:SetBorder( 0 )
+	self.IconLayout:SetSpaceX( 2 )
+	self.IconLayout:SetSpaceY( 2 )
+	self.IconLayout.Paint = function( self , w , h )
+		surface.DrawOutlinedRect( 0 , 0 , w , h )
+	end
 end
 
 function PANEL:Think()
@@ -64,6 +66,8 @@ function PANEL:PerformLayout( w , h )
 		margin = w * self.HorizontalMargin
 		self.IconLayout:DockMargin( margin , 0 , margin , 0 )
 	end
+	
+	self.IconLayout:SetSize( self.IconSize , self.IconSize )
 	self.IconLayout:InvalidateLayout()
 	
 end
