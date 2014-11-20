@@ -48,10 +48,28 @@ ENT.AttachmentInfo = {
 	OffsetAng = Angle( -20 , 90 , 180),
 }
 
+sound.Add( {
+	name = "birdwings.flap",
+	channel = CHAN_ITEM,
+	volume = 0.7,
+	level = 75,
+	sound = "vehicles/fast_windloop1.wav"
+})
+
+sound.Add( {
+	name = "birdwings.wind",
+	channel = CHAN_ITEM,
+	volume = 0.7,
+	level = 75,
+	sound = "ambient/wind/windgust_strong.wav"
+})
+
 function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
 	
 	self:DefineNWVar( "Float" , "WingsCycle" )
+	self:DefineNWVar( "Float" , "Flapped" )
+	self:DefineNWVar( "Float" , "FlapCycle" )
 end
 
 function ENT:Think()
@@ -68,7 +86,7 @@ end
 
 function ENT:PredictedMove( owner , data )
 	
-	if data:KeyDown(IN_DUCK) then
+	if data:KeyDown( IN_DUCK ) then
 		return
 	end
 
@@ -82,69 +100,88 @@ function ENT:PredictedMove( owner , data )
 
 	data:SetVelocity( data:GetVelocity() + ( final * FrameTime() * 200 ) )
 	
-	self:CalculateWingCycle( true )
+	if data:KeyPressed( IN_JUMP ) then
+		if self:GetFlapped() <= 10 then
+			self:SetFlapped( 100 )
+		end
+	end
+	
+	local zup = math.Clamp( data:GetVelocity().z / 1000 , 0 , 5 )
+	if zup < 3 then
+		self:SetFlapCycle( math.max( self:GetFlapCycle() - ( self:GetFlapCycle() / 2 ) , 0 ) )
+	else
+		self:SetFlapCycle( self:GetFlapCycle() + zup )
+	end
+
+	if self:GetFlapped() > 0 then
+		local velocity = data:GetVelocity()
+		velocity.x = 0
+		
+		local mult = 500 / (1 + velocity:Length() / 2000 )
+		data:SetVelocity( ( owner:EyeAngles():Up() + owner:EyeAngles():Forward() ) * mult * ( - ( self:GetFlapped() / 100 ) + 1 ) * 0.1 )
+
+		self:SetFlapped( self:GetFlapped() - math.Clamp( math.abs( ( data:GetVelocity().z + 900 ) / 700 ) , 0 , 1.5 ) )
+		self:SetFlapCycle( -self:GetFlapped() )
+	end
+
+	self:SetWingsCycle( ( math.Clamp( - ( data:GetVelocity().x / 80 ) + 25 , 0 , 50 ) + self:GetFlapCycle() ) % 100 )
+	self:SetWingsCycle( self:GetWingsCycle() / 100 )
+	self:SetWingsCycle( self:GetWingsCycle() % 1 )
+
+	if data:KeyDown( IN_DUCK ) then
+		self:SetWingsCycle( 60 )
+	end
+	
+	self:HandleSounds( true )
 end
 
-function ENT:CalculateWingCycle( predicted , owner , mv )
+function ENT:HandleSounds( predicted , owner , mv )
 	
 	if CLIENT and not predicted then
 		return
 	end
 	
-	if IsValid( owner ) then
-		--play the sounds
-	else
+	local cycle = self:GetWingsCycle()
+	local pitch = cycle * 10
 	
-	
+	if not self.SoundFlap then
+		self.SoundFlap = CreateSound( self , "birdwings.flap" )
 	end
 	
-	--[[
-	self.sound_wind:ChangePitch(70)
-	self.sound_wind:ChangeVolume(math.Clamp(ply:GetVelocity():Length() / 4000, 0, 1))
-
-	self.sound_flap:ChangePitch(math.Clamp(50+pitch, 0, 255))
-	self.sound_flap:ChangeVolume(math.Clamp(cycle^10, 0, 1))
-
-	self:SetWingsCycle(cycle)
-	]]
+	if not self.SoundWind then
+		self.SoundWind = CreateSound( self , "birdwings.wind" )
+	end
 	
-	--[[
-	local zup = math.Clamp(self:GetVelocity().z/1000,0,5)
-		if zup < 3 then
-			self.flapcycle = math.max(self.flapcycle - (self.flapcycle/2),0)
-		else
-			self.flapcycle = self.flapcycle + zup
-		end
-
-		if self.flapped > 0 then
-			local ply = self.dt.ply
-			local velocity = self:GetLocalVelocity()
-			velocity.x = 0
-			local mult = 500 / (1 + velocity:Length() / 2000)
-			ply:SetVelocity((ply:EyeAngles():Up() + ply:EyeAngles():Forward()) * mult * (-(self.flapped / 100) + 1) * 0.1 )
-
-			self.flapped = self.flapped - math.Clamp(math.abs((self:GetLocalVelocity().z + 900) / 700), 0, 1.5)
-			self.flapcycle = -self.flapped
-			--Print(self.flapped)
-		end
-
-		self.dt.cycle = (math.Clamp(-(self:GetLocalVelocity().x/80)+25,0,50) + self.flapcycle) % 100
-		self.dt.cycle = self.dt.cycle / 100
-		self.dt.cycle = self.dt.cycle%1
-
-		if self.ply:KeyDown(IN_DUCK) then
-			self.dt.cycle = 60
-		end
-	]]
-	
+	if IsValid( owner ) then
+		self.SoundWind:PlayEx( math.Clamp( mv:Length() / 4000 , 0 , 1 ) , 70 )
+		self.SoundFlap:PlayEx( math.Clamp( cycle ^ 10 , 0 , 1 ) , math.Clamp( 50 + pitch , 0 , 255 ) )
+	else
+		self.SoundWind:Stop()
+		self.SoundFlap:Stop()
+	end
 end
 
 if SERVER then
-
+	function ENT:OnAttach( ply )
+		self:SetFlapCycle( 0 )
+		self:SetFlapped( 0 )
+	end
 else
+	function ENT:Draw( flags )
+		if IsValid( self.WingModel ) then
+			self.WingModel:DrawModel()
+		end
+	end
+	
 	function ENT:HandleWings()
 		if not IsValid( self.WingModel ) then
 			self.WingModel = self:CreateWing()
+		end
+		
+		local cycle = self:GetWingsCycle()
+		cycle = cycle / 3 % 0.33
+		if IsValid( self.WingModel ) then
+			self.WingModel:SetCycle( cycle )
 		end
 	end
 	
@@ -180,6 +217,9 @@ function ENT:OnRemove()
 			self.WingModel:Remove()
 		end
 	end
+	
+	self:StopSound( "birdwings.flap" )
+	self:StopSound( "birdwings.wind" )
 	
 	BaseClass.OnRemove( self )
 end
