@@ -44,7 +44,7 @@ ENT.MaxBounds = Vector( 5 , 5 , 5 )
 
 ENT.AttachmentInfo = {
 	BoneName = "ValveBiped.Bip01_pelvis",
-	OffsetVec = Vector( 0 , 8 , -2 )
+	OffsetVec = Vector( 0 , 8 , -2 ),
 	OffsetAng = Angle( -20 , 90 , 180),
 }
 
@@ -95,6 +95,7 @@ function ENT:Think()
 end
 
 function ENT:PredictedMove( owner , data )
+	self:HandleSounds( true )
 	
 	if data:KeyDown( IN_DUCK ) then
 		return
@@ -102,11 +103,11 @@ function ENT:PredictedMove( owner , data )
 
 	local eye = owner:EyeAngles()
 	eye.p = eye.p + self.PitchOffset
-
+	
 	local local_velocity = data:GetVelocity() * -1
 	local length = math.min( local_velocity:Length() / 2000 , 1 )
 
-	local final = ( ( ( eye:Forward() - ( eye:Up() * 0.3 ) ):Normalize() * local_velocity.x ) * Vector( 1 , 1 , 0.5 ) * 0.04 ) * length
+	local final = ( ( ( eye:Forward() - ( eye:Up() * 0.3 ) ):GetNormal() * local_velocity.x ) * Vector( 1 , 1 , 0.5 ) * 0.04 ) * length
 
 	data:SetVelocity( data:GetVelocity() + ( final * FrameTime() * 200 ) )
 	
@@ -127,7 +128,7 @@ function ENT:PredictedMove( owner , data )
 		local velocity = data:GetVelocity()
 		velocity.x = 0
 		
-		local mult = 500 / (1 + velocity:Length() / 2000 )
+		local mult = 500 / ( 1 + velocity:Length() / 2000 )
 		data:SetVelocity( ( owner:EyeAngles():Up() + owner:EyeAngles():Forward() ) * mult * ( - ( self:GetFlapped() / 100 ) + 1 ) * 0.1 )
 
 		self:SetFlapped( self:GetFlapped() - math.Clamp( math.abs( ( data:GetVelocity().z + 900 ) / 700 ) , 0 , 1.5 ) )
@@ -142,7 +143,7 @@ function ENT:PredictedMove( owner , data )
 		self:SetWingsCycle( 60 )
 	end
 	
-	self:HandleSounds( true )
+	return true
 end
 
 function ENT:HandleSounds( predicted , owner , mv )
@@ -179,10 +180,12 @@ if SERVER then
 else
 	function ENT:Draw( flags )
 		local pos , ang = self:GetCustomParentOrigin()
+		
 		if pos and ang then
 			self:SetPos( pos )
 			self:SetAngles( ang )
 		end
+		
 		if IsValid( self.WingModel ) then
 			self.WingModel:SetPos( self:GetPos() )
 			self.WingModel:SetAngles( self:GetAngles() )
@@ -212,13 +215,18 @@ else
 		
 		wing.BonesResize = self.WingBoneResize
 		
-		wing:AddCallback( "BuildBonePositions" , function( self )
+		wing:AddCallback( "BuildBonePositions" , function( selfwing )
+			
+			if not self.BonesResize then
+				return
+			end
+			
 			for key, bone in pairs( self.BonesResize ) do
-				local index = self:LookupBone( bone.name )
+				local index = selfwing:LookupBone( bone.name )
 				if index then
-					local matrix = self:GetBoneMatrix( index )
+					local matrix = selfwing:GetBoneMatrix( index )
 					matrix:Scale( bone.scale * 0.9 )
-					self:SetBoneMatrix( index , matrix )
+					selfwing:SetBoneMatrix( index , matrix )
 				end
 			end
 		end)
