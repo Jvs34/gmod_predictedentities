@@ -191,7 +191,7 @@ function ENT:HandleSounds( predicted , owner , mv )
 	end
 	
 	if IsValid( owner ) and self:CanFly() then
-		self.SoundWind:PlayEx( math.Clamp( mv:Length() / 4000 , 0 , 1 ) , 70 )
+		self.SoundWind:PlayEx( math.Clamp( mv:GetVelocity():Length() / 4000 , 0 , 1 ) , 70 )
 		self.SoundFlap:PlayEx( math.Clamp( cycle ^ 10 , 0 , 1 ) , math.Clamp( 50 + pitch , 0 , 255 ) )
 	else
 		self.SoundWind:Stop()
