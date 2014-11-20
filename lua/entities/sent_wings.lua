@@ -73,8 +73,9 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Think()
+
 	if not self:IsCarried() then
-		self:CalculateWingCycle( false )
+		self:HandleSounds( false )
 	end
 	
 	if CLIENT then
