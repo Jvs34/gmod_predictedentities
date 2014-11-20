@@ -184,8 +184,8 @@ else
 			self:SetAngles( ang )
 		end
 		if IsValid( self.WingModel ) then
-			self.WingModel:SetPos( pos )
-			self.WingModel:SetAngles( ang )
+			self.WingModel:SetPos( self:GetPos() )
+			self.WingModel:SetAngles( self:GetAngles() )
 			self.WingModel:DrawModel()
 		end
 	end
