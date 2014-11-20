@@ -64,6 +64,15 @@ sound.Add( {
 	sound = "ambient/wind/windgust_strong.wav"
 })
 
+function ENT:Initialize()
+	BaseClass.Initialize( self )
+	if SERVER then
+		self:SetModel( "models/props_junk/wood_crate001a.mdl" )
+		self:DrawShadow( false )
+		self:InitPhysics()
+	end
+end
+
 function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
 	
@@ -169,7 +178,14 @@ if SERVER then
 	end
 else
 	function ENT:Draw( flags )
+		local pos , ang = self:GetCustomParentOrigin()
+		if pos and ang then
+			self:SetPos( pos )
+			self:SetAngles( ang )
+		end
 		if IsValid( self.WingModel ) then
+			self.WingModel:SetPos( pos )
+			self.WingModel:SetAngles( ang )
 			self.WingModel:DrawModel()
 		end
 	end
