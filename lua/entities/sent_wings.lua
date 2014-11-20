@@ -94,17 +94,44 @@ function ENT:Think()
 	return BaseClass.Think( self )
 end
 
+function ENT:CanFly()
+	if not self:IsCarried() then
+		return false
+	end
+	return self:GetControllingPlayer():GetMoveType() == MOVETYPE_WALK and not self:GetControllingPlayer():OnGround()
+end
+
+function ENT:GetLocalVel( owner , currentvel )
+	local eye = owner:EyeAngles()
+	eye.p = eye.p + self.PitchOffset
+	return ( { WorldToLocal( currentvel , Angle( self.PitchOffset , 0 , 0 ) , Vector( 0  , 0 , 0 ) , eye ) } )[1]
+end
+
+function ENT:PredictedStartCommand( owner , ucmd )
+	if self:CanFly() then
+		ucmd:SetForwardMove( 0 )
+		ucmd:SetSideMove( 0 )
+		if ucmd:GetMouseX() > 0 then
+			ucmd:SetSideMove( 1 )
+		elseif ucmd:GetMouseX() < 0 then
+			ucmd:SetSideMove( -1 )
+		end
+	end
+end
+
 function ENT:PredictedMove( owner , data )
 	self:HandleSounds( true )
 	
-	if data:KeyDown( IN_DUCK ) then
+	if data:KeyDown( IN_DUCK ) or not self:CanFly() then
 		return
 	end
 
+	--there's a few problems with the movement code due to me using 
+	
 	local eye = owner:EyeAngles()
 	eye.p = eye.p + self.PitchOffset
 	
-	local local_velocity = data:GetVelocity() * -1
+	local local_velocity = self:GetLocalVel( data:GetVelocity() ) * -1
 	local length = math.min( local_velocity:Length() / 2000 , 1 )
 
 	local final = ( ( ( eye:Forward() - ( eye:Up() * 0.3 ) ):GetNormal() * local_velocity.x ) * Vector( 1 , 1 , 0.5 ) * 0.04 ) * length
@@ -125,17 +152,17 @@ function ENT:PredictedMove( owner , data )
 	end
 
 	if self:GetFlapped() > 0 then
-		local velocity = data:GetVelocity()
+		local velocity = self:GetLocalVel( data:GetVelocity() )
 		velocity.x = 0
 		
 		local mult = 500 / ( 1 + velocity:Length() / 2000 )
 		data:SetVelocity( ( owner:EyeAngles():Up() + owner:EyeAngles():Forward() ) * mult * ( - ( self:GetFlapped() / 100 ) + 1 ) * 0.1 )
 
-		self:SetFlapped( self:GetFlapped() - math.Clamp( math.abs( ( data:GetVelocity().z + 900 ) / 700 ) , 0 , 1.5 ) )
+		self:SetFlapped( self:GetFlapped() - math.Clamp( math.abs( ( self:GetLocalVel( data:GetVelocity() ).z + 900 ) / 700 ) , 0 , 1.5 ) )
 		self:SetFlapCycle( -self:GetFlapped() )
 	end
 
-	self:SetWingsCycle( ( math.Clamp( - ( data:GetVelocity().x / 80 ) + 25 , 0 , 50 ) + self:GetFlapCycle() ) % 100 )
+	self:SetWingsCycle( ( math.Clamp( - ( self:GetLocalVel( data:GetVelocity() ).x / 80 ) + 25 , 0 , 50 ) + self:GetFlapCycle() ) % 100 )
 	self:SetWingsCycle( self:GetWingsCycle() / 100 )
 	self:SetWingsCycle( self:GetWingsCycle() % 1 )
 
@@ -163,7 +190,7 @@ function ENT:HandleSounds( predicted , owner , mv )
 		self.SoundWind = CreateSound( self , "birdwings.wind" )
 	end
 	
-	if IsValid( owner ) then
+	if IsValid( owner ) and self:CanFly() then
 		self.SoundWind:PlayEx( math.Clamp( mv:Length() / 4000 , 0 , 1 ) , 70 )
 		self.SoundFlap:PlayEx( math.Clamp( cycle ^ 10 , 0 , 1 ) , math.Clamp( 50 + pitch , 0 , 255 ) )
 	else
