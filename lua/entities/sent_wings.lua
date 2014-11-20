@@ -242,18 +242,18 @@ else
 		
 		wing.BonesResize = self.WingBoneResize
 		
-		wing:AddCallback( "BuildBonePositions" , function( selfwing )
+		wing:AddCallback( "BuildBonePositions" , function( self )
 			
 			if not self.BonesResize then
 				return
 			end
 			
 			for key, bone in pairs( self.BonesResize ) do
-				local index = selfwing:LookupBone( bone.name )
+				local index = self:LookupBone( bone.name )
 				if index then
-					local matrix = selfwing:GetBoneMatrix( index )
+					local matrix = self:GetBoneMatrix( index )
 					matrix:Scale( bone.scale * 0.9 )
-					selfwing:SetBoneMatrix( index , matrix )
+					self:SetBoneMatrix( index , matrix )
 				end
 			end
 		end)
