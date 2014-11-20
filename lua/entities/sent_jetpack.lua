@@ -886,6 +886,22 @@ function ENT:HandleShouldCollide( ent1 , ent2 )
 	end
 end
 
+function ENT:HandleMainActivityOverride( ply , velocity )
+	if self:GetActive() then
+		local vel2d = velocity:Length2D()
+		local idealact = nil
+		local hasweapon = IsValid( ply:GetActiveWeapon() )
+		
+		if hasweapon then
+			idealact = vel2d >= 10 and ACT_MP_SWIM or ACT_MP_SWIM_IDLE
+		else
+			idealact = ACT_HL2MP_IDLE + 9
+		end
+		
+		return idealact , -1
+	end
+end
+
 function ENT:OnRemove()
 	--if stopping the soundpatch doesn't work, stop the sound manually
 	self:StopSound( "jetpack.thruster_loop" )
