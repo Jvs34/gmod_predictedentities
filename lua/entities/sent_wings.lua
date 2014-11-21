@@ -122,26 +122,14 @@ end
 function ENT:PredictedMove( owner , data )
 	self:HandleSounds( true )
 	
-	if data:KeyDown( IN_DUCK ) or not self:CanFly() then
-		return
-	end
-
-	--there's a few problems with the movement code due to me using 
-	
-	local eye = owner:EyeAngles()
-	eye.p = eye.p + self.PitchOffset
-	
-	local local_velocity = self:GetLocalVel( data:GetVelocity() ) * -1
-	local length = math.min( local_velocity:Length() / 2000 , 1 )
-
-	local final = ( ( ( eye:Forward() - ( eye:Up() * 0.3 ) ):GetNormal() * local_velocity.x ) * Vector( 1 , 1 , 0.5 ) * 0.04 ) * length
-
-	data:SetVelocity( data:GetVelocity() + ( final * FrameTime() * 200 ) )
-	
 	if data:KeyPressed( IN_JUMP ) then
 		if self:GetFlapped() <= 10 then
 			self:SetFlapped( 100 )
 		end
+	end
+	
+	if data:KeyDown( IN_DUCK ) or not self:CanFly() then
+		return
 	end
 	
 	local zup = math.Clamp( data:GetVelocity().z / 1000 , 0 , 5 )
@@ -170,7 +158,15 @@ function ENT:PredictedMove( owner , data )
 		self:SetWingsCycle( 60 )
 	end
 	
-	return true
+	local eye = owner:EyeAngles()
+	eye.p = eye.p + self.PitchOffset
+	
+	local local_velocity = self:GetLocalVel( data:GetVelocity() ) * -1
+	local length = math.min( local_velocity:Length() / 2000 , 1 )
+
+	local final = ( ( ( eye:Forward() - ( eye:Up() * 0.3 ) ):GetNormal() * local_velocity.x ) * Vector( 1 , 1 , 0.5 ) * 0.04 ) * length
+
+	data:SetVelocity( data:GetVelocity() + ( final * FrameTime() * 200 ) )
 end
 
 function ENT:HandleSounds( predicted , owner , mv )
