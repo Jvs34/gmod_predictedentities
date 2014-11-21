@@ -537,11 +537,13 @@ if SERVER then
 			physobj:SetMass( 75 )
 			self:StartMotionController()
 		end
+		self:SetCollisionGroup( COLLISION_GROUP_NONE )
 		--self:SetCollisionGroup( COLLISION_GROUP_WEAPON )	--set to COLLISION_GROUP_NONE to reenable collisions against players and npcs
 	end
 	
-	function ENT:OnRemovePhysics()
+	function ENT:OnRemovePhysics( physobj )
 		self:StopMotionController()
+		self:SetCollisionGroup( COLLISION_GROUP_DEBRIS_TRIGGER )
 		--self:SetCollisionGroup( COLLISION_GROUP_DEBRIS )
 	end
 	

@@ -178,7 +178,7 @@ function ENT:Initialize()
 	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity )
 	if SERVER then
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
-		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, event :KillSilent()
+		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
 		self:SetUseType( SIMPLE_USE )
 	else
 		self:InstallHook( "PostDrawViewModel" , self.DrawFirstPersonInternal )
@@ -187,7 +187,7 @@ function ENT:Initialize()
 	end
 end
 
---I haven't tested this yet, but I believe this is needed mostly for clientside hooks, since IsValid might return false when we're out of PVS
+--This is needed mostly for clientside hooks, since IsValid might return false when we're out of PVS with some bad lag
 --and when hook.Call tries to call on an invalid entity it removes the hook, so we need to reinstall them when that happens and the entity gets back in the PVS
 --prediction and other shit like drawing on a player might fuck up since the hooks got removed
 --Now this also works for adding a callback
@@ -241,6 +241,8 @@ function ENT:Think()
 	--set our think rate to be in line with the server tickrate
 	--this may also affect animations clientside if they're ran in this hook, considering that also happens in normal source
 	--I'd say that's an accurate replication of the issue
+	
+	--default behaviour for scripted entities is to think every 200 milliseconds
 	
 	self:NextThink( CurTime() + engine.TickInterval() )
 	return true
@@ -331,6 +333,7 @@ if SERVER then
 			self:SetOwner( activator )
 			self:SetTransmitWithParent( true )
 			self:SetNoDraw( true )
+			self:AddEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
 
 		if self.ShowPickupNotice then
@@ -358,6 +361,7 @@ if SERVER then
 			self:InitPhysics()
 			self:SetTransmitWithParent( false )
 			self:SetNoDraw( false )
+			self:RemoveEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
 		
 		self:OnDrop( self:GetControllingPlayer() , forced )
@@ -710,7 +714,8 @@ function ENT:GetCustomParentOrigin()
 	
 	local ply = self:GetControllingPlayer()
 	
-	if not IsValid( ply ) then
+	--duplicated check, but people might call this manually in the entity draw hook, so gotta do this
+	if not self:IsCarriedBy( ply ) then
 		return
 	end
 	
@@ -728,7 +733,7 @@ function ENT:GetCustomParentOrigin()
 		return
 	end
 
-	local matrix = self:GetControllingPlayer():GetBoneMatrix( boneid )
+	local matrix = ply:GetBoneMatrix( boneid )
 
 	if not matrix then
 		return
