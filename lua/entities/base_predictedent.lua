@@ -779,7 +779,7 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		if IsValid( activator ) and not predicted and not activator:IsBot() then
 			plys = activator
 		else
-			for i , v in pairs( player.GetHumans() ) do
+			for i , v in ipairs( player.GetHumans() ) do
 				
 				if predicted and v == self:GetControllingPlayer() then
 					continue
