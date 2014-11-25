@@ -293,22 +293,22 @@ if SERVER then
 	end
 	
 	function ENT:OnAttach( ply )
-		
+		--override me
 	end
 
 	function ENT:OnDrop( ply , fromuser )
-
+		--override me
 	end
 
 	--these two are not necessarely duplicates of the functions above because we may want to modify the mass
 	--as soon as the physobj gets created, and that also happens in initialize
 
 	function ENT:OnInitPhysics( physobj )
-
+		--override me
 	end
 
 	function ENT:OnRemovePhysics()
-
+		--override me
 	end
 
 	function ENT:Attach( activator , forced )
@@ -432,6 +432,19 @@ else
 		end
 	end
 	
+	function ENT:HandleButtonBind( ply , cmd )
+		if self.InButton > 0 then
+			local mykey = self:GetKey()
+			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
+				if mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
+					if input.IsButtonDown( mykey ) then
+						cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
+					end
+				end
+			end
+		end
+	end
+	
 	--TODO: stop using the viewmodel draw hook and simply create a new 3d cam from renderscene
 	--viewmodels don't draw without an associated weapon ( this is due to garryness, they always do in source )
 	function ENT:DrawFirstPersonInternal( vm , ply , wpn )
@@ -442,13 +455,13 @@ else
 	end
 	
 	function ENT:DrawFirstPerson( ply , vm )
-		
+		--override me
 	end
 	
 	--mainly used to draw stuff like shields, gloves or whatever on the viewmodel hands
 	
 	function ENT:DrawOnViewModel( ply , vm , hands )
-	
+		--override me
 	end
 	
 	function ENT:DrawOnPlayer( ply )
@@ -499,7 +512,7 @@ else
 	--use this to add custom elements to the entity button in the HUD
 	
 	function ENT:SetupCustomHUDElements( panel )
-		
+		--override me
 	end
 end
 
@@ -538,22 +551,16 @@ function ENT:HandleCalcMainActivity( ply , velocity )
 end
 
 function ENT:HandleMainActivityOverride( ply , velocity )
-
+	--override me
 end
 
 function ENT:HandlePredictedStartCommand( ply , cmd )
 	if self:IsCarriedBy( ply ) then
+	
 		--allows the user to have a fake keybind by manually checking his buttons instead of having the player bind a button to a command ( which most users don't even know anything about ).
 		--he can configure this key at anytime by editing the entity ( if it allows it in the first place )
-		if CLIENT and self.InButton > 0 then
-			local mykey = self:GetKey()
-			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
-				if mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
-					if input.IsButtonDown( mykey ) then
-						cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
-					end
-				end
-			end
+		if CLIENT then
+			self:HandleButtonBind( ply , cmd )
 		end
 		
 		self:PredictedStartCommand( ply , cmd )
@@ -599,27 +606,27 @@ function ENT:HandlePredictedHitGround( ply , inwater , onfloater , speed )
 end
 
 function ENT:PredictedStartCommand( ply , cmd )
-
+	--override me
 end
 
 function ENT:PredictedSetupMove( ply , mv , cmd )
-
+	--override me
 end
 
 function ENT:PredictedMove( ply , mv )
-
+	--override me
 end
 
 function ENT:PredictedThink( ply , mv )
-
+	--override me
 end
 
 function ENT:PredictedFinishMove( ply , mv )
-
+	--override me
 end
 
 function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
-
+	--override me
 end
 
 --Allows for predicted movement simulation on non player entities, without disrupting the player movement itself
