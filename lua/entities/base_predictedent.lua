@@ -431,7 +431,7 @@ else
 		if self.InButton > 0 then
 			local mykey = self:GetKey()
 			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
-				if self:IsValidButton( mykey ) then
+				if self:IsValidButton( mykey ) and input.IsButtonDown( mykey ) then
 				
 					if self.KeyType == 1 and not self:IsKeyboardButton( mykey ) then
 						return
@@ -445,9 +445,7 @@ else
 						return
 					end
 					
-					if input.IsButtonDown( mykey ) then
-						cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
-					end
+					cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
 				end
 			end
 		end
