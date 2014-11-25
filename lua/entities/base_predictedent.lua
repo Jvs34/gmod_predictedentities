@@ -10,8 +10,6 @@ DEFINE_BASECLASS( "base_entity" )
 
 ENT.UseNWVars = false
 
-ENT.NWVarsLimit = 100
-
 ENT.Spawnable = false
 ENT.IsPredictedEnt = true
 ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, when true this removes physics and draws the entity on the player
@@ -26,6 +24,7 @@ end
 ENT.Editable = true
 ENT.InButton = 0	--set this to an unused IN_ enum ( using a raw number is fine, as long as it's below 32 bits ) and make sure it's not used by other predicted entities
 					--if left 0 the user won't even see the key edit option
+ENT.KeyType = 0	--0 = ALL , 1 = KEYBOARD ONLY , 2 = MOUSE ONLY , 3 = JOYSTICK ONLY
 
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
@@ -49,23 +48,27 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 	end
 
 	local index = -1
-	local maxindex = self.DefinedDTVars[dttype].Max
+	
+	if not self.UseNWVars then
+		local maxindex = self.DefinedDTVars[dttype].Max
 
-	for i = 0 , maxindex - 1 do
-		
-		--we either didn't find anything in this slot or we found the requested one again
-		--in which case just override it again, someone might want to inherit and add an edit table or something
-		if not self.DefinedDTVars[dttype][i] or self.DefinedDTVars[dttype][i] == dtname then
-			index = i
-			break
+		for i = 0 , maxindex - 1 do
+			--we either didn't find anything in this slot or we found the requested one again
+			--in which case just override it again, someone might want to inherit and add an edit table or something
+			if not self.DefinedDTVars[dttype][i] or self.DefinedDTVars[dttype][i] == dtname then
+				index = i
+				break
+			end
 		end
-	end
 
-	if index == -1 then
-		Error( "Not enough slots on "..dttype .. ",	could not add ".. dtname )
-		return
+		if index == -1 then
+			Error( "Not enough slots on "..dttype .. ",	could not add ".. dtname )
+			return
+		end
+	else
+		index = dtname
 	end
-
+	
 	self.DefinedDTVars[dttype][index] = dtname
 	
 	local edit = nil
@@ -83,26 +86,8 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 			}
 		}
 	end
-	
-	if self.UseNWVars then
-		--TODO: there's no edit stuff for NWVars yet, it'll come later on
-		--[[
-			self["Set"..dtname] = function( self , val )
-				if self["SetNW"..dttype] then
-					self["SetNW"..dttype]( self , dtname , val )
-				end
-			end
-			
-			self["Get"..dtname] = function( self )
-				if self["GetNW"..dttype] then
-					return self["SetNW"..dttype]( self , dtname )
-				end
-			end
-		]]
-		self:NetworkVar( dttype , index , dtname , edit )
-	else
-		self:NetworkVar( dttype , index , dtname , edit )
-	end
+
+	self:NetworkVar( dttype , index , dtname , edit )
 end
 
 function ENT:SetupDataTables()
@@ -144,12 +129,6 @@ function ENT:SetupDataTables()
 		},
 	}
 	
-	if self.UseNWVars then
-		for i , v in pairs( self.DefinedDTVars ) do
-			v.Max = self.NWVarsLimit
-		end
-	end
-
 	self:DefineNWVar( "Entity" , "ControllingPlayer" )
 	self:DefineNWVar( "Bool" , "BeingHeld" )
 	self:DefineNWVar( "String" , "SlotName" )
