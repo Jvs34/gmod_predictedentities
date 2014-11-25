@@ -411,11 +411,40 @@ else
 		end
 	end
 	
+	function ENT:IsValidButton( btn )
+		return btn > BUTTON_CODE_NONE and btn < BUTTON_CODE_COUNT
+	end
+	
+	function ENT:IsKeyboardButton( btn )
+		return btn > KEY_FIRST and btn < KEY_COUNT
+	end
+	
+	function ENT:IsMouseButton( btn )
+		return btn >= MOUSE_FIRST and btn < MOUSE_LAST
+	end
+	
+	function ENT:IsJoystickButton( btn )
+		return btn >= JOYSTICK_FIRST and btn < JOYSTICK_LAST
+	end
+	
 	function ENT:HandleButtonBind( ply , cmd )
 		if self.InButton > 0 then
 			local mykey = self:GetKey()
 			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
-				if mykey > BUTTON_CODE_NONE and mykey < BUTTON_CODE_COUNT then
+				if self:IsValidButton( mykey ) then
+				
+					if self.KeyType == 1 and not self:IsKeyboardButton( mykey ) then
+						return
+					end
+					
+					if self.KeyType == 2 and not self:IsMouseButton( mykey ) then
+						return
+					end
+					
+					if self.KeyType == 3 and not self:IsJoystickButton( mykey ) then
+						return
+					end
+					
 					if input.IsButtonDown( mykey ) then
 						cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
 					end
