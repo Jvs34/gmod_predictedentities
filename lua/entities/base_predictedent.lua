@@ -320,7 +320,9 @@ if SERVER then
 		end
 
 		if self.ShowPickupNotice then
-			self:EmitSound( "HL2Player.PickupWeapon" )
+			if self:GetShouldPlayPickupSound() then
+				self:EmitSound( "HL2Player.PickupWeapon" )
+			end
 			
 			if not activator:IsBot() then
 				net.Start( "pe_pickup" )
