@@ -43,7 +43,7 @@ end
 if CLIENT then
 	function ENT:Draw( flags )
 		if IsValid( self:GetParent() ) then
-			self:GetParent():DrawGrapple()
+			self:GetParent():DrawGrapple( flags )
 		end
 	end
 end

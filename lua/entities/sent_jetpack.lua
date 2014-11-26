@@ -631,9 +631,9 @@ else
 			self:SetAngles( ang )
 		end
 		
-		self:DrawModel()
+		self:DrawModel( flags )
 		
-		self:DrawWings()
+		self:DrawWings( flags )
 		
 		local atchpos , atchang = self:GetEffectsOffset()
 		
@@ -702,7 +702,7 @@ else
 		end
 	end
 	
-	function ENT:DrawWings()
+	function ENT:DrawWings( flags )
 		local pos = self:GetPos()
 		local ang = self:GetAngles()
 
@@ -717,7 +717,7 @@ else
 			self.LeftWing:SetRenderOrigin( gpos )
 			self.LeftWing:SetRenderAngles( gang )
 			self.LeftWing:EnableMatrix( "RenderMultiply" , self.WingMatrix )
-			self.LeftWing:DrawModel()
+			self.LeftWing:DrawModel( flags )
 		end
 
 		if IsValid( self.RightWing ) then
@@ -725,7 +725,7 @@ else
 			self.RightWing:SetRenderOrigin( gpos )
 			self.RightWing:SetRenderAngles( gang )
 			self.RightWing:EnableMatrix( "RenderMultiply" , self.WingMatrix )
-			self.RightWing:DrawModel()
+			self.RightWing:DrawModel( flags )
 		end
 	end
 

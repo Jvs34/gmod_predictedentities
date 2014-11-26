@@ -24,7 +24,15 @@ end
 ENT.Editable = true
 ENT.InButton = 0	--set this to an unused IN_ enum ( using a raw number is fine, as long as it's below 32 bits ) and make sure it's not used by other predicted entities
 					--if left 0 the user won't even see the key edit option
-ENT.KeyType = 0	--0 = ALL , 1 = KEYBOARD ONLY , 2 = MOUSE ONLY , 3 = JOYSTICK ONLY
+
+ENT.KeyAllowedKeyboard = 2 ^ 0
+ENT.KeyAllowedMouse = 2 ^ 1
+ENT.KeyAllowedJoystick = 2 ^ 2
+
+ENT.KeyAllowedAll = bit.bor( ENT.KeyAllowedKeyboard , ENT.KeyAllowedMouse , ENT.KeyAllowedJoystick )
+
+ENT.KeyAllowedFlags = ENT.KeyAllowedAll	--bitflag of the key types you want to use
+
 
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
@@ -428,20 +436,27 @@ else
 	end
 	
 	function ENT:HandleButtonBind( ply , cmd )
-		if self.InButton > 0 then
+		
+		--don't even bother if the InButton isn't set or the player is already pressing the button on his own
+		--maybe someone wants the entity to be activated by an IN_ enum used by player movement or something
+		
+		if self.InButton > 0 and bit.band( cmd:GetButtons() , self.InButton ) == 0 then
 			local mykey = self:GetKey()
 			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
-				if self:IsValidButton( mykey ) and input.IsButtonDown( mykey ) then
 				
-					if self.KeyType == 1 and not self:IsKeyboardButton( mykey ) then
+				--these checks are clientside, so they're not really *SECURE* per say, but using PlayerButtonDown/Up is kind of unreliable too
+				--plus the coder shouldn't really rely on this for security, but more of an utility
+				if self:IsValidButton( mykey ) and input.IsButtonDown( mykey ) then
+					
+					if bit.band( self.KeyAllowedFlags , self.KeyAllowedKeyboard ) == 0 and self:IsKeyboardButton( mykey ) then
 						return
 					end
 					
-					if self.KeyType == 2 and not self:IsMouseButton( mykey ) then
+					if bit.band( self.KeyAllowedFlags , self.KeyAllowedMouse ) == 0 and self:IsMouseButton( mykey ) then
 						return
 					end
 					
-					if self.KeyType == 3 and not self:IsJoystickButton( mykey ) then
+					if bit.band( self.KeyAllowedFlags , self.KeyAllowedJoystick ) == 0 and self:IsJoystickButton( mykey ) then
 						return
 					end
 					
@@ -470,14 +485,16 @@ else
 		--override me
 	end
 	
-	function ENT:DrawOnPlayer( ply )
+	--the flags aren't passed yet, maybe in a future update
+	
+	function ENT:DrawOnPlayer( ply , flags )
 		if self.AttachesToPlayer and self:IsCarriedBy( ply ) then
-			self:DrawModel()
+			self:DrawModel( flags )
 		end
 	end
 
 	function ENT:Draw( flags )
-		self:DrawModel()
+		self:DrawModel( flags )
 	end
 	
 	--UGLEH as sin

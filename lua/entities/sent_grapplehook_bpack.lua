@@ -542,7 +542,7 @@ else
 	
 	--draws the rope and grapple
 	
-	function ENT:DrawGrapple()
+	function ENT:DrawGrapple( flags )
 		
 		local cablesize = self.HookCableSize
 		
@@ -627,13 +627,13 @@ else
 				
 			end
 			
-			self:DrawHook( endgrapplepos , endgrappleang )
+			self:DrawHook( endgrapplepos , endgrappleang , flags )
 			
 		end
 	end
 	
 	--draws the hook at the given position
-	function ENT:DrawHook( pos , ang )
+	function ENT:DrawHook( pos , ang , flags )
 		
 		if not self.CSModels then
 			return
@@ -644,7 +644,7 @@ else
 				v:SetupBones()
 				v:SetPos( pos )
 				v:SetAngles( ang )
-				v:DrawModel()
+				v:DrawModel( flags )
 			end
 		end
 		
@@ -662,9 +662,10 @@ else
 		if pos and ang then
 			self:SetPos( pos )
 			self:SetAngles( ang )
+			self:SetupBones()	--seems to be needed since we're never technically drawing the model
 		end
 		
-		self:DrawCSModel( self:GetPos() , self:GetAngles() )
+		self:DrawCSModel( self:GetPos() , self:GetAngles() , flags )
 		
 		if not self:GetIsAttached() and not self:IsHookReturning() then
 			local hpos , hang = self:GetHookAttachment()
@@ -672,13 +673,13 @@ else
 		end
 	end
 	
-	function ENT:DrawCSModel( pos , ang )
+	function ENT:DrawCSModel( pos , ang , flags )
 		for i , v in pairs( self.CSModels ) do
 			if IsValid( v ) then	--we may encounter nested tables but it doesn't matter because they don't have .IsValid
 				v:SetupBones()
 				v:SetPos( pos )
 				v:SetAngles( ang )
-				v:DrawModel()
+				v:DrawModel( flags )
 			end
 		end
 		
