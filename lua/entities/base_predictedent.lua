@@ -22,8 +22,6 @@ else
 end
 
 ENT.Editable = true
-ENT.InButton = 0	--set this to an unused IN_ enum ( using a raw number is fine, as long as it's below 32 bits ) and make sure it's not used by other predicted entities
-					--if left 0 the user won't even see the key edit option
 
 ENT.KeyAllowedKeyboard = 2 ^ 0
 ENT.KeyAllowedMouse = 2 ^ 1
@@ -144,11 +142,8 @@ function ENT:SetupDataTables()
 	
 	--only allow the user to modify the button if the coder wants this entity to have an usable key
 	
-	if self.InButton == 0 then
-		self:DefineNWVar( "Int" , "Key" )
-	else
-		self:DefineNWVar( "Int" , "Key" , true , "Button" , BUTTON_CODE_NONE + 1 , BUTTON_CODE_LAST , "EditKey" )
-	end
+	self:DefineNWVar( "Int" , "InButton" )
+	self:DefineNWVar( "Int" , "Key" , true , "Button" , BUTTON_CODE_NONE + 1 , BUTTON_CODE_LAST , "EditKey" )
 end
 
 function ENT:Initialize()
@@ -167,6 +162,7 @@ function ENT:Initialize()
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
 		self:SetUseType( SIMPLE_USE )
+		self:SetInButton( 0 )--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
 	else
 		self:InstallHook( "PostDrawViewModel" , self.DrawFirstPersonInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
@@ -440,7 +436,7 @@ else
 		--don't even bother if the InButton isn't set or the player is already pressing the button on his own
 		--maybe someone wants the entity to be activated by an IN_ enum used by player movement or something
 		
-		if self.InButton > 0 and bit.band( cmd:GetButtons() , self.InButton ) == 0 then
+		if self:GetInButton() > 0 and bit.band( cmd:GetButtons() , self:GetInButton() ) == 0 then
 			local mykey = self:GetKey()
 			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
 				
@@ -460,7 +456,7 @@ else
 						return
 					end
 					
-					cmd:SetButtons( bit.bor( cmd:GetButtons() , self.InButton ) )
+					cmd:SetButtons( bit.bor( cmd:GetButtons() , self:GetInButton() ) )
 				end
 			end
 		end
@@ -550,15 +546,15 @@ end
 
 function ENT:IsKeyDown( mv )
 
-	if self.InButton <= 0 then
+	if self:GetInButton() <= 0 then
 		return false
 	end
 	
 	if IsValid( self:GetControllingPlayer() ) then
 		if mv then
-			return mv:KeyDown( self.InButton )
+			return mv:KeyDown( self:GetInButton() )
 		end
-		return self:GetControllingPlayer():KeyDown( self.InButton )
+		return self:GetControllingPlayer():KeyDown( self:GetInButton() )
 	end
 	
 	return false

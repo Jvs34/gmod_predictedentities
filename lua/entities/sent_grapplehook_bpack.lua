@@ -28,7 +28,6 @@ end
 ENT.MinBounds = Vector( -8.3 , -7.8 , 0 )
 ENT.MaxBounds = Vector( 10 , 8 , 4.5 )
 
-ENT.InButton = IN_GRENADE1
 ENT.HookMaxTime = 4	--max time in seconds the hook needs to reach the maxrange
 ENT.HookMaxRange = 10000
 ENT.HookHullMins = Vector( -2 , -2 , -2 )
@@ -103,6 +102,7 @@ function ENT:Initialize()
 		
 		self:SetPullMode( 1 )
 		self:SetPullSpeed( 2000 )
+		self:SetInButton( IN_GRENADE1 )
 		self:SetKey( KEY_G )	--the starting key to trigger us
 		self:InitPhysics()
 		
