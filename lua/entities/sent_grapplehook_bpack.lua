@@ -641,9 +641,9 @@ else
 		
 		for i , v in pairs( self.CSModels.Hook ) do
 			if IsValid( v ) then
-				v:SetupBones()
 				v:SetPos( pos )
 				v:SetAngles( ang )
+				v:SetupBones()
 				v:DrawModel( flags )
 			end
 		end
@@ -676,9 +676,9 @@ else
 	function ENT:DrawCSModel( pos , ang , flags )
 		for i , v in pairs( self.CSModels ) do
 			if IsValid( v ) then	--we may encounter nested tables but it doesn't matter because they don't have .IsValid
-				v:SetupBones()
 				v:SetPos( pos )
 				v:SetAngles( ang )
+				v:SetupBones()
 				v:DrawModel( flags )
 			end
 		end
