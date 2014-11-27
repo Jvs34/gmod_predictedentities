@@ -320,7 +320,7 @@ if SERVER then
 		--override me
 	end
 
-	function ENT:OnRemovePhysics()
+	function ENT:OnRemovePhysics( physobj )
 		--override me
 	end
 
