@@ -320,14 +320,15 @@ if SERVER then
 		end
 
 		if self.ShowPickupNotice then
-			if self:GetShouldPlayPickupSound() then
+			--this is actually a Lua table value that is then checked in c++, so it starts out as nil, wow garry
+			if self:GetShouldPlayPickupSound() == nil or self:GetShouldPlayPickupSound() then
 				self:EmitSound( "HL2Player.PickupWeapon" )
-			end
-			
-			if not activator:IsBot() then
-				net.Start( "pe_pickup" )
-					net.WriteString( self:GetClass() )
-				net.Send( activator )
+				
+				if not activator:IsBot() then
+					net.Start( "pe_pickup" )
+						net.WriteString( self:GetClass() )
+					net.Send( activator )
+				end
 			end
 		end
 		
