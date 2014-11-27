@@ -237,12 +237,12 @@ if SERVER then
 	
 	function ENT:AcceptInput( inputName, activator, called, data )
 		
-		if key == "Drop" then
+		if inputName == "Drop" then
 			self:Drop( true )
 			return true
 		end
 		
-		if key == "SetSlotName" then
+		if inputName == "SetSlotName" then
 			if self:IsCarried() or not data or #data <= 1 or data == self:GetSlotName() then
 				return false
 			end
