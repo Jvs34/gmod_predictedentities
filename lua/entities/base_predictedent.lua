@@ -232,8 +232,38 @@ function ENT:Think()
 end
 
 if SERVER then
+	
+	--for map inputs mostly, but other addons may also be using these inputs trough ent:Input or ent:Fire
+	
+	function ENT:AcceptInput( inputName, activator, called, data )
+		
+		if key == "Drop" then
+			self:Drop( true )
+			return true
+		end
+		
+		if key == "SetSlotName" then
+			if self:IsCarried() or not data or #data <= 1 or data == self:GetSlotName() then
+				return false
+			end
+			
+			self:SetSlotName( data )
+			return true
+		end
+		
+	end
+	
+	--copied from env_skypaint, allows to have the DT vars set as if they were key values
+	
+	function ENT:KeyValue( key, value )
 
-	function ENT:Use( activator )
+		if self:SetNetworkKeyValue( key, value ) then
+			return
+		end
+
+	end
+	
+	function ENT:Use( activator, caller, useType, value )
 		self:Attach( activator )
 	end
 
@@ -318,17 +348,15 @@ if SERVER then
 			self:SetNoDraw( true )
 			self:AddEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
-
-		if self.ShowPickupNotice then
-			--this is actually a Lua table value that is then checked in c++, so it starts out as nil, wow garry
-			if self:GetShouldPlayPickupSound() == nil or self:GetShouldPlayPickupSound() then
-				self:EmitSound( "HL2Player.PickupWeapon" )
-				
-				if not activator:IsBot() then
-					net.Start( "pe_pickup" )
-						net.WriteString( self:GetClass() )
-					net.Send( activator )
-				end
+									--this is actually a Lua table value that is then checked in c++, so it starts out as nil, wow garry
+		if self.ShowPickupNotice and ( self:GetShouldPlayPickupSound() == nil or self:GetShouldPlayPickupSound() ) then
+			
+			self:EmitSound( "HL2Player.PickupWeapon" )
+			
+			if not activator:IsBot() then
+				net.Start( "pe_pickup" )
+					net.WriteString( self:GetClass() )
+				net.Send( activator )
 			end
 		end
 		

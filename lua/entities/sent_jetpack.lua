@@ -629,6 +629,7 @@ else
 		if pos and ang then
 			self:SetPos( pos )
 			self:SetAngles( ang )
+			self:SetupBones()
 		end
 		
 		self:DrawModel( flags )
