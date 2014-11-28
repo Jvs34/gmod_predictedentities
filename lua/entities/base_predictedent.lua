@@ -610,8 +610,8 @@ end
 
 function ENT:HandleUpdateAnimation( ply, velocity, maxseqgroundspeed )
 	if self:IsCarriedBy( ply ) then
-		if self:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed ) do
-			return
+		if self:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed ) then
+			return true
 		end
 	end
 end
