@@ -102,7 +102,7 @@ function ENT:Initialize()
 		
 		self:SetPullMode( 1 )
 		self:SetPullSpeed( 2000 )
-		self:SetInButton( IN_GRENADE1 )
+		self:SetInButton( 2 ^ 26 )	--after IN_ATTACK3 ( which is 2 ^ 25 )
 		self:SetKey( KEY_G )	--the starting key to trigger us
 		self:InitPhysics()
 		

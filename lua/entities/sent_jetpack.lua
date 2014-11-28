@@ -904,6 +904,13 @@ function ENT:HandleMainActivityOverride( ply , velocity )
 	end
 end
 
+function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
+	if self:GetActive() then
+		ply:SetPlaybackRate( 0 )	--don't do the full swimming animation
+		return true
+	end
+end
+
 function ENT:OnRemove()
 	--if stopping the soundpatch doesn't work, stop the sound manually
 	self:StopSound( "jetpack.thruster_loop" )

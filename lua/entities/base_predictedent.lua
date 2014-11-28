@@ -55,6 +55,7 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 
 	local index = -1
 	
+	--only do this check for limited dtvars, once we switch to NWVars in :NetworkVar this check will go away
 	if not self.UseNWVars then
 		local maxindex = self.DefinedDTVars[dttype].Max
 
@@ -97,6 +98,11 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 end
 
 function ENT:SetupDataTables()
+
+	--if the user is in the branch that has the NWVars change then automatically switch to this
+	if self.CallNetworkProxies then
+		self.UseNWVars = true
+	end
 	
 	--eventually I'll create more editable elements based on garry's system
 	
@@ -158,6 +164,8 @@ function ENT:Initialize()
 	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround )
 	
 	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity )
+	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation )
+	
 	if SERVER then
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
@@ -600,7 +608,19 @@ function ENT:HandleCalcMainActivity( ply , velocity )
 	end
 end
 
+function ENT:HandleUpdateAnimation( ply, velocity, maxseqgroundspeed )
+	if self:IsCarriedBy( ply ) then
+		if self:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed ) do
+			return
+		end
+	end
+end
+
 function ENT:HandleMainActivityOverride( ply , velocity )
+	--override me
+end
+
+function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 	--override me
 end
 
