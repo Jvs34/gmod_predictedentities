@@ -88,8 +88,6 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 				min = minval,
 				max = maxval,
 				type = customelement or self.DefinedDTVars[dttype].EditableElement,
-				filter = filt,	--can be either a function( like the util.TraceLine filter ) or a table of class name
-								--this is not used at all by garry's edit tools, but it might be useful for me
 			}
 		}
 	end
@@ -166,6 +164,8 @@ function ENT:Initialize()
 	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity )
 	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation )
 	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent )
+	
+	self:InstallHook( "CanEditVariable" , self.HandleCanEditVariable )
 	
 	if SERVER then
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
@@ -412,6 +412,32 @@ if SERVER then
 		if self.DropOnDeath and self:IsCarriedBy( ply ) then
 			self:Drop( true )
 		end
+	end
+	
+	--we're redoing this even though it's hooked up in sandbox because someone might want to use this in another gamemode ( such as ttt or whatever )
+	function ENT:HandleCanEditVariable( ent , ply , key , val , editor )
+		if ent == self then
+			local val = self:CanPlayerEditVariable( ply , key , val , editor )
+			
+			--call the editkey hook only if the other one didn't say anything in the matter for this
+			if key == "Key" and val == nil then
+				val = self:CanEditKey( ply , key , val , editor )
+			end
+			
+			--we'll only override all the hooks if the answer is yes or no, nil keeps the default behaviour
+			if val ~= nil then
+				return val
+			end
+		end
+	end
+	
+	--our key can only be modified by the carrying player or by anyone if it's not carried at all
+	function ENT:CanEditKey( ply , key , val , editor )
+		return self:IsCarriedBy( ply ) or not self:IsCarried()
+	end
+	
+	function ENT:CanPlayerEditVariable( ply , key , val , editor )
+		--override me
 	end
 
 else
