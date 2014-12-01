@@ -421,7 +421,7 @@ if SERVER then
 			
 			--call the editkey hook only if the other one didn't say anything in the matter for this
 			if key == "Key" and val == nil then
-				val = self:CanEditKey( ply , key , val , editor )
+				val = self:CanEditKey( ply , val , editor )
 			end
 			
 			--we'll only override all the hooks if the answer is yes or no, nil keeps the default behaviour
@@ -432,7 +432,7 @@ if SERVER then
 	end
 	
 	--our key can only be modified by the carrying player or by anyone if it's not carried at all
-	function ENT:CanEditKey( ply , key , val , editor )
+	function ENT:CanEditKey( ply , val , editor )
 		return self:IsCarriedBy( ply ) or not self:IsCarried()
 	end
 	
