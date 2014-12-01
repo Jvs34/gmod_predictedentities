@@ -892,15 +892,15 @@ end
 function ENT:HandleMainActivityOverride( ply , velocity )
 	if self:GetActive() then
 		local vel2d = velocity:Length2D()
-		local idealact = -1
+		local idealact = ACT_INVALID
 		
 		if IsValid( ply:GetActiveWeapon() ) then
-			idealact = ACT_MP_SWIM--vel2d >= 10 and ACT_MP_SWIM or ACT_MP_SWIM_IDLE
+			idealact = ACT_MP_SWIM	--vel2d >= 10 and ACT_MP_SWIM or ACT_MP_SWIM_IDLE
 		else
 			idealact = ACT_HL2MP_IDLE + 9
 		end
 		
-		return idealact , -1
+		return idealact , ACT_INVALID
 	end
 end
 

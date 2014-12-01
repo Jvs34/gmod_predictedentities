@@ -165,6 +165,7 @@ function ENT:Initialize()
 	
 	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity )
 	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation )
+	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent )
 	
 	if SERVER then
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
@@ -616,11 +617,23 @@ function ENT:HandleUpdateAnimation( ply, velocity, maxseqgroundspeed )
 	end
 end
 
+function ENT:HandleAnimationEvent( ply, event, data )
+	if self:IsCarriedBy( ply ) then
+		if self:HandleAnimationEventOverride( ply , event , data ) then
+			return ACT_INVALID
+		end
+	end
+end
+
 function ENT:HandleMainActivityOverride( ply , velocity )
 	--override me
 end
 
 function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
+	--override me
+end
+
+function ENT:HandleAnimationEventOverride( ply , event , data )
 	--override me
 end
 

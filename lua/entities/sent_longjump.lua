@@ -73,11 +73,22 @@ function ENT:Think()
 	return BaseClass.Think( self )
 end
 
-function ENT:PredictedSetupMove( owner , mv , usercmd )
+--cancel the animation cycle immediately if there's gestures that rely on a holdtype or whatever on the player
+--but only if it's being carried by the localplayer to prevent animation fuck ups on other players
+
+function ENT:HandleAnimationEventOverride( ply , event , data )
+	
+	if CLIENT and not self:IsCarriedByLocalPlayer() then
+		return
+	end
+	
+	if self:IsLongJumping() and not self:IsAnimationDone() and event ~= PLAYERANIMEVENT_JUMP then
+		self:SetLongJumpAnimCycle( 1 )
+	end
 end
 
 function ENT:PredictedThink( owner , movedata )
-	if self:IsLongJumping() then
+	if self:IsLongJumping() and not self:IsAnimationDone() then
 		local cycle = self:GetLongJumpAnimCycle()
 		cycle = ( cycle + 1.5 * FrameTime() ) % 1
 		self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
@@ -203,10 +214,11 @@ function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 		if not IsValid( ply:GetActiveWeapon() ) or not self:IsAnimationDone() then
 			ply:SetCycle( self:GetLongJumpAnimCycle() )
 			ply:SetPlaybackRate( 0 )
-			return true
+		else
+			ply:SetCycle( 0 )
+			ply:SetPlaybackRate( 0 )
 		end
+		
+		return true
 	end
-end
-
-function ENT:OnRemove()
 end
