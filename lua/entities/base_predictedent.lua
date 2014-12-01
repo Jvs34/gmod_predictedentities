@@ -878,7 +878,7 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 			net.WriteFloat( level )
 			net.WriteFloat( pitch )
 			net.WriteFloat( volume )
-			net.WriteInt( chan , 8 )
+			net.WriteUInt( chan , 8 )
 		net.Send( plys )
 		
 	else
@@ -906,10 +906,9 @@ if CLIENT then
 	language.Add( "invalid_entity" , "Invalid Entity" )
 	
 	net.Receive( "pe_pickup" , function( len )
-		local str = net.ReadString()
-		if str then
-			gamemode.Call( "HUDItemPickedUp" , str )
-		end
+		local str = net.ReadString() or "invalid_entity"
+		
+		gamemode.Call( "HUDItemPickedUp" , str )
 	end)
 	
 	net.Receive( "pe_playsound" , function( len )
@@ -924,7 +923,7 @@ if CLIENT then
 		local level = net.ReadFloat()
 		local pitch = net.ReadFloat()
 		local volume = net.ReadFloat()
-		local chan = net.ReadInt( 8 )
+		local chan = net.ReadUInt( 8 )
 		
 		ent:EmitPESound( soundname , level , pitch , volume , chan , false )
 	end)
