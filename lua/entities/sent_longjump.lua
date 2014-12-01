@@ -86,7 +86,7 @@ end
 
 function ENT:PredictedMove( owner , data )
 	
-	if owner:OnGround() and owner:Crouching() and owner:KeyDown( IN_DUCK ) and self:IsKeyDown() then
+	if not self:GetLongJumping() and owner:OnGround() and owner:Crouching() and owner:KeyDown( IN_DUCK ) and self:IsKeyDown() then
 		
 		local forward = data:GetMoveAngles():Forward()
 		
@@ -98,7 +98,7 @@ function ENT:PredictedMove( owner , data )
 			
 			local vel = forward * self:GetLongJumpSpeed() * 1.6
 			vel.z = math.sqrt( 2 * 800 * 56 )
-			data:SetVelocity( vel )	--* FrameTime() ?
+			data:SetVelocity( vel )	--* FrameTime() ? probably not, this is pretty much just an impulse, no need to gradually apply it
 		end
 	end
 end
@@ -118,12 +118,19 @@ function ENT:IsAnimationDone()
 	return self:GetLongJumpAnimCycle() >= 1
 end
 
+function ENT:ResetVars()
+	self:SetLongJumping( false )
+	self:SetLongJumpAnimCycle( 0 )
+end
+
 if SERVER then
 	
 	function ENT:OnAttach( ply )
+		self:ResetVars()
 	end
 
 	function ENT:OnDrop( ply , forced )
+		self:ResetVars()
 	end
 
 	function ENT:OnInitPhysics( physobj )
