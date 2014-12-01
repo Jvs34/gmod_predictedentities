@@ -32,6 +32,7 @@ sound.Add( {
 	sound = "^thrusters/jet02.wav"
 })
 
+local sv_gravity = GetConVar "sv_gravity"
 
 function ENT:SpawnFunction( ply, tr, ClassName )
 
@@ -78,6 +79,7 @@ end
 
 function ENT:HandleAnimationEventOverride( ply , event , data )
 	
+	--this player is outside of prediction shit, don't even bother
 	if CLIENT and not self:IsCarriedByLocalPlayer() then
 		return
 	end
@@ -90,7 +92,7 @@ end
 function ENT:PredictedThink( owner , movedata )
 	if self:IsLongJumping() and not self:IsAnimationDone() then
 		local cycle = self:GetLongJumpAnimCycle()
-		cycle = ( cycle + 1.5 * FrameTime() ) % 1
+		cycle = ( cycle + 1.5 * FrameTime() ) % 1	--TODO: tweak the cycle speed
 		self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
 	end
 end
@@ -108,17 +110,17 @@ function ENT:PredictedMove( owner , data )
 			owner:ViewPunch( Angle( -5 , 0 , 0 ) )
 			
 			local vel = forward * self:GetLongJumpSpeed() * 1.6
-			vel.z = math.sqrt( 2 * 800 * 56 )
+			vel.z = math.sqrt( 2 * sv_gravity:GetFloat() * 56 )	--hl2's gravity is 600, and 800 is hl1's ( I guess technically quake's, and then tf, hl1 and tfc )
+			--the 56 is in theory hl1's jump power? gotta test this and replace it with the player's jump power
+			
 			data:SetVelocity( vel )	--* FrameTime() ? probably not, this is pretty much just an impulse, no need to gradually apply it
 		end
 	end
 end
 
-function ENT:PredictedFinishMove( owner , movedata )
-end
-
 function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 	self:SetLongJumping( false )
+	self:SetLongJumpAnimCycle( 1 )
 end
 
 function ENT:IsLongJumping()
@@ -131,7 +133,7 @@ end
 
 function ENT:ResetVars()
 	self:SetLongJumping( false )
-	self:SetLongJumpAnimCycle( 0 )
+	self:SetLongJumpAnimCycle( 1 )
 end
 
 if SERVER then
@@ -149,9 +151,6 @@ if SERVER then
 			physobj:SetMass( 75 )
 		end
 		self:SetCollisionGroup( COLLISION_GROUP_NONE )
-	end
-	
-	function ENT:OnRemovePhysics( physobj )
 	end
 	
 	function ENT:PhysicsCollide( data , physobj )
@@ -194,28 +193,27 @@ function ENT:HandleMainActivityOverride( ply , velocity )
 	--do the unarmed swimming animation, should be kind of similar to the hl1 jumping 
 	if self:IsLongJumping() then
 		
-		local idealact = -1
+		local idealact = ACT_INVALID
 		
 		--once we've done a full unarmed swimming cycle revert to the armed one, if we have a weapon
-		
 		if IsValid( ply:GetActiveWeapon() ) and self:IsAnimationDone() then
 			idealact = ACT_MP_SWIM
 		else
 			idealact = ACT_HL2MP_IDLE + 9
 		end
 		
-		return idealact , -1
+		return idealact , ACT_INVALID
 	end
 end
 
 function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 	if self:IsLongJumping() then
 		--once we've done a full unarmed swimming cycle revert to the armed one, if we have a weapon
-		if not IsValid( ply:GetActiveWeapon() ) or not self:IsAnimationDone() then
-			ply:SetCycle( self:GetLongJumpAnimCycle() )
+		if IsValid( ply:GetActiveWeapon() ) and self:IsAnimationDone() then
+			ply:SetCycle( 0 )
 			ply:SetPlaybackRate( 0 )
 		else
-			ply:SetCycle( 0 )
+			ply:SetCycle( self:GetLongJumpAnimCycle() )
 			ply:SetPlaybackRate( 0 )
 		end
 		
