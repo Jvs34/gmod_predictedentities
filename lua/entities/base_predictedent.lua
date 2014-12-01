@@ -172,6 +172,7 @@ function ENT:Initialize()
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
 		self:SetUseType( SIMPLE_USE )
 		self:SetInButton( 0 )--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
+		self:SetKey( BUTTON_CODE_NONE )
 	else
 		self:InstallHook( "PostDrawViewModel" , self.DrawFirstPersonInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
@@ -273,6 +274,7 @@ if SERVER then
 	end
 	
 	function ENT:Use( activator, caller, useType, value )
+		--TODO: support for stealing other people's entities by looking and then +use'ing them?
 		self:Attach( activator )
 	end
 
@@ -344,7 +346,7 @@ if SERVER then
 			return false
 		end
 		
-		if self:IsCarried() or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
+		if self:IsCarriedBy( activator ) or self:IsCarried() or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
 			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
 			return false
 		end

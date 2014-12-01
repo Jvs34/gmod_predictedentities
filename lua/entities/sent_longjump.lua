@@ -53,11 +53,11 @@ function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
 		self:SetInButton( IN_JUMP )
-		self:SetKey( 0 )
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		self:InitPhysics()
-		self:SetMaxHealth( 100 )
 		self:SetLongJumpSpeed( 350 )
+		
+		self:SetMaxHealth( 100 )
 		self:SetHealth( self:GetMaxHealth() )
 	end
 end
@@ -75,7 +75,8 @@ function ENT:Think()
 end
 
 --cancel the animation cycle immediately if there's gestures that rely on a holdtype or whatever on the player
---but only if it's being carried by the localplayer to prevent animation fuck ups on other players
+--but only if it's being carried by the localplayer to prevent animation fuck ups on other players ( since they will do it serverside and on their client )
+--AKA PREDICTION, OK? Although I don't know if I can even set these variables here due to the prediction errors fallback, worth a try
 
 function ENT:HandleAnimationEventOverride( ply , event , data )
 	
@@ -98,6 +99,8 @@ function ENT:PredictedThink( owner , movedata )
 end
 
 function ENT:PredictedMove( owner , data )
+	
+	--IN_DUCK check is a duplicate of :Crouching perhaps?
 	
 	if not self:GetLongJumping() and owner:OnGround() and owner:Crouching() and owner:KeyDown( IN_DUCK ) and self:IsKeyDown() then
 		
