@@ -319,8 +319,16 @@ if SERVER then
 	function ENT:OnAttach( ply )
 		--override me
 	end
+	
+	function ENT:CanAttach( ply )
+		--override me
+	end
 
-	function ENT:OnDrop( ply , fromuser )
+	function ENT:OnDrop( ply , forced )
+		--override me
+	end
+	
+	function ENT:CanDrop( ply )
 		--override me
 	end
 
@@ -351,6 +359,15 @@ if SERVER then
 			return false
 		end
 		
+		if not forced then
+			local canattach = self:CanAttach( activator )
+		
+			--we can allow the coder to only stop the attach if it's not forced
+			if canattach == false then
+				return canattach
+			end
+		end
+		
 		if self.AttachesToPlayer then
 			self:RemovePhysics()
 			self:SetParent( activator )
@@ -379,7 +396,15 @@ if SERVER then
 	end
 
 	function ENT:Drop( forced )
-
+		if not forced then
+			local candrop = self:CanDrop( self:GetControllingPlayer() )
+		
+			--we can allow the coder to only stop the drop if it's not forced
+			if candrop == false then
+				return candrop
+			end
+		end
+		
 		if self.AttachesToPlayer then
 			self:SetParent( NULL )
 			self:SetOwner( NULL )
