@@ -94,26 +94,28 @@ end
 --these are here instead of being the single functions so I can eventually reverse the cycle direction ( from 1 to 0 ) if the animation is not good enough
 
 function ENT:StartJumpCycle()
-	self:SetLongJumpAnimCycle( 0 )
+	self:SetLongJumpAnimCycle( 1 )
 end
 
 function ENT:FinishJumpCycle()
-	self:SetLongJumpAnimCycle( 1 )
+	self:SetLongJumpAnimCycle( 0 )
 end
 
 function ENT:HandleJumpCycle()
 	local cycle = self:GetLongJumpAnimCycle()
-	cycle = cycle + 2 * FrameTime()	--TODO: tweak the cycle speed
+	cycle = cycle + -3 * FrameTime()	--TODO: tweak the cycle speed
 	self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
 end
 
 function ENT:IsAnimationDone()
-	return self:GetLongJumpAnimCycle() >= 1
+	return self:GetLongJumpAnimCycle() <= 0
 end
 
 function ENT:PredictedThink( owner , movedata )
 	if self:IsLongJumping() and not self:IsAnimationDone() then
 		self:HandleJumpCycle()
+	elseif self:IsLongJumping() and self:IsAnimationDone() then
+		self:ResetGesture()
 	end
 end
 
@@ -122,7 +124,11 @@ function ENT:PredictedSetupMove( owner , data )
 	--:Crouching() only checks if the player is fully crouched, but not if he's in the middle of the crouching, that info is inaccessible from Lua
 	--so might as well check if the player is not crouched but still pressing IN_DUCK
 	
-	if not self:GetLongJumping() and not owner:Crouching() and owner:OnGround() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) then
+	if self:GetDoLongJump() and owner:OnGround() then
+	--	self:ResetVars()
+	end
+	
+	if not self:GetDoLongJump() and not owner:Crouching() and owner:OnGround() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) and owner:WaterLevel() == 0 then
 		if data:GetVelocity():Length() > owner:GetWalkSpeed() / 4 then
 			owner:SetGroundEntity( NULL )
 			self:SetDoLongJump( true )
@@ -131,7 +137,7 @@ function ENT:PredictedSetupMove( owner , data )
 	
 	--prevent the player from spamming the crouch button while long jumping by holding it down, this should really be fixed somewhere else
 	if self:IsLongJumping() then
-		data:SetButtons( bit.bor( data:GetButtons() , IN_DUCK ) )
+		data:SetButtons( bit.band( data:GetButtons() , bit.bnot( IN_DUCK ) ) )
 	end
 end
 
@@ -155,11 +161,11 @@ function ENT:PredictedFinishMove( owner , data )
 		self:SetDoLongJump( false )
 		
 		--this overlaps the jump sequence on a gesture layer with the swimming animation, and then we blend them
-		local seq = owner:LookupSequence( "jump_duel" )
+		local seq = owner:LookupSequence( "jump_dual" )
 		--using GESTURE_SLOT_JUMP just so in case we don't override it first with :ResetVars, the landing gesture will
 		if seq and seq ~= ACT_INVALID then
 			owner:AddVCDSequenceToGestureSlot( GESTURE_SLOT_JUMP , seq , 0 , false )
-			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.5 )
+			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.75 )
 		end
 	end
 end
@@ -168,8 +174,14 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 	self:ResetVars()
 end
 
+function ENT:ResetGesture()
+	if self:IsCarried() then
+		self:GetControllingPlayer():AnimResetGestureSlot( GESTURE_SLOT_JUMP )
+	end
+end
+
 function ENT:IsLongJumping()
-	return self:GetLongJumping() and not self:GetControllingPlayer():OnGround()
+	return self:GetLongJumping() and not self:GetControllingPlayer():OnGround() and self:GetControllingPlayer():WaterLevel() == 0
 end
 
 function ENT:ResetVars()
@@ -177,9 +189,7 @@ function ENT:ResetVars()
 	self:FinishJumpCycle()
 	self:SetDoLongJump( false )
 	
-	if self:IsCarried() then
-		self:GetControllingPlayer():AnimResetGestureSlot( GESTURE_SLOT_JUMP )
-	end
+	self:ResetGesture()
 end
 
 if SERVER then
@@ -259,9 +269,11 @@ function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 			ply:SetCycle( 0 )
 			ply:SetPlaybackRate( 0 )
 		else
-			ply:SetCycle( self:GetLongJumpAnimCycle() )
+			ply:SetCycle( 0.5 )--self:GetLongJumpAnimCycle() )
 			ply:SetPlaybackRate( 0 )
 		end
+		ply:SetPoseParameter( "move_x" , 0)---0.5 )
+		ply:SetPoseParameter( "move_y" , 0 )
 		
 		return true
 	end
