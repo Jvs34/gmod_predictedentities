@@ -94,21 +94,21 @@ end
 --these are here instead of being the single functions so I can eventually reverse the cycle direction ( from 1 to 0 ) if the animation is not good enough
 
 function ENT:StartJumpCycle()
-	self:SetLongJumpAnimCycle( 0 )
+	self:SetLongJumpAnimCycle( 1 )
 end
 
 function ENT:FinishJumpCycle()
-	self:SetLongJumpAnimCycle( 1 )
+	self:SetLongJumpAnimCycle( 0 )
 end
 
 function ENT:HandleJumpCycle()
 	local cycle = self:GetLongJumpAnimCycle()
-	cycle = cycle + 2 * FrameTime()	--TODO: tweak the cycle speed
+	cycle = cycle + -3 * FrameTime()	--TODO: tweak the cycle speed
 	self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
 end
 
 function ENT:IsAnimationDone()
-	return self:GetLongJumpAnimCycle() >= 1
+	return self:GetLongJumpAnimCycle() <= 0
 end
 
 function ENT:PredictedThink( owner , movedata )
@@ -155,11 +155,11 @@ function ENT:PredictedFinishMove( owner , data )
 		self:SetDoLongJump( false )
 		
 		--this overlaps the jump sequence on a gesture layer with the swimming animation, and then we blend them
-		local seq = owner:LookupSequence( "jump_duel" )
+		local seq = owner:LookupSequence( "jump_dual" )
 		--using GESTURE_SLOT_JUMP just so in case we don't override it first with :ResetVars, the landing gesture will
 		if seq and seq ~= ACT_INVALID then
 			owner:AddVCDSequenceToGestureSlot( GESTURE_SLOT_JUMP , seq , 0 , false )
-			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.5 )
+			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.45 )
 		end
 	end
 end
@@ -259,6 +259,7 @@ function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 			ply:SetCycle( 0 )
 			ply:SetPlaybackRate( 0 )
 		else
+			ply:SetPoseParameter( "move_x" , -0.5 )
 			ply:SetCycle( self:GetLongJumpAnimCycle() )
 			ply:SetPlaybackRate( 0 )
 		end
