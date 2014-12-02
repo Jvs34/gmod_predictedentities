@@ -103,7 +103,7 @@ end
 
 function ENT:HandleJumpCycle()
 	local cycle = self:GetLongJumpAnimCycle()
-	cycle = ( cycle + 2 * FrameTime() ) 	--TODO: tweak the cycle speed
+	cycle = cycle + 2 * FrameTime()	--TODO: tweak the cycle speed
 	self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
 end
 
@@ -123,7 +123,7 @@ function ENT:PredictedSetupMove( owner , data )
 	--so might as well check if the player is not crouched but still pressing IN_DUCK
 	
 	if not self:GetLongJumping() and not owner:Crouching() and owner:OnGround() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) then
-		if data:GetVelocity():Length() > 50 then
+		if data:GetVelocity():Length() > owner:GetWalkSpeed() / 4 then
 			owner:SetGroundEntity( NULL )
 			self:SetDoLongJump( true )
 		end
