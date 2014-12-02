@@ -628,6 +628,22 @@ function ENT:IsKeyDown( mv )
 	return false
 end
 
+function ENT:WasKeyPressed( mv )
+
+	if self:GetInButton() <= 0 then
+		return false
+	end
+	
+	if IsValid( self:GetControllingPlayer() ) then
+		if mv then
+			return mv:KeyPressed( self:GetInButton() )
+		end
+		return self:GetControllingPlayer():KeyPressed( self:GetInButton() )
+	end
+	
+	return false
+end
+
 function ENT:HandleCalcMainActivity( ply , velocity )
 	if self:IsCarriedBy( ply ) then
 		local calcideal , calcseqovr = self:HandleMainActivityOverride( ply , velocity )

@@ -65,6 +65,7 @@ end
 function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
 	
+	self:DefineNWVar( "Bool" , "DoLongJump" )
 	self:DefineNWVar( "Bool" , "LongJumping" )
 	self:DefineNWVar( "Float" , "LongJumpSpeed" , true , "The speed to apply on a long jump" , 1 , 1000 )
 	self:DefineNWVar( "Float" , "LongJumpAnimCycle" )
@@ -93,37 +94,50 @@ end
 function ENT:PredictedThink( owner , movedata )
 	if self:IsLongJumping() and not self:IsAnimationDone() then
 		local cycle = self:GetLongJumpAnimCycle()
-		cycle = ( cycle + 1.5 * FrameTime() ) % 1	--TODO: tweak the cycle speed
+		cycle = ( cycle + 2 * FrameTime() ) 	--TODO: tweak the cycle speed
 		self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
 	end
 end
 
-function ENT:PredictedMove( owner , data )
+function ENT:PredictedSetupMove( owner , data )
 	
 	--IN_DUCK check is a duplicate of :Crouching perhaps?
 	
-	if not self:GetLongJumping() and owner:OnGround() and owner:Crouching() and owner:KeyDown( IN_DUCK ) and self:IsKeyDown() then
-		
-		local forward = data:GetMoveAngles():Forward()
-		
+	if not self:GetLongJumping() and not owner:Crouching() and owner:OnGround() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) then
 		if data:GetVelocity():Length() > 50 then
-			self:SetLongJumping( true )
-			self:EmitPESound( "HL2Player.SprintStart" , nil , nil , nil , nil , true )
-			self:SetLongJumpAnimCycle( 0 )
-			owner:ViewPunch( Angle( -5 , 0 , 0 ) )
-			
-			local vel = forward * self:GetLongJumpSpeed() * 1.6
-			vel.z = math.sqrt( 2 * sv_gravity:GetFloat() * 56 )	--hl2's gravity is 600, and 800 is hl1's ( I guess technically quake's, and then tf, hl1 and tfc )
-			--the 56 is in theory hl1's jump power? gotta test this and replace it with the player's jump power
-			
-			data:SetVelocity( vel )	--* FrameTime() ? probably not, this is pretty much just an impulse, no need to gradually apply it
+			owner:SetGroundEntity( NULL )
+			self:SetDoLongJump( true )
 		end
+	end
+	
+	if self:IsLongJumping() then
+		data:SetButtons( bit.bnot( data:GetButtons() , IN_DUCK ) )
+	end
+end
+
+function ENT:PredictedFinishMove( owner , data )
+	if self:GetDoLongJump() then
+		local ang = data:GetMoveAngles()
+		ang.p = 0
+		
+		local forward = ang:Forward()
+		
+		self:SetLongJumping( true )
+		self:EmitPESound( "HL2Player.SprintStart" , nil , nil , nil , nil , true )
+		self:SetLongJumpAnimCycle( 0 )
+		owner:ViewPunch( Angle( -5 , 0 , 0 ) )
+		
+		local vel = forward * self:GetLongJumpSpeed() * 1.6
+		vel.z = math.sqrt( 2 * sv_gravity:GetFloat() * ( owner:GetJumpPower() / 4 ) )	--hl2's gravity is 600, and 800 is hl1's ( I guess technically quake's, and then tf, hl1 and tfc )
+		--the 56 is in theory hl1's jump power? gotta test this and replace it with the player's jump power
+		--PLAYERANIMEVENT_DOUBLEJUMP
+		data:SetVelocity(  vel )	--* FrameTime() ? probably not, this is pretty much just an impulse, no need to gradually apply it
+		self:SetDoLongJump( false )
 	end
 end
 
 function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
-	self:SetLongJumping( false )
-	self:SetLongJumpAnimCycle( 1 )
+	self:ResetVars()
 end
 
 function ENT:IsLongJumping()
@@ -137,6 +151,7 @@ end
 function ENT:ResetVars()
 	self:SetLongJumping( false )
 	self:SetLongJumpAnimCycle( 1 )
+	self:SetDoLongJump( false )
 end
 
 if SERVER then
