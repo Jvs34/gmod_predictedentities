@@ -618,7 +618,14 @@ if SERVER then
 		effect:SetFlags( bit.bor( 0x80 , 0x20 ) ) --NOFIREBALLSMOKE, ROTATE
 		util.Effect( "Explosion" , effect )
 	end
-
+	
+	--don't modify values if we're active, dropped or not
+	function ENT:CanPlayerEditVariable( ply , key , val , editor )
+		if self:GetActive() and key ~= "Key" then
+			return false
+		end
+	end
+	
 else
 
 	function ENT:Draw( flags )

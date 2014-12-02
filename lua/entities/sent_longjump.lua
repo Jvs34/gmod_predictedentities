@@ -55,7 +55,7 @@ function ENT:Initialize()
 		self:SetInButton( IN_JUMP )
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		self:InitPhysics()
-		self:SetLongJumpSpeed( 350 )
+		self:SetLongJumpSpeed( 750 )
 		
 		self:SetMaxHealth( 100 )
 		self:SetHealth( self:GetMaxHealth() )
@@ -87,21 +87,40 @@ function ENT:HandleAnimationEventOverride( ply , event , data )
 	end
 	
 	if self:IsLongJumping() and not self:IsAnimationDone() and event ~= PLAYERANIMEVENT_JUMP then
-		self:SetLongJumpAnimCycle( 1 )
+		self:FinishJumpCycle()
 	end
+end
+
+--these are here instead of being the single functions so I can eventually reverse the cycle direction ( from 1 to 0 ) if the animation is not good enough
+
+function ENT:StartJumpCycle()
+	self:SetLongJumpAnimCycle( 0 )
+end
+
+function ENT:FinishJumpCycle()
+	self:SetLongJumpAnimCycle( 1 )
+end
+
+function ENT:HandleJumpCycle()
+	local cycle = self:GetLongJumpAnimCycle()
+	cycle = ( cycle + 2 * FrameTime() ) 	--TODO: tweak the cycle speed
+	self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
+end
+
+function ENT:IsAnimationDone()
+	return self:GetLongJumpAnimCycle() >= 1
 end
 
 function ENT:PredictedThink( owner , movedata )
 	if self:IsLongJumping() and not self:IsAnimationDone() then
-		local cycle = self:GetLongJumpAnimCycle()
-		cycle = ( cycle + 2 * FrameTime() ) 	--TODO: tweak the cycle speed
-		self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
+		self:HandleJumpCycle()
 	end
 end
 
 function ENT:PredictedSetupMove( owner , data )
 	
-	--IN_DUCK check is a duplicate of :Crouching perhaps?
+	--:Crouching() only checks if the player is fully crouched, but not if he's in the middle of the crouching, that info is inaccessible from Lua
+	--so might as well check if the player is not crouched but still pressing IN_DUCK
 	
 	if not self:GetLongJumping() and not owner:Crouching() and owner:OnGround() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) then
 		if data:GetVelocity():Length() > 50 then
@@ -110,8 +129,9 @@ function ENT:PredictedSetupMove( owner , data )
 		end
 	end
 	
+	--prevent the player from spamming the crouch button while long jumping by holding it down, this should really be fixed somewhere else
 	if self:IsLongJumping() then
-		data:SetButtons( bit.bnot( data:GetButtons() , IN_DUCK ) )
+		data:SetButtons( bit.bor( data:GetButtons() , IN_DUCK ) )
 	end
 end
 
@@ -124,15 +144,23 @@ function ENT:PredictedFinishMove( owner , data )
 		
 		self:SetLongJumping( true )
 		self:EmitPESound( "HL2Player.SprintStart" , nil , nil , nil , nil , true )
-		self:SetLongJumpAnimCycle( 0 )
+		self:StartJumpCycle()
 		owner:ViewPunch( Angle( -5 , 0 , 0 ) )
 		
-		local vel = forward * self:GetLongJumpSpeed() * 1.6
+		local vel = forward * self:GetLongJumpSpeed() * 1.6	--I dunno where valve pulled this 1.6 from
 		vel.z = math.sqrt( 2 * sv_gravity:GetFloat() * ( owner:GetJumpPower() / 4 ) )	--hl2's gravity is 600, and 800 is hl1's ( I guess technically quake's, and then tf, hl1 and tfc )
 		--the 56 is in theory hl1's jump power? gotta test this and replace it with the player's jump power
-		--PLAYERANIMEVENT_DOUBLEJUMP
-		data:SetVelocity(  vel )	--* FrameTime() ? probably not, this is pretty much just an impulse, no need to gradually apply it
+	
+		data:SetVelocity(  vel )
 		self:SetDoLongJump( false )
+		
+		--this overlaps the jump sequence on a gesture layer with the swimming animation, and then we blend them
+		local seq = owner:LookupSequence( "jump_duel" )
+		--using GESTURE_SLOT_JUMP just so in case we don't override it first with :ResetVars, the landing gesture will
+		if seq and seq ~= ACT_INVALID then
+			owner:AddVCDSequenceToGestureSlot( GESTURE_SLOT_JUMP , seq , 0 , false )
+			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.5 )
+		end
 	end
 end
 
@@ -144,14 +172,14 @@ function ENT:IsLongJumping()
 	return self:GetLongJumping() and not self:GetControllingPlayer():OnGround()
 end
 
-function ENT:IsAnimationDone()
-	return self:GetLongJumpAnimCycle() >= 1
-end
-
 function ENT:ResetVars()
 	self:SetLongJumping( false )
-	self:SetLongJumpAnimCycle( 1 )
+	self:FinishJumpCycle()
 	self:SetDoLongJump( false )
+	
+	if self:IsCarried() then
+		self:GetControllingPlayer():AnimResetGestureSlot( GESTURE_SLOT_JUMP )
+	end
 end
 
 if SERVER then
