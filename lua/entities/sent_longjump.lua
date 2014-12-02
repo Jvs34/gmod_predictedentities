@@ -124,8 +124,8 @@ function ENT:PredictedSetupMove( owner , data )
 	--:Crouching() only checks if the player is fully crouched, but not if he's in the middle of the crouching, that info is inaccessible from Lua
 	--so might as well check if the player is not crouched but still pressing IN_DUCK
 	
-	if self:GetDoLongJump() and owner:OnGround() then
-	--	self:ResetVars()
+	if self:GetLongJumping() and owner:OnGround() then
+		self:ResetVars()
 	end
 	
 	if not self:GetDoLongJump() and not owner:Crouching() and owner:OnGround() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) and owner:WaterLevel() == 0 then
@@ -136,7 +136,7 @@ function ENT:PredictedSetupMove( owner , data )
 	end
 	
 	--prevent the player from spamming the crouch button while long jumping by holding it down, this should really be fixed somewhere else
-	if self:IsLongJumping() then
+	if self:GetLongJumping() then
 		data:SetButtons( bit.band( data:GetButtons() , bit.bnot( IN_DUCK ) ) )
 	end
 end
@@ -165,7 +165,7 @@ function ENT:PredictedFinishMove( owner , data )
 		--using GESTURE_SLOT_JUMP just so in case we don't override it first with :ResetVars, the landing gesture will
 		if seq and seq ~= ACT_INVALID then
 			owner:AddVCDSequenceToGestureSlot( GESTURE_SLOT_JUMP , seq , 0 , false )
-			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.75 )
+			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.50 )
 		end
 	end
 end
@@ -269,10 +269,10 @@ function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 			ply:SetCycle( 0 )
 			ply:SetPlaybackRate( 0 )
 		else
-			ply:SetCycle( 0.5 )--self:GetLongJumpAnimCycle() )
+			ply:SetCycle( self:GetLongJumpAnimCycle() )
 			ply:SetPlaybackRate( 0 )
 		end
-		ply:SetPoseParameter( "move_x" , 0)---0.5 )
+		ply:SetPoseParameter( "move_x" , self:GetLongJumpAnimCycle() )
 		ply:SetPoseParameter( "move_y" , 0 )
 		
 		return true
