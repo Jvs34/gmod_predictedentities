@@ -18,7 +18,7 @@ ENT.Instructions = "Press use to wear, undo to unwear"
 ENT.PitchOffset = 90
 
 if CLIENT then
-	language.Add( "sent_wings" , ENT.PrintName )
+	--language.Add( "sent_wings" , ENT.PrintName )
 	ENT.WingBoneResize = {
 		{
 			name = "Crow.Humerus_R",

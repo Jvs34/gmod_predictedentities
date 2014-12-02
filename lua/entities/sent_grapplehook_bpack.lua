@@ -18,7 +18,6 @@ ENT.Spawnable = true
 ENT.PrintName = "Grappling hook Belt"
 
 if CLIENT then
-	language.Add( "sent_grapplehook_bpack" , ENT.PrintName )
 	ENT.CableMaterial = Material( "cable/cable2" )
 	ENT.WireFrame = Material( "models/wireframe" )
 else

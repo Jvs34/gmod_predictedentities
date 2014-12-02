@@ -36,7 +36,7 @@ if CLIENT then
 	ENT.JetpackFireNone = Color( 255 , 255 , 255 , 0 )
 	ENT.JetpackFireRed = Color( 255 , 128 , 128 , 255 )
 	
-	language.Add( "sent_jetpack" , ENT.PrintName )
+	--language.Add( "sent_jetpack" , ENT.PrintName )
 else
 	
 	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )	--do a corkscrew

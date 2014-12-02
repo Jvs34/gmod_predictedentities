@@ -376,17 +376,8 @@ if SERVER then
 			self:SetNoDraw( true )
 			self:AddEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
-									--this is actually a Lua table value that is then checked in c++, so it starts out as nil, wow garry
-		if self.ShowPickupNotice and ( self:GetShouldPlayPickupSound() == nil or self:GetShouldPlayPickupSound() ) then
-			
-			self:EmitSound( "HL2Player.PickupWeapon" )
-			
-			if not activator:IsBot() then
-				net.Start( "pe_pickup" )
-					net.WriteString( self:GetClass() )
-				net.Send( activator )
-			end
-		end
+
+		self:SendItemMessage( false )
 		
 		activator:SetNWEntity( self:GetSlotName() , self )
 		self:SetControllingPlayer( activator )
@@ -414,6 +405,8 @@ if SERVER then
 			self:RemoveEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
 		
+		self:SendItemMessage( true )
+		
 		self:OnDrop( self:GetControllingPlayer() , forced )
 		
 		if self:IsCarried() then
@@ -422,6 +415,29 @@ if SERVER then
 
 		self:SetControllingPlayer( NULL )
 		return true
+	end
+	
+	function ENT:SendItemMessage( dropped )
+		if dropped == nil then
+			dropped = false
+		end
+		--GetShouldPlayPickupSound is actually a Lua table value that is then checked in c++, so it starts out as nil, wow garry
+		if self.ShowPickupNotice and ( self:GetShouldPlayPickupSound() == nil or self:GetShouldPlayPickupSound() ) then
+			
+			--TODO: different sound when dropping, crowbar's attack sound maybe?
+			if not dropped then
+				self:EmitSound( "HL2Player.PickupWeapon" )
+			else
+				self:EmitSound( "Weapon_Crowbar.Single" )
+			end
+			
+			if not activator:IsBot() then
+				net.Start( "pe_pickup" )
+					net.WriteString( self:GetClass() )
+					net.WriteBit( dropped )
+				net.Send( activator )
+			end
+		end
 	end
 	
 	--we want to get properly dropped when the player entity gets removed ( aka after a disconnect )
@@ -487,6 +503,8 @@ else
 	function ENT:HandleFullPacketUpdate( ent )
 		if ent == self then
 			self.IsPredictable = false
+			language.Add( self:GetClass() , self.PrintName )
+			language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
 		end
 	end
 	
@@ -986,9 +1004,15 @@ if CLIENT then
 	
 	--tells the hud to show the player the entity pickup
 	language.Add( "invalid_entity" , "Invalid Entity" )
+	language.Add( "dropped_invalid_entity" , "Dropped Invalid Entity" )
 	
 	net.Receive( "pe_pickup" , function( len )
 		local str = net.ReadString() or "invalid_entity"
+		local dropped = tobool( net.ReadBit() )
+		
+		if dropped then
+			str = "dropped_" .. str
+		end
 		
 		gamemode.Call( "HUDItemPickedUp" , str )
 	end)

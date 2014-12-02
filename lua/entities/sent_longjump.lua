@@ -6,7 +6,7 @@ ENT.Spawnable = true
 ENT.PrintName = "Long jump module"
 
 if CLIENT then
-	language.Add( "sent_longjump" , ENT.PrintName )
+	--language.Add( "sent_longjump" , ENT.PrintName )
 else
 	
 	ENT.StandaloneAngular = vector_origin
