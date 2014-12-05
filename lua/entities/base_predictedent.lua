@@ -379,7 +379,7 @@ if SERVER then
 			self:AddEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
 
-		self:SendItemMessage( false )
+		self:SendItemMessage( activator , false )
 		
 		activator:SetNWEntity( self:GetSlotName() , self )
 		self:SetControllingPlayer( activator )
@@ -407,7 +407,7 @@ if SERVER then
 			self:RemoveEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
 		
-		self:SendItemMessage( true )
+		self:SendItemMessage( self:GetControllingPlayer() , true )
 		
 		self:OnDrop( self:GetControllingPlayer() , forced )
 		
@@ -419,7 +419,7 @@ if SERVER then
 		return true
 	end
 	
-	function ENT:SendItemMessage( dropped )
+	function ENT:SendItemMessage( activator , dropped )
 		if dropped == nil then
 			dropped = false
 		end
