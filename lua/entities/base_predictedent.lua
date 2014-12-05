@@ -407,7 +407,9 @@ if SERVER then
 			self:RemoveEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
 		
-		self:SendItemMessage( self:GetControllingPlayer() , true )
+		if not forced then
+			self:SendItemMessage( self:GetControllingPlayer() , true )
+		end
 		
 		self:OnDrop( self:GetControllingPlayer() , forced )
 		

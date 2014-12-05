@@ -65,6 +65,8 @@ end
 function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
 	
+	--self:DefineNWVar( "Vector" , "Test" )
+	
 	self:DefineNWVar( "Bool" , "DoLongJump" )
 	self:DefineNWVar( "Bool" , "LongJumping" )
 	self:DefineNWVar( "Float" , "LongJumpSpeed" , true , "The speed to apply on a long jump" , 1 , 1000 )
@@ -112,6 +114,13 @@ function ENT:IsAnimationDone()
 end
 
 function ENT:PredictedThink( owner , movedata )
+	--[[
+	if CLIENT then
+		self:SetTest( Vector( 1000.4999 , 1 , 1 ) )
+	else
+		self:SetTest( Vector( 1000.5 , 1 , 1 ) )
+	end
+	]]
 	if self:IsLongJumping() and not self:IsAnimationDone() then
 		self:HandleJumpCycle()
 	elseif self:IsLongJumping() and self:IsAnimationDone() then
@@ -128,7 +137,7 @@ function ENT:PredictedSetupMove( owner , data )
 		self:ResetVars()
 	end
 	
-	if not self:GetDoLongJump() and not owner:Crouching() and owner:OnGround() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) and owner:WaterLevel() == 0 then
+	if not self:GetDoLongJump() and owner:OnGround() and not owner:Crouching()  and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) and owner:WaterLevel() == 0 then
 		if data:GetVelocity():Length() > owner:GetWalkSpeed() / 4 then
 			owner:SetGroundEntity( NULL )
 			self:SetDoLongJump( true )
@@ -137,6 +146,7 @@ function ENT:PredictedSetupMove( owner , data )
 	
 	--prevent the player from spamming the crouch button while long jumping by holding it down, this should really be fixed somewhere else
 	if self:GetLongJumping() then
+		owner:SetGroundEntity( NULL )
 		data:SetButtons( bit.band( data:GetButtons() , bit.bnot( IN_DUCK ) ) )
 	end
 end
@@ -272,7 +282,7 @@ function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 			ply:SetCycle( self:GetLongJumpAnimCycle() )
 			ply:SetPlaybackRate( 0 )
 		end
-		ply:SetPoseParameter( "move_x" , self:GetLongJumpAnimCycle() )
+		ply:SetPoseParameter( "move_x" , 0 )
 		ply:SetPoseParameter( "move_y" , 0 )
 		
 		return true
