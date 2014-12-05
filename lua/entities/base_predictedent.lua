@@ -177,6 +177,8 @@ function ENT:Initialize()
 		self:InstallHook( "PostDrawViewModel" , self.DrawFirstPersonInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
 		self:InstallHook( "NetworkEntityCreated" , self.HandleFullPacketUpdate )
+		language.Add( self:GetClass() , self.PrintName )
+		language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
 	end
 end
 
@@ -503,8 +505,6 @@ else
 	function ENT:HandleFullPacketUpdate( ent )
 		if ent == self then
 			self.IsPredictable = false
-			language.Add( self:GetClass() , self.PrintName )
-			language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
 		end
 	end
 	
