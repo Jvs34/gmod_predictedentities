@@ -80,7 +80,7 @@ end
 --cancel the animation cycle immediately if there's gestures that rely on a holdtype or whatever on the player
 --but only if it's being carried by the localplayer to prevent animation fuck ups on other players ( since they will do it serverside and on their client )
 --AKA PREDICTION, OK? Although I don't know if I can even set these variables here due to the prediction errors fallback, worth a try
-
+--[[
 function ENT:HandleAnimationEventOverride( ply , event , data )
 	
 	--this player is outside of prediction shit, don't even bother
@@ -92,6 +92,7 @@ function ENT:HandleAnimationEventOverride( ply , event , data )
 		self:FinishJumpCycle()
 	end
 end
+]]
 
 --these are here instead of being the single functions so I can eventually reverse the cycle direction ( from 1 to 0 ) if the animation is not good enough
 
@@ -105,8 +106,9 @@ end
 
 function ENT:HandleJumpCycle()
 	local cycle = self:GetLongJumpAnimCycle()
-	cycle = cycle + -3 * FrameTime()	--TODO: tweak the cycle speed
+	cycle = cycle + -1.5 * FrameTime()	--TODO: tweak the cycle speed
 	self:SetLongJumpAnimCycle( math.Clamp( cycle , 0 , 1 ) )
+	self:GetControllingPlayer():AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.5 )
 end
 
 function ENT:IsAnimationDone()
@@ -123,7 +125,7 @@ function ENT:PredictedThink( owner , movedata )
 	]]
 	if self:IsLongJumping() and not self:IsAnimationDone() then
 		self:HandleJumpCycle()
-	elseif self:IsLongJumping() and self:IsAnimationDone() then
+	elseif not self:IsLongJumping() then--and self:IsAnimationDone() then
 		self:ResetGesture()
 	end
 end
@@ -175,7 +177,7 @@ function ENT:PredictedFinishMove( owner , data )
 		--using GESTURE_SLOT_JUMP just so in case we don't override it first with :ResetVars, the landing gesture will
 		if seq and seq ~= ACT_INVALID then
 			owner:AddVCDSequenceToGestureSlot( GESTURE_SLOT_JUMP , seq , 0 , false )
-			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.50 )
+			owner:AnimSetGestureWeight( GESTURE_SLOT_JUMP , 0.5 )
 		end
 	end
 end
@@ -282,8 +284,9 @@ function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 			ply:SetCycle( self:GetLongJumpAnimCycle() )
 			ply:SetPlaybackRate( 0 )
 		end
-		ply:SetPoseParameter( "move_x" , 0 )
-		ply:SetPoseParameter( "move_y" , 0 )
+		
+		--ply:SetPoseParameter( "move_x" , -0.5 - self:GetLongJumpAnimCycle() )
+		--ply:SetPoseParameter( "move_y" , 0 )
 		
 		return true
 	end
