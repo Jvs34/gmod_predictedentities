@@ -860,8 +860,8 @@ function ENT:BackupMoveData( mv )
 	
 	for i , v in pairs( sv ) do
 		local setter = movedatameta["Set"..i]
-		if setter then
-			setter( mv , emptyvalues[type( v )] * 1 )
+		if setter and emptyvalues[TypeID( v )] ~= nil then
+			setter( mv , emptyvalues[TypeID( v )] * 1 )
 		end
 	end
 	
