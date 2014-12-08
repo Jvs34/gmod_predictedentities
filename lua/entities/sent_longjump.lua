@@ -161,7 +161,7 @@ function ENT:PredictedFinishMove( owner , data )
 		local forward = ang:Forward()
 		
 		self:SetLongJumping( true )
-		self:EmitPESound( "HL2Player.SprintStart" , nil , nil , nil , nil , true )
+		self:EmitPESound( "HL2Player.SprintStart" , 125 , 1 , 100 , nil , true )
 		self:StartJumpCycle()
 		owner:ViewPunch( Angle( -5 , 0 , 0 ) )
 		

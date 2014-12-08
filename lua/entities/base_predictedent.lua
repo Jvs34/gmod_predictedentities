@@ -961,13 +961,11 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		else
 			for i , v in ipairs( player.GetHumans() ) do
 				
-				if predicted and v == self:GetControllingPlayer() then
+				if predicted and self:IsCarriedBy( v ) then
 					continue
 				end
 				
-				if not v:IsBot() then
-					plys[#plys] = v
-				end
+				plys[#plys + 1] = v
 			end
 			
 			if #plys == 0 then
@@ -1033,7 +1031,6 @@ if CLIENT then
 		local pitch = net.ReadFloat()
 		local volume = net.ReadFloat()
 		local chan = net.ReadUInt( 8 )
-		
 		ent:EmitPESound( soundname , level , pitch , volume , chan , false )
 	end)
 end

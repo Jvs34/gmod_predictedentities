@@ -447,7 +447,8 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 	
 	if dogroundslam and speed > 500 then
 		
-		ply:EmitSound( "Player.FallDamage" )
+		self:EmitPESound( "Player.FallDamage" , nil , nil , nil , nil , true )
+		--ply:EmitSound( "Player.FallDamage" )
 		--self:EmitPESound( "" , nil , nil , nil , nil , true )	--find the sound smod uses when the player hits the ground in smod
 		
 		local fraction = self:GetJetpackStrafeVelocity() / speed	--because the fall speed might be higher than the jetpack one
@@ -905,6 +906,10 @@ function ENT:HandleMainActivityOverride( ply , velocity )
 			idealact = ACT_MP_SWIM	--vel2d >= 10 and ACT_MP_SWIM or ACT_MP_SWIM_IDLE
 		else
 			idealact = ACT_HL2MP_IDLE + 9
+		end
+		
+		if self:GetDoGroundSlam() then
+			idealact = ACT_MP_CROUCH_IDLE
 		end
 		
 		return idealact , ACT_INVALID
