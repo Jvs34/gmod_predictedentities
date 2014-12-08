@@ -167,7 +167,9 @@ function ENT:Initialize()
 	
 	self:InstallHook( "CanEditVariable" , self.HandleCanEditVariable )
 	
+	
 	if SERVER then
+		self:InstallHook( "SetupPlayerVisibility" , self.HandleEntityVisibility )
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
 		self:SetUseType( SIMPLE_USE )
@@ -280,14 +282,8 @@ if SERVER then
 		self:Attach( activator )
 	end
 
-	--these functions may actually not be correct, some entities may not want vphysics at all, and simply use the BBOX system
 	function ENT:InitPhysics()
-		if IsValid( self:GetPhysicsObject() ) then
-			return
-		end
-		
 		self:SetLagCompensated( true )
-		
 		self:DoInitPhysics()
 		self:OnInitPhysics( self:GetPhysicsObject() )
 	end
@@ -300,9 +296,6 @@ if SERVER then
 	end
 
 	function ENT:RemovePhysics()
-		if not IsValid( self:GetPhysicsObject() ) then
-			return
-		end
 		
 		if self.AttachesToPlayer then
 			self:SetLagCompensated( false )--lag compensation works really lame with parenting due to vinh's fix to players being lag compensated in vehicles
@@ -478,11 +471,19 @@ if SERVER then
 	
 	--our key can only be modified by the carrying player or by anyone if it's not carried at all
 	function ENT:CanEditKey( ply , val , editor )
+		--you could override me if you want to, you could leave your friends behind
 		return self:IsCarriedBy( ply ) or not self:IsCarried()
 	end
 	
 	function ENT:CanPlayerEditVariable( ply , key , val , editor )
 		--override me
+	end
+	
+	--we add this entity's position to the visibility position, but only if it doesn't attach to the player
+	function ENT:HandleEntityVisibility( ply , viewent )
+		if self:IsCarriedBy( ply ) and not self.AttachesToPlayer then
+			AddOriginToPVS( self:GetPos() )
+		end
 	end
 
 else
@@ -648,7 +649,7 @@ else
 	end
 end
 
---LOOK I DON'T CARE
+--LOOK I DON'T CARE, this check is lame as shit but I can't be arsed to add duplicated code
 function ENT:IsCarried()
 	return self:IsCarriedBy( self:GetControllingPlayer() )
 end
@@ -663,7 +664,7 @@ function ENT:IsKeyDown( mv )
 		return false
 	end
 	
-	if IsValid( self:GetControllingPlayer() ) then
+	if self:IsCarried() then
 		if mv then
 			return mv:KeyDown( self:GetInButton() )
 		end
@@ -679,7 +680,7 @@ function ENT:WasKeyPressed( mv )
 		return false
 	end
 	
-	if IsValid( self:GetControllingPlayer() ) then
+	if self:IsCarried() then
 		if mv then
 			return mv:KeyPressed( self:GetInButton() )
 		end
