@@ -81,6 +81,13 @@ Returns whether the controlling player is holding our ENT:GetInButton(), works b
 
 
 ```
+SHARED ENT:WasKeyPressed( movedata )
+```
+Returns whether the controlling player was holding our ENT:GetInButton(), works best with a supplied movedata
+
+
+
+```
 SHARED ENT:IsCarried()
 ```
 Returns whether we're carried at all
@@ -202,6 +209,20 @@ Called when we're dropped
 
 
 ```
+SERVER ENT:CanAttach( ply ) 
+```
+Called when the entity is about to get equipped, return false to prevent it. Does not get called during forced attaches.
+
+
+
+```
+SERVER ENT:CanDrop( ply , forced ) 
+```
+Called when the entity is about to get dropped, return false to prevent it. Does not get called during forced drops.
+
+
+
+```
 CLIENT ENT:DrawFirstPerson( ply , vm )
 ```
 Called on the renderscene pass
@@ -282,5 +303,19 @@ Called when the player animates, return an activity ( can be -1 ) and a sequence
 SHARED ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 ```
 Called when the player animates, return true to override the default behaviour
+
+
+
+```
+SHARED ENT:CanPlayerEditVariable( ply , key , val , editor )
+```
+Called everytime when the player edits the value of an entity trough the right click edit, return false to disallow it and return true to override the main hook, return nil or nothing for normal behaviour.
+
+
+
+```
+SHARED ENT:CanEditKey( ply , val , editor )
+```
+Same as CanPlayerEditVariable, only that this is called for the "Key" variable, aka the BUTTON_* enum to activate this entity.
 
 
