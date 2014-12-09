@@ -931,7 +931,7 @@ function ENT:CalcAbsolutePosition( pos , ang )
 	end
 end
 
-function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted , activator )
+function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted , activator , worldpos )
 	
 	if not level then
 		level = 75
@@ -984,7 +984,17 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		
 	else
 		if ( IsFirstTimePredicted() and predicted ) or not predicted then
-			self:EmitSound( soundname , level , pitch , volume , chan )
+			if worldpos then
+				local sndname = sound.GetProperties( soundname ).sound
+				if type( sndname ) == "table" then
+					soundname = sndname[1]
+				else
+					soundname = sndname
+				end
+				EmitSound( Sound( soundname ) , worldpos , 0 , chan , volume , level , SND_NOFLAGS , pitch )
+			else
+				self:EmitSound( soundname , level , pitch , volume , chan )
+			end
 		end
 	end
 end
@@ -1031,6 +1041,8 @@ if CLIENT then
 		local pitch = net.ReadFloat()
 		local volume = net.ReadFloat()
 		local chan = net.ReadUInt( 8 )
-		ent:EmitPESound( soundname , level , pitch , volume , chan , false )
+		local pos = net.ReadVector()
+		
+		ent:EmitPESound( soundname , level , pitch , volume , chan , false , NULL , pos )
 	end)
 end

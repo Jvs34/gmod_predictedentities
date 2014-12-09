@@ -60,7 +60,9 @@ sound.Add( {
 	channel = CHAN_WEAPON,
 	volume = 1,
 	level = 75,
-	sound = "ambient/machines/catapult_throw.wav"
+	pitch = 150,
+	sound = "weapons/ar2/npc_ar2_altfire.wav"
+	--sound = "ambient/machines/catapult_throw.wav"
 })
 
 sound.Add( {
@@ -264,12 +266,9 @@ function ENT:HandleSounds( predicted )
 					util.Effect( "Impact", e )
 				end
 				
-				--[[
-				--precache sound doesn't add the sound to the sound precache list, and thus EmitSound whines 
 				if SERVER then
-					EmitSound( "NPC_CombineMine.CloseHooks" , self:GetAttachedTo() , 0 , CHAN_AUTO , 0.7 , 75 , SND_NOFLAGS , 100 )
+					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , self:IsCarried() , self:GetControllingPlayer() , self:GetAttachedTo() )
 				end
-				]]
 				
 				self:SetAttachSoundPlayed( true )
 			end
@@ -340,7 +339,7 @@ function ENT:FireHook()
 		self:SetGrappleNormal( self:GetDirection() )
 		self:SetGrappleFraction( result.Fraction )
 		
-		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_BODY , true )
+		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_WEAPON , true )
 	end
 
 end
