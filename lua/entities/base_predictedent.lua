@@ -953,6 +953,10 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		predicted = false
 	end
 	
+	if not worldpos then
+		worldpos = vector_origin
+	end
+	
 	if SERVER then
 	
 		local plys = {}
@@ -980,11 +984,12 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 			net.WriteFloat( pitch )
 			net.WriteFloat( volume )
 			net.WriteUInt( chan , 8 )
+			net.WriteVector( worldpos )
 		net.Send( plys )
 		
 	else
 		if ( IsFirstTimePredicted() and predicted ) or not predicted then
-			if worldpos then
+			if worldpos and worldpos ~= vector_origin then
 				local sndname = sound.GetProperties( soundname ).sound
 				if type( sndname ) == "table" then
 					soundname = sndname[1]
