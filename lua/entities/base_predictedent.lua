@@ -181,6 +181,7 @@ function ENT:Initialize()
 		self:InstallHook( "NetworkEntityCreated" , self.HandleFullPacketUpdate )
 		language.Add( self:GetClass() , self.PrintName )
 		language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
+		self.IsPredictable = false	--failsafe
 	end
 end
 
@@ -217,8 +218,7 @@ function ENT:Think()
 	
 		--check if this guy is still my parent and owner, maybe something is forcibly unparenting us from him, if so, drop
 		if self.AttachesToPlayer and self:IsCarried() then
-			local ply = self:GetControllingPlayer()
-			if self:GetParent() ~= ply or self:GetOwner() ~= ply then
+			if not self:IsAttached() then
 				self:Drop( true )
 			end
 		end
@@ -647,6 +647,11 @@ else
 	function ENT:SetupCustomHUDElements( panel )
 		--override me
 	end
+end
+
+function ENT:IsAttached()
+	local ply = self:GetControllingPlayer()
+	return self:GetOwner() == ply and self:GetParent() == ply
 end
 
 --LOOK I DON'T CARE, this check is lame as shit but I can't be arsed to add duplicated code
