@@ -995,13 +995,7 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 	else
 		if ( IsFirstTimePredicted() and predicted ) or not predicted then
 			if worldpos and worldpos ~= vector_origin then
-				local sndname = sound.GetProperties( soundname ).sound
-				if type( sndname ) == "table" then
-					soundname = sndname[1]
-				else
-					soundname = sndname
-				end
-				EmitSound( Sound( soundname ) , worldpos , 0 , chan , volume , level , SND_NOFLAGS , pitch )
+				sound.Play( soundname, worldpos, level, pitch , volume )
 			else
 				self:EmitSound( soundname , level , pitch , volume , chan )
 			end

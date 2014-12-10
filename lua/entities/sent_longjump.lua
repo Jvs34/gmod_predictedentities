@@ -140,7 +140,7 @@ function ENT:PredictedSetupMove( owner , data )
 	end
 	
 	if not self:GetDoLongJump() and owner:OnGround() and not owner:Crouching()  and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) and owner:WaterLevel() == 0 then
-		if data:GetVelocity():Length() > owner:GetWalkSpeed() / 4 then
+		if data:GetVelocity():Length2D() > owner:GetWalkSpeed() / 4 then
 			owner:SetGroundEntity( NULL )
 			self:SetDoLongJump( true )
 		end
