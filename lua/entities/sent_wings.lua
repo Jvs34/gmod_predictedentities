@@ -2,6 +2,8 @@ AddCSLuaFile()
 
 --[[
 	Capsadmin's wings https://github.com/CapsAdmin/unfinished/blob/master/birdwings.lua
+	
+	Shit dude this code is so old that even the behaviour in :Move was different back then, this is gonna need some rewriting
 ]]
 
 DEFINE_BASECLASS( "base_predictedent" )
@@ -18,7 +20,6 @@ ENT.Instructions = "Press use to wear, undo to unwear"
 ENT.PitchOffset = 90
 
 if CLIENT then
-	--language.Add( "sent_wings" , ENT.PrintName )
 	ENT.WingBoneResize = {
 		{
 			name = "Crow.Humerus_R",

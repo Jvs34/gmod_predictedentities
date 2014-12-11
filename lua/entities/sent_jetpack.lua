@@ -35,8 +35,7 @@ if CLIENT then
 	ENT.JetpackFireWhite = Color( 255 , 255 , 255 , 128 )
 	ENT.JetpackFireNone = Color( 255 , 255 , 255 , 0 )
 	ENT.JetpackFireRed = Color( 255 , 128 , 128 , 255 )
-	
-	--language.Add( "sent_jetpack" , ENT.PrintName )
+
 else
 	
 	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )	--do a corkscrew
@@ -100,6 +99,7 @@ function ENT:Initialize()
 		self:SetGoneApeshit( math.random( 0 , 100 ) > 95 ) --little chance that on spawn we're gonna be crazy!
 		self:SetGoneApeshitTime( 0 )
 		
+		self:SetCanStomp( false )
 		self:SetDoGroundSlam( false )
 		self:SetAirResistance( 2.5 )
 		self:SetRemoveGravity( false )
@@ -127,6 +127,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "RemoveGravity" )
 	self:DefineNWVar( "Bool" , "InfiniteFuel" , true , "Infinite Fuel" )
 	self:DefineNWVar( "Bool" , "DoGroundSlam" )
+	self:DefineNWVar( "Bool" , "CanStomp" , true , "Can stomp" )
 	
 	self:DefineNWVar( "Float" , "Fuel" )
 	self:DefineNWVar( "Float" , "MaxFuel" )	--don't modify the max amount, the drain scales anyway, set to -1 to disable the fuel drain
@@ -333,8 +334,11 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 		
 		
 		-- Quickly descend to do a ground slam, don't check for the velocity cap, we want to slam down as fast as we can
+		if self:GetCanStomp() then
+			self:SetDoGroundSlam( mv:KeyDown( IN_DUCK ) )
+		end
 		
-		self:SetDoGroundSlam( mv:KeyDown( IN_DUCK ) )
+		--even if the user can't stomp, we still allow him to go down by crouching
 		
 		if mv:KeyDown( IN_DUCK ) then
 			vel.z = vel.z - self:GetJetpackVelocity() * FrameTime()
@@ -475,6 +479,18 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 			end
 			
 			ply:LagCompensation( false )
+			
+			--this is kind of shit but it's needed to make prediction actually work properly on this screenshake shit
+			if SERVER and not game.SinglePlayer() then
+				SuppressHostEvents( ply )
+			end
+			
+			util.ScreenShake( self:GetPos() , 1.5 , dmg , 0.25 , radius * 2 )
+			
+			if SERVER and not game.SinglePlayer() then
+				SuppressHostEvents( NULL )
+			end
+			
 		end
 		
 		ply:AnimRestartGesture( GESTURE_SLOT_JUMP, ACT_LAND, true )
@@ -620,9 +636,15 @@ if SERVER then
 		util.Effect( "Explosion" , effect )
 	end
 	
-	--don't modify values if we're active, dropped or not
+	
 	function ENT:CanPlayerEditVariable( ply , key , val , editor )
+		--don't modify values if we're active, dropped or not
 		if self:GetActive() and key ~= "Key" then
+			return false
+		end
+		
+		--can't enable stomping, infinite fuel or goneapeshit if the player editing us isn't admin
+		if ( key == "CanStomp" or key == "InfiniteFuel" or key == "GoneApeshit" ) and not ply:IsAdmin() then
 			return false
 		end
 	end

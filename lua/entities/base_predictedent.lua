@@ -481,7 +481,7 @@ if SERVER then
 	
 	--we add this entity's position to the visibility position, but only if it doesn't attach to the player
 	function ENT:HandleEntityVisibility( ply , viewent )
-		if self:IsCarriedBy( ply ) and not self.AttachesToPlayer then
+		if self:IsCarriedBy( ply ) and not self.AttachesToPlayer and self ~= viewent then --viewents already add themselves to the pvs
 			AddOriginToPVS( self:GetPos() )
 		end
 	end

@@ -5,13 +5,7 @@ DEFINE_BASECLASS( "base_predictedent" )
 ENT.Spawnable = true
 ENT.PrintName = "Long jump module"
 
-if CLIENT then
-	--language.Add( "sent_longjump" , ENT.PrintName )
-else
-	
-	ENT.StandaloneAngular = vector_origin
-	ENT.StandaloneLinear = Vector( 0 , 0 , 0 )
-	
+if SERVER then
 	ENT.ShowPickupNotice = true
 end
 
@@ -55,7 +49,7 @@ function ENT:Initialize()
 		self:SetInButton( IN_JUMP )
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		self:InitPhysics()
-		self:SetLongJumpSpeed( 750 )
+		self:SetLongJumpSpeed( 550 )
 		
 		self:SetMaxHealth( 100 )
 		self:SetHealth( self:GetMaxHealth() )
@@ -64,8 +58,6 @@ end
 
 function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
-	
-	--self:DefineNWVar( "Vector" , "Test" )
 	
 	self:DefineNWVar( "Bool" , "DoLongJump" )
 	self:DefineNWVar( "Bool" , "LongJumping" )
@@ -76,23 +68,6 @@ end
 function ENT:Think()
 	return BaseClass.Think( self )
 end
-
---cancel the animation cycle immediately if there's gestures that rely on a holdtype or whatever on the player
---but only if it's being carried by the localplayer to prevent animation fuck ups on other players ( since they will do it serverside and on their client )
---AKA PREDICTION, OK? Although I don't know if I can even set these variables here due to the prediction errors fallback, worth a try
---[[
-function ENT:HandleAnimationEventOverride( ply , event , data )
-	
-	--this player is outside of prediction shit, don't even bother
-	if CLIENT and not self:IsCarriedByLocalPlayer() then
-		return
-	end
-	
-	if self:IsLongJumping() and not self:IsAnimationDone() and event ~= PLAYERANIMEVENT_JUMP then
-		self:FinishJumpCycle()
-	end
-end
-]]
 
 --these are here instead of being the single functions so I can eventually reverse the cycle direction ( from 1 to 0 ) if the animation is not good enough
 
@@ -116,13 +91,6 @@ function ENT:IsAnimationDone()
 end
 
 function ENT:PredictedThink( owner , movedata )
-	--[[
-	if CLIENT then
-		self:SetTest( Vector( 1000.4999 , 1 , 1 ) )
-	else
-		self:SetTest( Vector( 1000.5 , 1 , 1 ) )
-	end
-	]]
 	if self:IsLongJumping() and not self:IsAnimationDone() then
 		self:HandleJumpCycle()
 	elseif not self:IsLongJumping() then--and self:IsAnimationDone() then
@@ -132,14 +100,14 @@ end
 
 function ENT:PredictedSetupMove( owner , data )
 	
-	--:Crouching() only checks if the player is fully crouched, but not if he's in the middle of the crouching, that info is inaccessible from Lua
-	--so might as well check if the player is not crouched but still pressing IN_DUCK
-	
 	if self:GetLongJumping() and owner:OnGround() then
 		self:ResetVars()
 	end
 	
-	if not self:GetDoLongJump() and owner:OnGround() and not owner:Crouching()  and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) and owner:WaterLevel() == 0 then
+	--:Crouching() only checks if the player is fully crouched, but not if he's in the middle of the crouching, that info is inaccessible from Lua
+	--so might as well check if the player is not crouched but still pressing IN_DUCK
+	
+	if not self:GetDoLongJump() and owner:OnGround() and not owner:Crouching() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) and owner:WaterLevel() == 0 then
 		if data:GetVelocity():Length2D() > owner:GetWalkSpeed() / 4 then
 			owner:SetGroundEntity( NULL )
 			self:SetDoLongJump( true )
@@ -147,14 +115,16 @@ function ENT:PredictedSetupMove( owner , data )
 	end
 	
 	--prevent the player from spamming the crouch button while long jumping by holding it down, this should really be fixed somewhere else
+	
 	if self:GetLongJumping() then
 		owner:SetGroundEntity( NULL )
-		data:SetButtons( bit.band( data:GetButtons() , bit.bnot( IN_DUCK ) ) )
+		--data:SetButtons( bit.band( data:GetButtons() , bit.bnot( IN_DUCK ) ) )
 	end
 end
 
 function ENT:PredictedFinishMove( owner , data )
 	if self:GetDoLongJump() then
+	
 		local ang = data:GetMoveAngles()
 		ang.p = 0
 		
@@ -166,9 +136,11 @@ function ENT:PredictedFinishMove( owner , data )
 		owner:ViewPunch( Angle( -5 , 0 , 0 ) )
 		
 		local vel = forward * self:GetLongJumpSpeed() * 1.6	--I dunno where valve pulled this 1.6 from
-		vel.z = math.sqrt( 2 * sv_gravity:GetFloat() * ( owner:GetJumpPower() / 4 ) )	--hl2's gravity is 600, and 800 is hl1's ( I guess technically quake's, and then tf, hl1 and tfc )
-		--the 56 is in theory hl1's jump power? gotta test this and replace it with the player's jump power
-	
+		
+		--hl2's gravity is 600, and 800 is hl1's ( I guess technically quake's, and then tf, hl1, tfc and tf2's )
+		--the 56 is in theory hl1's jump power more or less, sandbox's jump power is 200, so just divide it by 4
+		vel.z = math.sqrt( 2 * sv_gravity:GetFloat() * ( owner:GetJumpPower() / 4 ) )
+		
 		data:SetVelocity(  vel )
 		self:SetDoLongJump( false )
 		
@@ -222,18 +194,13 @@ if SERVER then
 	end
 	
 	function ENT:PhysicsCollide( data , physobj )
-		--taken straight from valve's code, it's needed since garry overwrote VPhysicsCollision, friction sound is still there though
-		--because he didn't override the VPhysicsFriction
 		if SERVER then
-			--only do this check serverside because if the gravity gun holds us, the clientside collisions still happen
-			--and play sounds on regardless of garry's override
 			if data.DeltaTime >= 0.05 and data.Speed >= 70 then
 				local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
 				if volume > 1 then
 					volume = 1
 				end
 				
-				--TODO: find a better impact sound for this model
 				self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
 			end
 		end
@@ -284,10 +251,6 @@ function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 			ply:SetCycle( self:GetLongJumpAnimCycle() )
 			ply:SetPlaybackRate( 0 )
 		end
-		
-		--ply:SetPoseParameter( "move_x" , -0.5 - self:GetLongJumpAnimCycle() )
-		--ply:SetPoseParameter( "move_y" , 0 )
-		
 		return true
 	end
 end
