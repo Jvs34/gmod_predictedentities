@@ -51,9 +51,11 @@ if SERVER then
 		self:SetMoveCollide( MOVECOLLIDE_FLY_BOUNCE )
 	end
 	
+	--we still need to be SOLID_BBOX if we want to be shot at while flying, we don't really care about
+	--causing collisions on other entities with a PhysObj
 	function ENT:DoRemovePhysics()
 		self:SetMoveType( MOVETYPE_NONE )
-		self:SetSolid( SOLID_NONE )
+		self:SetSolid( SOLID_BBOX )
 		self:SetMoveCollide( MOVECOLLIDE_DEFAULT )
 	end
 	
