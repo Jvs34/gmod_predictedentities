@@ -10,7 +10,7 @@
 
 local PANEL = {}
 
-PANEL.HUDSideConVar = CreateConVar( "cl_pe_hud_side" , "0", FCVAR_ARCHIVE , "" )
+PANEL.HUDSideConVar = CreateConVar( "cl_pe_hud_side" , "1", FCVAR_ARCHIVE , "" )
 PANEL.PanelDeleteTimeOut = 5	--after 5 seconds a stranded ent panel will be removed
 
 PANEL.VerticalMargin = 0.25
@@ -30,9 +30,6 @@ function PANEL:Init()
 	self.IconLayout:SetBorder( 0 )
 	self.IconLayout:SetSpaceX( 2 )
 	self.IconLayout:SetSpaceY( 2 )
-	self.IconLayout.Paint = function( self , w , h )
-		surface.DrawOutlinedRect( 0 , 0 , w , h )
-	end
 end
 
 function PANEL:Think()
@@ -41,7 +38,7 @@ function PANEL:Think()
 	end
 	
 	for i , v in pairs( self.MyChildren ) do
-		if IsValid( v ) and v.LastSlotKnown <= UnPredictedCurTime() - self.PanelDeleteTimeOut then
+		if IsValid( v ) and v.LastSlotKnown and v.LastSlotKnown <= UnPredictedCurTime() - self.PanelDeleteTimeOut then
 			self:RemovePanelBySlot( i )
 		end
 	end
@@ -69,7 +66,6 @@ function PANEL:PerformLayout( w , h )
 	
 	self.IconLayout:SetSize( self.IconSize , self.IconSize )
 	self.IconLayout:InvalidateLayout()
-	
 end
 
 function PANEL:Paint( w , h )
@@ -107,15 +103,22 @@ local function CreatePEHud()
 	panel:ParentToHUD()
 	panel:Dock( FILL )
 	
+	if IsValid( PE_HUD ) then
+		PE_HUD:Remove()
+	end
+	
+	PE_HUD = panel
+	
+	--[[
 	local tab = scripted_ents.GetStored( "base_predictedent" )
 	if tab then
-	
 		if IsValid( tab.MainHUDPanel ) then
 			tab.MainHUDPanel:Remove()
 		end
-	
 		tab.MainHUDPanel = panel
+		print( tab.MainHUDPanel )
 	end
+	]]
 end
 
-hook.Add( "Initialize" , "PEHud" , CreatePEHud )
+hook.Add( "InitPostEntity" , "PEHud" , CreatePEHud )

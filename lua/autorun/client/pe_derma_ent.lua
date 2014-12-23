@@ -9,49 +9,27 @@
 
 
 local PANEL = {}
-PANEL.WhiteTex = surface.GetTextureID( "vgui/white" )
-PANEL.DefaultEntityMaterial = Material( "entities/npc_alyx.png" )
-PANEL.CircleMaskMaterial = Material( "" )
+PANEL.IconPathFolder = "pe/"
+PANEL.IconPath = "models/"..PANEL.IconPathFolder
 
 function PANEL:Init()
 	self:SetMouseInputEnabled( true )
 	self:SetWorldClicker( false )
 	self:SetSize( 64 , 64 )	--TODO: ask our parent for the best size scale
 	self:SetText( "" )
-	self.RecheckMat = false
 	
+	self.ModelIcon = self:Add( "SpawnIcon" )
+	self.ModelIcon:SetModel( "models/error.mdl" )
+	self.ModelIcon:SetSize( 64 , 64 )
+	self.ModelIcon:SetPaintedManually( true )
+	
+	self.BuiltSpawnIcon = false
 	--[[
 	self.Label = self:Add( "DLabel" )
 	self.Label:SetFont( "Default" )
 	self.Label:Dock( BOTTOM )
 	self.Label:SetContentAlignment( 5 )
 	]]
-end
-
-function PANEL:GenerateCircleVertices( x, y, radius, ang_start, ang_size )
-
-    local vertices = {}
-    local passes = radius -- Seems to look pretty enough
-    self.PolySize = radius
-    -- Ensure vertices resemble sector and not a chord
-    vertices[ 1 ] = { 
-        x = x,
-        y = y
-    }
-
-    for i = 0, passes do
-
-        local ang = math.rad( -90 + ang_start + ang_size * i / passes )
-
-        vertices[ i + 2 ] = {
-            x = x + math.cos( ang ) * radius,
-            y = y + math.sin( ang ) * radius
-        }
-
-    end
-	
-    return vertices
-
 end
 
 function PANEL:Think()
@@ -68,25 +46,8 @@ function PANEL:Think()
 	
 	self.LastSlotKnown = UnPredictedCurTime()
 	
-	--try to get the material from the entity class
-	if not self:IsEntityMaterialSet() and self.RecheckMat then
-		local class = self:GetEntity():GetClass()
-		local mat = Material( "entities/" .. class .. ".png" )
-		
-		if self.Label then
-			self.Label:SetText( "#"..class )	--will resolve to the Localize of that entity class
-		end
-		
-		if not mat:IsError() then
-			self:SetEntityMaterial( mat )
-		end
-		
-		self.RecheckMat = false
-	end
-	
-	if self.PolySize ~= self:GetTall() / 2 then
-		self.Poly = self:GenerateCircleVertices( self:GetWide() / 2 , self:GetTall() / 2 , self:GetTall() / 2 , 0 , 360 )
-	end
+	--ask to rebuild the spawnicon
+	self:CheckSpawnIcon()
 	
 	--only fires if the entity is valid
 	self:CustomThink()
@@ -96,32 +57,66 @@ function PANEL:GetEntity()
 	return LocalPlayer():GetNWEntity( self:GetSlot() )
 end
 
-function PANEL:SetEntityMaterial( mat )
-	if not mat or mat:IsError() then
-		return
-	end
-	self.EntityMaterial = mat
-end
-
-function PANEL:GetEntityMaterial()
-	if not self.EntityMaterial or self.EntityMaterial:IsError() then
-		return self.DefaultEntityMaterial
-	end
-	return self.EntityMaterial
-end
-
-function PANEL:IsEntityMaterialSet()
-	return self:GetEntityMaterial() and self:GetEntityMaterial() ~= self.DefaultEntityMaterial
-end
 
 --can be overridden by SetupCustomHUDElements, won't be called if the entity is not valid
 function PANEL:CustomThink()
 
 end
 
+function PANEL:DoRebuild()
+	self.BuiltSpawnIcon = true
+	
+	self.DummyModel = ClientsideModel( "models/error.mdl" )
+	self.DummyModel:SetNoDraw( true )
+	self.DummyModel.RenderOverride = function( dummy , flags )
+		
+		render.SuppressEngineLighting( true )
+		
+		render.SetLightingOrigin( Vector( 0 , 0 , 100 ) )
+		
+		render.ResetModelLighting( 0.2 , 0.2 , 0.2 )
+		
+		render.SetModelLighting( BOX_TOP , 10 , 10 , 10 )
+		
+		--call the utility draw from the entity
+		self:DrawSpawnIcon( flags )
+		
+		render.SuppressEngineLighting( false )
+	end
+	
+	local tab = {}
+	tab.ent		= self.DummyModel
+	tab.cam_pos = Vector( -30 , 0 , 0 )
+	tab.cam_ang = Angle( 0 , 0 , 0 )
+	tab.cam_fov = 45
+
+	self.ModelIcon:RebuildSpawnIconEx( tab )
+end
+
+function PANEL:GetSpawnIconMat()
+	return Material( "spawnicons/"..self.IconPath .. self.Slot .. ".png" )
+end
+
+function PANEL:GetSpawnIconModelPath()
+	return self.IconPath .. self.Slot .. ".mdl"
+end
+
 function PANEL:SetSlot( str )
-	self.RecheckMat = true
 	self.Slot = str
+	self.ModelIcon:SetModel( self:GetSpawnIconModelPath() )
+	self.SpawnIconMat = self:GetSpawnIconMat()
+	self:DoRebuild()
+end
+
+function PANEL:CheckSpawnIcon()
+	
+	if self.BuiltSpawnIcon then
+		return
+	end
+	
+	if self.SpawnIconMat:IsError() then
+		self:DoRebuild()
+	end
 end
 
 function PANEL:GetSlot()
@@ -133,44 +128,34 @@ function PANEL:DoClick()
 end
 
 function PANEL:Paint( w , h )
-	local mat = self:GetEntityMaterial()
+	local x , y = self:LocalToScreen( 0 , 0 )
 	
-	if self.Poly then
-		render.SetStencilEnable( true )
-
-		render.SetStencilReferenceValue( 1 )
-		render.SetStencilWriteMask( 1 )
-		render.SetStencilTestMask( 1 )
-
-		render.SetStencilPassOperation( STENCIL_REPLACE )
-		render.SetStencilFailOperation( STENCIL_KEEP )
-		render.SetStencilZFailOperation( STENCIL_KEEP )
-
-		render.ClearStencil()
-
-		render.SetStencilCompareFunction( STENCIL_NOTEQUAL )
-
-		surface.SetTexture( self.WhiteTex )
-		surface.SetDrawColor( color_white )
-		surface.DrawPoly( self.Poly )
-
-		render.SetStencilCompareFunction( STENCIL_EQUAL )
-	end
+	surface.SetDrawColor( self:GetColor() )
+	render.SetColorMaterial()
+	surface.DrawRect( 0 , 0 , w , h )
 	
-	surface.SetDrawColor( color_white )
-	surface.SetMaterial( mat )
-	surface.DrawTexturedRect( 0 , 0 , w , h )
+	self.ModelIcon:SetPaintedManually( false )
+	self.ModelIcon:PaintAt( x , y , w , h )
+	self.ModelIcon:SetPaintedManually( true )
+	
 	self:CustomPaint( w , h )
-	
-	if self.Poly then
-		render.ClearStencil()
+end
 
-		render.SetStencilEnable( false )
+function PANEL:CustomPaint( w , h )
+	
+end
+
+function PANEL:DrawSpawnIcon( flags )
+	local ent = self:GetEntity()
+	if IsValid( ent ) and ent.DrawSpawnIcon then
+		ent:DrawSpawnIcon( flags )
 	end
 end
 
-function PANEL:CustomPaint()
-	
+function PANEL:OnRemove()
+	if IsValid( self.DummyModel ) then
+		self.DummyModel:Remove()
+	end
 end
 
 derma.DefineControl( "DPredictedEnt", "", PANEL, "DButton" )

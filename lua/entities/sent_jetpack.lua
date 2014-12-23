@@ -35,7 +35,11 @@ if CLIENT then
 	ENT.JetpackFireWhite = Color( 255 , 255 , 255 , 128 )
 	ENT.JetpackFireNone = Color( 255 , 255 , 255 , 0 )
 	ENT.JetpackFireRed = Color( 255 , 128 , 128 , 255 )
-
+	
+	ENT.SpawnIconInfo = {
+		Pos = vector_origin,
+		Ang = Angle( 170 , -30 , 0 ),
+	}
 else
 	
 	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )	--do a corkscrew
@@ -467,7 +471,9 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 			--TODO: get the code from the sdk and replicate this on my own
 			ply:LagCompensation( true )
 			
+			--[[
 			local physexpl = ents.Create( "env_physexplosion" )
+			
 			if IsValid( physexpl ) then
 				physexpl:SetPos( ply:WorldSpaceCenter() )
 				physexpl:SetKeyValue( "spawnflags" , bit.bor( SF_PHYSEXPLOSION_NODAMAGE , SF_PHYSEXPLOSION_RADIAL , SF_PHYSEXPLOSION_TEST_LOS ) )
@@ -477,20 +483,22 @@ function ENT:PredictedHitGround( ply , inwater , onfloater , speed )
 				physexpl:Fire( "Explode" , "" , 0 )
 				physexpl:Fire( "Kill" , "" , 0.1 )
 			end
+			]]
 			
-			ply:LagCompensation( false )
+			
 			
 			--this is kind of shit but it's needed to make prediction actually work properly on this screenshake shit
 			if SERVER and not game.SinglePlayer() then
 				SuppressHostEvents( ply )
 			end
 			
-			util.ScreenShake( self:GetPos() , 1.5 , dmg , 0.25 , radius * 2 )
+			util.ScreenShake( self:GetPos() , 1.5 , 250 , 1 , 500 )
 			
 			if SERVER and not game.SinglePlayer() then
 				SuppressHostEvents( NULL )
 			end
 			
+			ply:LagCompensation( false )
 		end
 		
 		ply:AnimRestartGesture( GESTURE_SLOT_JUMP, ACT_LAND, true )
@@ -906,6 +914,22 @@ else
 			self.FuelGauge.FuelFraction = self:GetEntity():GetFuelFraction()
 		end
 	end
+	
+	function ENT:SpawnIconSetup( flags )
+		local tab = {
+			active = self:GetActive(),
+			wingclosure = self:GetWingClosure(),
+		}
+		self:SetActive( false )
+		self:SetWingClosure( 1 )
+		return tab
+	end
+	
+	function ENT:SpawnIconRestore( flags , tab )
+		if not tab then return end
+		self:SetActive( tab.active )
+		self:SetWingClosure( self:GetWingClosure() )
+	end
 
 end
 
@@ -914,8 +938,16 @@ function ENT:HandleShouldCollide( ent1 , ent2 )
 		return
 	end
 	
-	if IsValid( self:GetControllingPlayer() ) and ( ent2:GetOwner() == self:GetControllingPlayer() or self:GetControllingPlayer() == ent2 ) then
-		return false
+	if self:IsCarried() then
+		if ent2:GetOwner() == self:GetControllingPlayer() or self:GetControllingPlayer() == ent2 then
+			return false
+		end
+		
+		if ent2:EntIndex() == 0 then
+			return false
+		end
+		
+		print( ent2 )
 	end
 end
 

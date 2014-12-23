@@ -19,6 +19,11 @@ if SERVER then
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
 else
 	ENT.RenderGroup = RENDERGROUP_OPAQUE
+	
+	ENT.SpawnIconInfo = {
+		Pos = vector_origin,
+		Ang = angle_zero,
+	}
 end
 
 ENT.Editable = true
@@ -607,9 +612,41 @@ else
 		self:DrawModel( flags )
 	end
 	
+	function ENT:DrawSpawnIcon( flags )
+		self.DrawingSpawnIcon = true
+		
+		local pos = vector_origin
+		local ang = angle_zero
+		
+		if self.SpawnIconInfo then
+			pos = self.SpawnIconInfo.Pos
+			ang = self.SpawnIconInfo.Ang
+		end
+		
+		self:SetPos( pos )
+		self:SetAngles( ang )
+		self:SetupBones()
+		
+		local tb = self:SpawnIconSetup( flags )
+		
+		self:DrawModel( flags )
+		
+		self:SpawnIconRestore( flags , tb )
+		
+		self.DrawingSpawnIcon = nil
+	end
+	
+	function ENT:SpawnIconSetup( flags )
+		--override me, return a table here with the shit you changed
+	end
+	
+	function ENT:SpawnIconRestore( flags , tab )
+		--override me, restore the shit you changed with the stuff in the table
+	end
+	
 	--UGLEH as sin
 	function ENT:GetMainPanel()
-		return PE_HUD or self.MainHUDPanel
+		return PE_HUD
 	end
 	
 	function ENT:HandleDerma()
@@ -907,7 +944,12 @@ function ENT:GetCustomParentOrigin()
 	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
 	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
 	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
-
+	
+	--abort if we're drawing the spawn icon
+	if CLIENT and self.DrawingSpawnIcon then
+		return
+	end
+		
 	if CLIENT and self:IsCarriedByLocalPlayer() and not ply:ShouldDrawLocalPlayer() then
 		ply:SetupBones()
 	end
