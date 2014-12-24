@@ -252,6 +252,12 @@ function ENT:HandleSounds( predicted )
 				--play the hit sound only the controlling player and one on the world position
 				
 				if IsValid( self:GetControllingPlayer() ) then
+					local seq = self:GetControllingPlayer():LookupSequence( "flinch_stomach_02" )
+					
+					if seq and seq ~= ACT_INVALID then
+						self:GetControllingPlayer():AddVCDSequenceToGestureSlot( GESTURE_SLOT_FLINCH , seq , 0 , true )
+					end
+					
 					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , predicted , self:GetControllingPlayer() )
 				end
 				
@@ -344,6 +350,11 @@ function ENT:FireHook()
 		self:SetGrappleFraction( result.Fraction )
 		
 		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_WEAPON , true )
+		
+		local seq = self:GetControllingPlayer():LookupSequence( "flinch_stomach_01" )
+		if seq and seq ~= ACT_INVALID then
+			self:GetControllingPlayer():AddVCDSequenceToGestureSlot( GESTURE_SLOT_FLINCH , seq , 0 , true )
+		end
 	end
 
 end

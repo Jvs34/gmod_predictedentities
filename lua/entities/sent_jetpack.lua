@@ -42,7 +42,7 @@ if CLIENT then
 	}
 else
 	
-	ENT.StandaloneApeShitAngular = Vector( 0 , 30 , 10 )	--do a corkscrew
+	ENT.StandaloneApeShitAngular = Vector( 0 , 10 , 10 )	--do a corkscrew
 	ENT.StandaloneApeShitLinear = Vector( 0 , 0 , 0 )
 	
 	ENT.StandaloneAngular = vector_origin
@@ -928,7 +928,7 @@ else
 	function ENT:SpawnIconRestore( flags , tab )
 		if not tab then return end
 		self:SetActive( tab.active )
-		self:SetWingClosure( self:GetWingClosure() )
+		self:SetWingClosure( tab.wingclosure )
 	end
 
 end
@@ -946,8 +946,6 @@ function ENT:HandleShouldCollide( ent1 , ent2 )
 		if ent2:EntIndex() == 0 then
 			return false
 		end
-		
-		print( ent2 )
 	end
 end
 

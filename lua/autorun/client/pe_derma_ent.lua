@@ -22,8 +22,8 @@ function PANEL:Init()
 	self.ModelIcon:SetModel( "models/error.mdl" )
 	self.ModelIcon:SetSize( 64 , 64 )
 	self.ModelIcon:SetPaintedManually( true )
-	
 	self.BuiltSpawnIcon = false
+	
 	--[[
 	self.Label = self:Add( "DLabel" )
 	self.Label:SetFont( "Default" )
@@ -111,6 +111,10 @@ end
 function PANEL:CheckSpawnIcon()
 	
 	if self.BuiltSpawnIcon then
+		if self.ModelIcon then
+			self.ModelIcon:Remove()
+			self.ModelIcon = nil
+		end
 		return
 	end
 	
@@ -134,9 +138,15 @@ function PANEL:Paint( w , h )
 	render.SetColorMaterial()
 	surface.DrawRect( 0 , 0 , w , h )
 	
-	self.ModelIcon:SetPaintedManually( false )
-	self.ModelIcon:PaintAt( x , y , w , h )
-	self.ModelIcon:SetPaintedManually( true )
+	if not self.BuiltSpawnIcon then
+		self.ModelIcon:SetPaintedManually( false )
+		self.ModelIcon:PaintAt( x , y , w , h )
+		self.ModelIcon:SetPaintedManually( true )
+	else
+		surface.SetDrawColor( color_white )
+		surface.SetMaterial( self.SpawnIconMat )
+		surface.DrawTexturedRect( 0 , 0 , w , h )
+	end
 	
 	self:CustomPaint( w , h )
 end

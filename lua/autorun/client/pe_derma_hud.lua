@@ -17,7 +17,12 @@ PANEL.VerticalMargin = 0.25
 PANEL.HorizontalMargin = 0.35
 
 function PANEL:Init()
+	self:MouseCapture( true )
+	self:RequestFocus()
+	--self:MakePopup()
 	self:SetMouseInputEnabled( true )
+	self:SetKeyboardInputEnabled( false )
+	self:SetWorldClicker( true )
 	--since they're being added to the IconLayout, they're not technically my children, so keep track of them manually
 	self.MyChildren = {}
 	
@@ -26,13 +31,14 @@ function PANEL:Init()
 	end
 	
 	self.IconLayout = self:Add( "DIconLayout" )
-	self.IconLayout:Dock( LEFT )
+	self.IconLayout:Dock( FILL )
 	self.IconLayout:SetBorder( 0 )
 	self.IconLayout:SetSpaceX( 2 )
 	self.IconLayout:SetSpaceY( 2 )
 end
 
 function PANEL:Think()
+	
 	if self.IconLayout:GetDock() ~= self:GetHUDSide() then
 		self:InvalidateLayout()
 	end
@@ -95,12 +101,13 @@ function PANEL:RemovePanelBySlot( slotname )
 	end
 end
 
-derma.DefineControl( "DPredictedEntManager", "", PANEL, "DPanel" )
+derma.DefineControl( "DPredictedEntManager", "", PANEL, "EditablePanel" )
 
-local function CreatePEHud()
+function CreatePEHud()
 	local panel = vgui.Create( "DPredictedEntManager" )
 	panel:SetVisible( true )
-	panel:ParentToHUD()
+	panel:SetParent( vgui.GetWorldPanel() )
+	--panel:ParentToHUD()
 	panel:Dock( FILL )
 	
 	if IsValid( PE_HUD ) then
