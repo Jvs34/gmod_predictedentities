@@ -580,7 +580,7 @@ else
 				
 				dosway = self:IsCarriedByLocalPlayer()
 				
-				travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
+				travelfraction = math.Clamp( math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() ) , 0 , 1 )
 				
 				endgrapplepos = LerpVector( travelfraction , startgrapplepos , self:GetAttachedTo() )
 				
