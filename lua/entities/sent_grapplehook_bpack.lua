@@ -132,6 +132,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "AttachStart" )
 	self:DefineNWVar( "Float" , "PullSpeed" , true , "Pull speed" , 0 , 3500 )
 	self:DefineNWVar( "Float" , "GrappleFraction" )
+	self:DefineNWVar( "Float" , "GrappleLength" )
 	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 4 )
 	self:DefineNWVar( "Vector" , "AttachedTo" )
 	
@@ -303,7 +304,7 @@ end
 
 function ENT:PredictedMove( owner , mv )
 	if self:CanPull( mv ) then
-		
+
 		owner:SetGroundEntity( NULL )
 		
 		if self:GetPullMode() == 2 then
@@ -313,6 +314,16 @@ function ENT:PredictedMove( owner , mv )
 			local curdistance = ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length()
 			if curdistance > currenthooklength then
 				mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * mv:GetVelocity():Length() * 0.5 )
+			end
+		elseif self:GetPullMode() == 4 then
+			local eye_pos = self:GetControllingPlayer():EyePos()
+
+			local dist = ( self:GetAttachedTo() - eye_pos ):Length()
+
+			if dist > self:GetGrappleLength() then
+				local dir = ( self:GetAttachedTo() - eye_pos ):GetNormalized() -- Direction from player to hook
+
+				mv:SetVelocity( mv:GetVelocity() + dir * (dist - self:GetGrappleLength())) -- Translate velocity to be within distance of hook
 			end
 		else
 			mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * self:GetPullSpeed() * FrameTime() )
@@ -347,6 +358,7 @@ function ENT:FireHook()
 		self:SetIsAttached( true )
 		self:SetGrappleNormal( self:GetDirection() )
 		self:SetGrappleFraction( result.Fraction )
+		self:SetGrappleLength( ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length() )
 		
 		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_WEAPON , true )
 		
