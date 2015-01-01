@@ -238,11 +238,7 @@ function ENT:HandleFuel( predicted )
 	end
 end
 
-function ENT:HandleSounds( predicted )
-	if not predicted and CLIENT then
-		self.JetpackSound = nil
-		return
-	end
+function ENT:HandleLoopingSounds()
 
 	--create the soundpatch if it doesn't exist, it might happen on the client sometimes since it's garbage collected
 
@@ -299,13 +295,27 @@ function ENT:Think()
 	if not self:IsCarried() then
 		self:HandleFly( false )
 		self:HandleFuel( false )
-		self:HandleSounds( false )
+		
+		if CLIENT then
+			self:HandleLoopingSounds()
+		end
 	end
 
 	--animation related stuff should be fine to call here
 
 	if CLIENT then
 		self:HandleWings()
+	end
+	
+	--play from this hook if: we're not carried by the local player, or if we're carried by the local player and it's singleplayer
+	--since the playertick hook is not ran clientside in singleplayer
+	--maybe just go fuck it and remove this check
+	--TODO: move to base maybe?
+	
+	if CLIENT then
+		if not self:IsCarriedByLocalPlayer() or ( self:IsCarriedByLocalPlayer() and game.SinglePlayer() ) then
+			self:HandleLoopingSounds()
+		end
 	end
 
 	return BaseClass.Think( self )
@@ -315,7 +325,10 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 	
 	self:HandleFly( true , owner , mv , usercmd )
 	self:HandleFuel( true )
-	self:HandleSounds( true )
+
+	if CLIENT then
+		self:HandleLoopingSounds()
+	end
 	
 	if self:GetActive() then
 		

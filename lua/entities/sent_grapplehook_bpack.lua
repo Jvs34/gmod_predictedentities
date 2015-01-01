@@ -151,6 +151,19 @@ function ENT:Think()
 	if not self:IsCarried() then
 		self:HandleDetach( false )
 		self:HandleSounds( false )
+		if CLIENT then
+			self:HandleLoopingSounds()
+		end
+	end
+	
+	--play from this hook if: we're not carried by the local player, or if we're carried by the local player and it's singleplayer
+	--since the playertick hook is not ran clientside in singleplayer
+	--maybe just go fuck it and remove this check
+	--TODO: move to base maybe?
+	if CLIENT then
+		if not self:IsCarriedByLocalPlayer() or ( self:IsCarriedByLocalPlayer() and game.SinglePlayer() ) then
+			self:HandleLoopingSounds()
+		end
 	end
 	
 	return BaseClass.Think( self )
@@ -230,20 +243,6 @@ function ENT:IsHookReturning()
 end
 
 function ENT:HandleSounds( predicted )
-	if CLIENT and not predicted then
-		self.LaunchSound = nil
-		self.ReelSound = nil
-		return
-	end
-	
-	if not self.LaunchSound then
-		self.LaunchSound = CreateSound( self , "grapplehook.shootrope" )
-	end
-	
-	if not self.ReelSound then
-		self.ReelSound = CreateSound( self , "grapplehook.reelsound" )
-	end
-	
 	if self:GetIsAttached() then
 		if self:GetAttachTime() < CurTime() then
 			
@@ -282,7 +281,20 @@ function ENT:HandleSounds( predicted )
 				
 				self:SetAttachSoundPlayed( true )
 			end
-			
+		end
+	end
+end
+
+function ENT:HandleLoopingSounds()
+	if not self.LaunchSound then
+		self.LaunchSound = CreateSound( self , "grapplehook.shootrope" )
+	end
+	
+	if not self.ReelSound then
+		self.ReelSound = CreateSound( self , "grapplehook.reelsound" )
+	end
+	if self:GetIsAttached() then
+		if self:GetAttachTime() < CurTime() then	
 			self.ReelSound:PlayEx( 0.3 , 200 )
 			self.LaunchSound:Stop()
 		else
@@ -324,6 +336,10 @@ end
 function ENT:PredictedThink( owner , mv )
 	self:HandleDetach( true , mv )
 	self:HandleSounds( true )
+	
+	if CLIENT then
+		self:HandleLoopingSounds()
+	end
 end
 
 function ENT:FireHook()
