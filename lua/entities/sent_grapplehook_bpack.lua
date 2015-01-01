@@ -151,19 +151,6 @@ function ENT:Think()
 	if not self:IsCarried() then
 		self:HandleDetach( false )
 		self:HandleSounds( false )
-		if CLIENT then
-			self:HandleLoopingSounds()
-		end
-	end
-	
-	--play from this hook if: we're not carried by the local player, or if we're carried by the local player and it's singleplayer
-	--since the playertick hook is not ran clientside in singleplayer
-	--maybe just go fuck it and remove this check
-	--TODO: move to base maybe?
-	if CLIENT then
-		if not self:IsCarriedByLocalPlayer() or ( self:IsCarriedByLocalPlayer() and game.SinglePlayer() ) then
-			self:HandleLoopingSounds()
-		end
 	end
 	
 	return BaseClass.Think( self )
@@ -336,10 +323,6 @@ end
 function ENT:PredictedThink( owner , mv )
 	self:HandleDetach( true , mv )
 	self:HandleSounds( true )
-	
-	if CLIENT then
-		self:HandleLoopingSounds()
-	end
 end
 
 function ENT:FireHook()

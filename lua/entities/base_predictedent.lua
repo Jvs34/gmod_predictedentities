@@ -238,6 +238,7 @@ function ENT:Think()
 		--Ideally this would be handled on the callback of SetControllingPlayer clientside, but we don't have that yet
 		self:HandlePrediction()
 		self:HandleDerma()
+		self:InternalHandleLoopingSounds()
 	end
 	
 	--set our think rate to be in line with the server tickrate
@@ -493,6 +494,24 @@ if SERVER then
 
 else
 
+	function ENT:InternalHandleLoopingSounds( calledinprediction )
+		--the calledinprediction variable makes it so HandleLoopingSounds is called from ENT:Think instead
+		--and yes, this will never be set at all during singleplayer because there's no prediction
+		
+		--if this is set then there's no need to call iscarried checks below, we're always called when that happens
+		if calledinprediction and not IsFirstTimePredicted() then
+			return
+		end
+		
+		if not self:IsCarried() or not self:IsCarriedByLocalPlayer() or ( self:IsCarriedByLocalPlayer() and calledinprediction )then
+			self:HandleLoopingSounds()
+		end
+	end
+	
+	function ENT:HandleLoopingSounds()
+		--override me
+	end
+	
 	function ENT:IsCarriedByLocalPlayer()
 		return self:IsCarriedBy( LocalPlayer() )
 	end
@@ -800,6 +819,9 @@ end
 
 function ENT:HandlePredictedThink( ply , mv )
 	if self:IsCarriedBy( ply ) then
+		if CLIENT then
+			self:InternalHandleLoopingSounds( true )
+		end
 		self:PredictedThink( ply , mv )
 	end
 end
