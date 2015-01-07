@@ -970,10 +970,17 @@ function ENT:HandleUpdateAnimationOverride( ply , velocity , maxseqgroundspeed )
 end
 
 function ENT:OnRemove()
-	--if stopping the soundpatch doesn't work, stop the sound manually
-	self:StopSound( "jetpack.thruster_loop" )
 
 	if CLIENT then
+		
+		--if stopping the soundpatch doesn't work, stop the sound manually
+		if self.JetpackSound then
+			self.JetpackSound:Stop()
+			self.JetpackSound = nil
+		else
+			self:StopSound( "jetpack.thruster_loop" )
+		end
+	
 		self:RemoveWings()
 		if self.JetpackParticleEmitter then
 			self.JetpackParticleEmitter:Finish()

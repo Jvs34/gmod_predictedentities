@@ -426,14 +426,26 @@ end
 function ENT:OnRemove()
 	if CLIENT then
 		self:RemoveModels()
+		
+		if self.LaunchSound then
+			self.LaunchSound:Stop()
+			self.LaunchSound = nil
+		else
+			self:StopSound( "grapplehook.shootrope" )
+		end
+		
+		if self.ReelSound then
+			self.ReelSound:Stop()
+			self.ReelSound = nil
+		else
+			self:StopSound( "grapplehook.reelsound" )
+		end
+		
 	else
 		if IsValid( self:GetHookHelper() ) then
 			self:GetHookHelper():Remove()
 		end
 	end
-	
-	self:StopSound( "grapplehook.reelsound" )
-	self:StopSound( "grapplehook.shootrope" )
 	
 	BaseClass.OnRemove( self )
 end
