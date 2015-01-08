@@ -539,17 +539,19 @@ else
 	
 	function ENT:HandlePrediction()
 	
+		local carried = self:IsCarriedByLocalPlayer()
+		
 		--either the gravity gun or some other stuff is carrying me, don't do anything on prediction
 		--because they might enable it to carry us around smoothly
 		
 		if self:GetBeingHeld() then
-			return
+			--just in case
+			carried = false
 		end
 		
-		local bool = self:IsCarriedByLocalPlayer()
-		if self.IsPredictable ~= bool then
-			self:SetPredictable( bool )
-			self.IsPredictable = bool
+		if self.IsPredictable ~= carried then
+			self:SetPredictable( carried )
+			self.IsPredictable = carried
 		end
 	end
 	
