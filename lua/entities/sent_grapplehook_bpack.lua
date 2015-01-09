@@ -141,8 +141,9 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
 	self:DefineNWVar( "Bool" , "DoReturn" , true , "Hook returns on detach" )
-	self:DefineNWVar( "Entity" , "HookHelper" )
 	
+	self:DefineNWVar( "Entity" , "HookHelper" )
+	self:DefineNWVar( "Entity" , "DeadPlayerRagdoll" )
 end
 
 
@@ -154,7 +155,13 @@ function ENT:Think()
 		self:HandleSounds( false )
 	end
 	
-	return BaseClass.Think( self )
+	BaseClass.Think( self )
+	
+	if IsValid( self:GetDeadPlayerRagdoll() ) then
+		self:HandleDeadPlayerRagdoll()
+	end
+	
+	return true
 end
 
 function ENT:Detach( forced )
@@ -323,7 +330,7 @@ function ENT:PredictedMove( owner , mv )
 			if dist > self:GetGrappleLength() then
 				local dir = ( self:GetAttachedTo() - eye_pos ):GetNormalized() -- Direction from player to hook
 
-				mv:SetVelocity( mv:GetVelocity() + dir * (dist - self:GetGrappleLength())) -- Translate velocity to be within distance of hook
+				mv:SetVelocity( mv:GetVelocity() + dir * (dist - self:GetGrappleLength()) ) -- Translate velocity to be within distance of hook
 			end
 		else
 			mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * self:GetPullSpeed() * FrameTime() )
@@ -454,14 +461,59 @@ function ENT:GetHookAttachment()
 	return LocalToWorld( self.HookAttachmentInfo.OffsetVec , self.HookAttachmentInfo.OffsetAng , self:GetPos() , self:GetAngles() )
 end
 
+function ENT:HandleDeadPlayerRagdoll()
+	local rag = self:GetDeadPlayerRagdoll()
+	if SERVER then
+		rag:SetPos( self:GetPos() )
+	else
+		rag:SetPos( self:GetPos() )
+		rag:PhysWake()
+		local bone = rag:LookupBone( self.AttachmentInfo.BoneName )
+		
+		if bone == -1 then
+			return
+		end
+		
+		local physbone = rag:TranslateBoneToPhysBone( bone )
+		
+		if physbone == -1 then
+			return
+		end
+		
+		local physobj = rag:GetPhysicsObjectNum( physbone )
+		
+		if IsValid( physobj ) then
+			physobj:EnableGravity( false )
+			local pos , ang = self:GetPos() , self:GetAngles()
+			pos , ang = LocalToWorld( vector_origin , Angle( 0 , -90 , -90 ) , pos , ang )
+			physobj:SetDamping( 2 , 10 )
+			if not FindMetaTable( "PhysObj" ).IsShadow then
+				physobj:SetAngles( ang )
+				physobj:SetPos( pos )
+			else
+				if not physobj:IsShadow() then
+					physobj:SetShadow( true , true )
+				end
+				physobj:UpdateShadow( pos , ang , FrameTime() )
+			end
+		end
+		self:NextThink( CurTime() )
+	end
+end
+
 if SERVER then
 
 	function ENT:OnAttach( ply )
+		self:SetDeadPlayerRagdoll( NULL )
 	end
 	
 	function ENT:OnDrop( ply , forced )
 		--like for the jetpack, we still let the entity function as usual when the user dies
 		if not ply:Alive() then
+			local rag = ply:GetRagdollEntity()
+			if IsValid( rag ) then
+				self:SetDeadPlayerRagdoll( rag )
+			end
 			return
 		end
 		
@@ -488,11 +540,14 @@ if SERVER then
 	function ENT:PhysicsSimulate( physobj , delta )
 		
 		if self:GetIsAttached() and not self:GetBeingHeld() and self:CanPull() then
-			physobj:Wake()
-			local force = self:GetDirection() * self:GetPullSpeed()
-			local angular = vector_origin
-			
-			return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
+			local dist = ( self:GetAttachedTo() - physobj:GetPos() ):Length()
+			if dist > self:GetGrappleLength() then
+				physobj:Wake()
+				local force = self:GetDirection() * self:GetPullSpeed()
+				local angular = vector_origin
+				
+				return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
+			end
 		end
 	end
 	
