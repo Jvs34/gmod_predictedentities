@@ -461,16 +461,23 @@ if SERVER then
 	--we're redoing this even though it's hooked up in sandbox because someone might want to use this in another gamemode ( such as ttt or whatever )
 	function ENT:HandleCanEditVariable( ent , ply , key , val , editor )
 		if ent == self then
-			local val = self:CanPlayerEditVariable( ply , key , val , editor )
+			local allow = self:CanPlayerEditVariable( ply , key , val , editor )
+			
+			if key == "Key" then
+				local btn = tostring( val )
+				if btn and not self:IsKeyAllowed( btn ) then
+					allow = false
+				end
+			end
 			
 			--call the editkey hook only if the other one didn't say anything in the matter for this
-			if key == "Key" and val == nil then
-				val = self:CanEditKey( ply , val , editor )
+			if key == "Key" and allow == nil then
+				allow = self:CanEditKey( ply , val , editor )
 			end
 			
 			--we'll only override all the hooks if the answer is yes or no, nil keeps the default behaviour
-			if val ~= nil then
-				return val
+			if allow ~= nil then
+				return allow
 			end
 		end
 	end
@@ -555,22 +562,6 @@ else
 		end
 	end
 	
-	function ENT:IsValidButton( btn )
-		return btn > BUTTON_CODE_NONE and btn < BUTTON_CODE_COUNT
-	end
-	
-	function ENT:IsKeyboardButton( btn )
-		return btn > KEY_FIRST and btn < KEY_COUNT
-	end
-	
-	function ENT:IsMouseButton( btn )
-		return btn >= MOUSE_FIRST and btn < MOUSE_LAST
-	end
-	
-	function ENT:IsJoystickButton( btn )
-		return btn >= JOYSTICK_FIRST and btn < JOYSTICK_LAST
-	end
-	
 	function ENT:HandleButtonBind( ply , cmd )
 		
 		--don't even bother if the InButton isn't set or the player is already pressing the button on his own
@@ -583,20 +574,9 @@ else
 				--these checks are clientside, so they're not really *SECURE* per say, but using PlayerButtonDown/Up is kind of unreliable too
 				--plus the coder shouldn't really rely on this for security, but more of an utility
 				if self:IsValidButton( mykey ) and input.IsButtonDown( mykey ) then
-					
-					if bit.band( self.KeyAllowedFlags , self.KeyAllowedKeyboard ) == 0 and self:IsKeyboardButton( mykey ) then
-						return
+					if self:IsKeyAllowed( mykey ) then
+						cmd:SetButtons( bit.bor( cmd:GetButtons() , self:GetInButton() ) )
 					end
-					
-					if bit.band( self.KeyAllowedFlags , self.KeyAllowedMouse ) == 0 and self:IsMouseButton( mykey ) then
-						return
-					end
-					
-					if bit.band( self.KeyAllowedFlags , self.KeyAllowedJoystick ) == 0 and self:IsJoystickButton( mykey ) then
-						return
-					end
-					
-					cmd:SetButtons( bit.bor( cmd:GetButtons() , self:GetInButton() ) )
 				end
 			end
 		end
@@ -751,6 +731,37 @@ function ENT:WasKeyPressed( mv )
 	end
 	
 	return false
+end
+
+function ENT:IsValidButton( btn )
+		return btn > BUTTON_CODE_NONE and btn < BUTTON_CODE_COUNT
+end
+
+function ENT:IsKeyboardButton( btn )
+	return btn > KEY_FIRST and btn < KEY_COUNT
+end
+
+function ENT:IsMouseButton( btn )
+	return btn >= MOUSE_FIRST and btn < MOUSE_LAST
+end
+
+function ENT:IsJoystickButton( btn )
+	return btn >= JOYSTICK_FIRST and btn < JOYSTICK_LAST
+end
+
+function ENT:IsKeyAllowed( btn )
+	if bit.band( self.KeyAllowedFlags , self.KeyAllowedKeyboard ) == 0 and self:IsKeyboardButton( btn ) then
+		return false
+	end
+	
+	if bit.band( self.KeyAllowedFlags , self.KeyAllowedMouse ) == 0 and self:IsMouseButton( btn ) then
+		return false
+	end
+	
+	if bit.band( self.KeyAllowedFlags , self.KeyAllowedJoystick ) == 0 and self:IsJoystickButton( btn ) then
+		return false
+	end
+	return true
 end
 
 function ENT:HandleCalcMainActivity( ply , velocity )
