@@ -14,6 +14,8 @@ if CLIENT then
 	AccessorFunc( ENT , "WingClosureEndTime" , "WingClosureEndTime" )
 	AccessorFunc( ENT , "NextParticle" , "NextParticle" )
 	AccessorFunc( ENT , "LastActive" , "LastActive" )
+	AccessorFunc( ENT , "LastFlameTrace" , "LastFlameTrace" )
+	AccessorFunc( ENT , "NextFlameTrace" , "NextFlameTrace" )
 	
 	ENT.MaxEffectsSize = 0.25
 	ENT.MinEffectsSize = 0.1
@@ -117,6 +119,8 @@ function ENT:Initialize()
 		self:SetWingClosureStartTime( 0 )
 		self:SetWingClosureEndTime( 0 )
 		self:SetNextParticle( 0 )
+		self:SetNextFlameTrace( nil )
+		self:SetLastFlameTrace( 0 )
 	end
 	
 	self:SetCustomCollisionCheck( true )
@@ -230,8 +234,11 @@ function ENT:HandleFuel( predicted )
 		end
 	end
 	
-	self:SetFuel( math.Clamp( self:GetFuel() + fuelrate , 0 , self:GetMaxFuel() ) )
-
+	--holy shit, optimization??
+	if fuelrate ~= 0 then	
+		self:SetFuel( math.Clamp( self:GetFuel() + fuelrate , 0 , self:GetMaxFuel() ) )
+	end
+	
 	--we exhausted all of our fuel, chill out if we're crazy
 	if not self:HasFuel() and self:GetGoneApeshit() then
 		self:SetGoneApeshit( false )
@@ -781,17 +788,28 @@ else
 		
 		local tracelength = 148 * scale
 		
-		local tr = {
-			start = pos,
-			endpos = pos + normal * tracelength,
-			mask = MASK_OPAQUE,
-			filter = self:GetControllingPlayer(),
-		}
-		tr.output = tr
+		local traceresult = nil
 		
-		util.TraceLine( tr )
+		if self:GetNextFlameTrace() < CurTime() or not self:GetLastFlameTrace() then
+			local tr = {
+				start = pos,
+				endpos = pos + normal * tracelength,
+				mask = MASK_OPAQUE,
+				filter = self:GetControllingPlayer(),
+			}
+			
+			traceresult = util.TraceLine( tr )
+			self:SetNextFlameTrace( UnPredictedCurTime() +  engine.TickInterval() )
+		else
+			traceresult = self:GetLastFlameTrace()
+		end
 		
-		-- tr.Fraction * ( 60 * scale ) / tracelength
+		--what
+		if not traceresult then
+			return
+		end
+		
+		-- traceresult.Fraction * ( 60 * scale ) / tracelength
 		
 		
 		--TODO: fix the middle segment not being proportional to the tracelength ( and Fraction )
@@ -801,7 +819,7 @@ else
 		render.StartBeam( 3 )
 			render.AddBeam( pos, 8 * scale , scroll , self.JetpackFireBlue )
 			render.AddBeam( pos + normal * 60 * scale , 32 * scale , scroll + 1, self.JetpackFireWhite )
-			render.AddBeam( tr.HitPos , 32 * scale , scroll + 3, self.JetpackFireNone )
+			render.AddBeam( traceresult.HitPos , 32 * scale , scroll + 3, self.JetpackFireNone )
 		render.EndBeam()
 
 		scroll = scroll * 0.5
@@ -811,7 +829,7 @@ else
 		render.StartBeam( 3 )
 			render.AddBeam( pos, 8 * scale , scroll , self.JetpackFireBlue )
 			render.AddBeam( pos + normal * 32 * scale, 32 * scale , scroll + 2, color_white )
-			render.AddBeam( tr.HitPos, 48 * scale , scroll + 5, self.JetpackFireNone )
+			render.AddBeam( traceresult.HitPos, 48 * scale , scroll + 5, self.JetpackFireNone )
 		render.EndBeam()
 
 
@@ -820,7 +838,7 @@ else
 		render.StartBeam( 3 )
 			render.AddBeam( pos , 8 * scale , scroll, self.JetpackFireBlue )
 			render.AddBeam( pos + normal * 60 * scale , 16 * scale , scroll + 1 , self.JetpackFireWhite )
-			render.AddBeam( tr.HitPos , 16 * scale , scroll + 3 , self.JetpackFireNone )
+			render.AddBeam( traceresult.HitPos , 16 * scale , scroll + 3 , self.JetpackFireNone )
 		render.EndBeam()
 		
 		local light = DynamicLight( self:EntIndex() )
@@ -829,7 +847,7 @@ else
 			return
 		end
 		
-		light.Pos = tr.HitPos
+		light.Pos = traceresult.HitPos
 		light.r = self.JetpackFireRed.r
 		light.g = self.JetpackFireRed.g
 		light.b = self.JetpackFireRed.b
