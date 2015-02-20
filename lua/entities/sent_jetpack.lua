@@ -788,21 +788,23 @@ else
 		
 		local tracelength = 148 * scale
 		
-		local traceresult = nil
 		
-		if self:GetNextFlameTrace() < CurTime() or not self:GetLastFlameTrace() then
+		if self:GetNextFlameTrace() < UnPredictedCurTime() or not self:GetLastFlameTrace() then
 			local tr = {
 				start = pos,
 				endpos = pos + normal * tracelength,
 				mask = MASK_OPAQUE,
-				filter = self:GetControllingPlayer(),
+				filter = {
+					self:GetControllingPlayer(),
+					self
+				},
 			}
 			
-			traceresult = util.TraceLine( tr )
+			self:SetLastFlameTrace( util.TraceLine( tr ) )
 			self:SetNextFlameTrace( UnPredictedCurTime() +  engine.TickInterval() )
-		else
-			traceresult = self:GetLastFlameTrace()
 		end
+		
+		local traceresult = self:GetLastFlameTrace()
 		
 		--what
 		if not traceresult then
