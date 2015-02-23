@@ -262,7 +262,7 @@ function ENT:HandleLoopingSounds()
 		
 		self.JetpackSound:PlayEx( 0.5  , pitch )
 	else
-		self.JetpackSound:Stop()
+		self.JetpackSound:FadeOut( 0.1 )
 	end
 end
 
