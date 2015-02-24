@@ -734,7 +734,7 @@ function ENT:WasKeyPressed( mv )
 end
 
 function ENT:IsValidButton( btn )
-		return btn > BUTTON_CODE_NONE and btn < BUTTON_CODE_COUNT
+	return btn > BUTTON_CODE_NONE and btn < BUTTON_CODE_COUNT
 end
 
 function ENT:IsKeyboardButton( btn )
