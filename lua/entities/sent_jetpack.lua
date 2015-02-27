@@ -119,8 +119,8 @@ function ENT:Initialize()
 		self:SetWingClosureStartTime( 0 )
 		self:SetWingClosureEndTime( 0 )
 		self:SetNextParticle( 0 )
-		self:SetNextFlameTrace( nil )
-		self:SetLastFlameTrace( 0 )
+		self:SetNextFlameTrace( 0 )
+		self:SetLastFlameTrace( nil )
 	end
 	
 	self:SetCustomCollisionCheck( true )
