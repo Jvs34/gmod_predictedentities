@@ -78,7 +78,7 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 			return
 		end
 	else
-		index = dtname
+		index = dtname:lower()
 	end
 	
 	self.DefinedDTVars[dttype][index] = dtname
