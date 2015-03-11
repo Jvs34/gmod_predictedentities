@@ -22,8 +22,11 @@ function PANEL:Init()
 	self.ModelIcon:SetModel( "models/error.mdl" )
 	self.ModelIcon:SetSize( 64 , 64 )
 	self.ModelIcon:SetPaintedManually( true )
+	
 	self.BuiltSpawnIcon = false
 	
+	self.DummyModel = ClientsideModel( "models/error.mdl" )
+	self.DummyModel:SetNoDraw( true )
 	--[[
 	self.Label = self:Add( "DLabel" )
 	self.Label:SetFont( "Default" )
@@ -66,8 +69,6 @@ end
 function PANEL:DoRebuild()
 	self.BuiltSpawnIcon = true
 	
-	self.DummyModel = ClientsideModel( "models/error.mdl" )
-	self.DummyModel:SetNoDraw( true )
 	self.DummyModel.RenderOverride = function( dummy , flags )
 		
 		render.SuppressEngineLighting( true )
@@ -105,7 +106,6 @@ function PANEL:SetSlot( str )
 	self.Slot = str
 	self.ModelIcon:SetModel( self:GetSpawnIconModelPath() )
 	self.SpawnIconMat = self:GetSpawnIconMat()
-	self:DoRebuild()
 end
 
 function PANEL:CheckSpawnIcon()
@@ -120,6 +120,8 @@ function PANEL:CheckSpawnIcon()
 	
 	if self.SpawnIconMat:IsError() then
 		self:DoRebuild()
+	else
+		self.BuiltSpawnIcon = true
 	end
 end
 
