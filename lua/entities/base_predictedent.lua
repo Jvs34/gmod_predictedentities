@@ -181,7 +181,7 @@ function ENT:Initialize()
 		self:SetInButton( 0 )--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
 		self:SetKey( BUTTON_CODE_NONE )
 	else
-		self:InstallHook( "RenderScene" , self.DrawFirstPersonInternal )
+		self:InstallHook( "PreDrawEffects" , self.DrawFirstPersonInternal )
 		self:InstallHook( "PostDrawViewModel" , self.DrawViewModelInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
 		self:InstallHook( "NetworkEntityCreated" , self.HandleFullPacketUpdate )
@@ -583,11 +583,13 @@ else
 		end
 	end
 	
-	function ENT:DrawFirstPersonInternal( origin , angles , fov )
+	function ENT:DrawFirstPersonInternal()
 		local ply = LocalPlayer()
 		if self:IsCarriedBy( ply ) and not ply:ShouldDrawLocalPlayer() then
-			cam.Start3D( origin , angles , fov , nil , nil , nil , nil , 1 , -1 )
-				self:DrawFirstPerson( ply , origin , angles , fov )
+			cam.Start3D( nil , nil , nil , nil , nil , nil , nil , 1 , -1 )
+				render.DepthRange( 0 , 0.1 )
+				self:DrawFirstPerson( ply )
+				render.DepthRange( 0 , 1 )
 			cam.End3D()
 		end
 	end
