@@ -181,7 +181,8 @@ function ENT:Initialize()
 		self:SetInButton( 0 )--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
 		self:SetKey( BUTTON_CODE_NONE )
 	else
-		self:InstallHook( "PostDrawViewModel" , self.DrawFirstPersonInternal )
+		self:InstallHook( "RenderScene" , self.DrawFirstPersonInternal )
+		self:InstallHook( "PostDrawViewModel" , self.DrawViewModelInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
 		self:InstallHook( "NetworkEntityCreated" , self.HandleFullPacketUpdate )
 		language.Add( self:GetClass() , self.PrintName )
@@ -582,16 +583,23 @@ else
 		end
 	end
 	
-	--TODO: stop using the viewmodel draw hook and simply create a new 3d cam from renderscene
+	function ENT:DrawFirstPersonInternal( origin , angles , fov )
+		local ply = LocalPlayer()
+		if self:IsCarriedBy( ply ) and not ply:ShouldDrawLocalPlayer() then
+			cam.Start3D( origin , angles , fov , nil , nil , nil , nil , 1 , -1 )
+				self:DrawFirstPerson( ply , origin , angles , fov )
+			cam.End3D()
+		end
+	end
+	
 	--viewmodels don't draw without an associated weapon ( this is due to garryness, they always do in source )
-	function ENT:DrawFirstPersonInternal( vm , ply , wpn )
+	function ENT:DrawViewModelInternal( vm , ply , wpn )
 		if self.AttachesToPlayer and self:IsCarriedBy( ply ) then
-			self:DrawFirstPerson( ply , vm ) --this will be moved to the renderscene hook
 			self:DrawOnViewModel( ply , vm , ply:GetHands() ) --this will stay here
 		end
 	end
 	
-	function ENT:DrawFirstPerson( ply , vm )
+	function ENT:DrawFirstPerson( ply , origin , angles , fov )
 		--override me
 	end
 	
