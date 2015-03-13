@@ -19,11 +19,7 @@ ENT.PrintName = "Grappling hook Belt"
 
 if CLIENT then
 	ENT.CableMaterial = Material( "cable/cable2" )
-	ENT.WireFrame = Material( "models/wireframe" )
-	ENT.SpawnIconInfo = {
-		Pos = Vector( 0 , 0 , 2 ),
-		Ang = Angle( 170 , -30 , 0 ),
-	}
+	--ENT.WireFrame = Material( "models/wireframe" )
 else
 	ENT.ShowPickupNotice = true
 end

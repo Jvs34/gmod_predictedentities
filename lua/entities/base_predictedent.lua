@@ -1,9 +1,11 @@
 AddCSLuaFile()
 
 --[[
-	This entity base is pretty much a streamlined version of my special action system ( that you might see used in scrapmatch )
-	The advantages over that system is that these entities can be treated as normal entities when not equipped by a player, and as such, should
-	allow for more freedom , such as being bundled in addons, editing variables with the right click
+	An entity base that allows you to create entity that can be equipped by the player as if they were weapons or powerups, but that can still 
+	function when not picked up by a player
+	
+	For instance you could make a jetpack that flies off when the equipping player dies, or you can make a controllable plane but still allow
+	full movement on the player
 ]]
 
 DEFINE_BASECLASS( "base_entity" )
@@ -19,11 +21,6 @@ if SERVER then
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
 else
 	ENT.RenderGroup = RENDERGROUP_OPAQUE
-	
-	ENT.SpawnIconInfo = {
-		Pos = vector_origin,
-		Ang = angle_zero,
-	}
 end
 
 ENT.Editable = true
@@ -35,7 +32,6 @@ ENT.KeyAllowedJoystick = 2 ^ 2
 ENT.KeyAllowedAll = bit.bor( ENT.KeyAllowedKeyboard , ENT.KeyAllowedMouse , ENT.KeyAllowedJoystick )
 
 ENT.KeyAllowedFlags = ENT.KeyAllowedAll	--bitflag of the key types you want to use
-
 
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
@@ -112,7 +108,6 @@ function ENT:SetupDataTables()
 	self.DefinedDTVars = {
 		Entity = {
 			Max = GMOD_MAXDTVARS,
-		--	EditableElement = "ChooseEnt", --unfortunately can't do this because there's no fromstring for entity
 		},
 		Float = {
 			Max = GMOD_MAXDTVARS,
@@ -121,8 +116,6 @@ function ENT:SetupDataTables()
 		Int = {
 			Max = GMOD_MAXDTVARS,
 			EditableElement = "Int",
-		--	EditableElement = "EditKey", --TODO: a copypaste of the one used by garry for the sandbox tools
-		--	EditableElement = "ChooseEnt", --TODO: we're gonna have to set the entity index here
 		},
 		Bool = {
 			Max = GMOD_MAXDTVARS,
@@ -130,16 +123,12 @@ function ENT:SetupDataTables()
 		},
 		Vector = {
 			Max = GMOD_MAXDTVARS,
-		--	EditableElement = "VectorOrigin",	--TODO: allow the player to choose a world position
-		--	EditableElement = "VectorNormal",	--TODO: make players move a 3d arrow in a model panel?
-		--	EditableElement = "VectorColor",	
 		},
 		Angle = {
 			Max = GMOD_MAXDTVARS,
-		--	EditableElement = "VectorNormalToAngle", --TODO: inherited from VectorNormal
 		},
 		String = {
-			Max = 4, --as I said before, fuck strings
+			Max = 4,
 			EditableElement = "Generic",
 		},
 	}
@@ -238,7 +227,6 @@ function ENT:Think()
 
 		--Ideally this would be handled on the callback of SetControllingPlayer clientside, but we don't have that yet
 		self:HandlePrediction()
-		self:HandleDerma()
 		self:InternalHandleLoopingSounds()
 	end
 	
@@ -520,18 +508,9 @@ else
 		--override me
 	end
 	
+	--TODO: add spectator support for this, might have to rework some checks in the child entities
 	function ENT:IsCarriedByLocalPlayer()
 		return self:IsCarriedBy( LocalPlayer() )
-	end
-	
-	function ENT:IsLocalPlayerUsingMySlot()
-		local ent = LocalPlayer():GetNWEntity( self:GetSlotName() )
-			
-		if not IsValid( ent ) then
-			return false
-		end
-			
-		return ent ~= self
 	end
 	
 	--when a full packet gets received by the client, this hook is called, so we need to reset the IsPredictable var because this shit sucks!
@@ -585,11 +564,11 @@ else
 	
 	function ENT:DrawFirstPersonInternal()
 		local ply = LocalPlayer()
-		if self:IsCarriedBy( ply ) and not ply:ShouldDrawLocalPlayer() then
+		if self.AttachesToPlayer and self:IsCarriedBy( ply ) and not ply:ShouldDrawLocalPlayer() then
 			cam.Start3D( nil , nil , nil , nil , nil , nil , nil , 1 , -1 )
-				render.DepthRange( 0 , 0.1 )
+				render.DepthRange( 0 , 0.1 )	--same depth hack valve uses in source!
 				self:DrawFirstPerson( ply )
-				render.DepthRange( 0 , 1 )
+				render.DepthRange( 0 , 1 )		--they don't even set these back to the original values
 			cam.End3D()
 		end
 	end
@@ -623,78 +602,6 @@ else
 		self:DrawModel( flags )
 	end
 	
-	function ENT:DrawSpawnIcon( flags )
-		self.DrawingSpawnIcon = true
-		
-		local pos = vector_origin
-		local ang = angle_zero
-		
-		if self.SpawnIconInfo then
-			pos = self.SpawnIconInfo.Pos
-			ang = self.SpawnIconInfo.Ang
-		end
-		
-		self:SetPos( pos )
-		self:SetAngles( ang )
-		self:SetupBones()
-		
-		local tb = self:SpawnIconSetup( flags )
-		
-		self:DrawModel( flags )
-		
-		self:SpawnIconRestore( flags , tb )
-		
-		self.DrawingSpawnIcon = nil
-	end
-	
-	function ENT:SpawnIconSetup( flags )
-		--override me, return a table here with the shit you changed
-	end
-	
-	function ENT:SpawnIconRestore( flags , tab )
-		--override me, restore the shit you changed with the stuff in the table
-	end
-	
-	--UGLEH as sin
-	function ENT:GetMainPanel()
-		return PE_HUD
-	end
-	
-	function ENT:HandleDerma()
-		--we only want to do these operations if the player does NOT have another entity in this slot
-		if IsValid( self:GetMainPanel() ) and not self:IsLocalPlayerUsingMySlot() then
-			if self:IsCarriedByLocalPlayer() then
-				self:RegisterHUDInternal( self:GetMainPanel() )
-			else
-				self:RemoveHUDPanel( self:GetMainPanel() )
-			end
-		end
-	end
-
-	function ENT:RegisterHUDInternal( parentpanel )
-		if parentpanel:HasSlot( self:GetSlotName() ) then
-			return
-		end
-		
-		local mypanel = vgui.Create( "DPredictedEnt" )
-		mypanel:SetSlot( self:GetSlotName() )
-		self:SetupCustomHUDElements( mypanel )
-		parentpanel:AddPEPanel( mypanel )
-	end
-	
-	function ENT:RemoveHUDPanel( panel )
-		if not panel:HasSlot( self:GetSlotName() ) then
-			return
-		end
-		
-		panel:RemovePanelBySlot( self:GetSlotName() )
-	end
-	
-	--use this to add custom elements to the entity button in the HUD
-	
-	function ENT:SetupCustomHUDElements( panel )
-		--override me
-	end
 end
 
 function ENT:IsAttached()
@@ -989,11 +896,6 @@ function ENT:GetCustomParentOrigin()
 	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
 	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
 	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
-	
-	--abort if we're drawing the spawn icon
-	if CLIENT and self.DrawingSpawnIcon then
-		return
-	end
 		
 	if CLIENT and self:IsCarriedByLocalPlayer() and not ply:ShouldDrawLocalPlayer() then
 		ply:SetupBones()
@@ -1091,18 +993,40 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 end
 
 function ENT:OnRemove()
-	if CLIENT then
-		if IsValid( LocalPlayer() ) then
-			if IsValid( self:GetMainPanel() ) and not self:IsLocalPlayerUsingMySlot() then
-				self:RemoveHUDPanel( self:GetMainPanel() )
-			end
-		end
-	end
+
 end
 
 --stuff that should be in an autorun file but that I can't be arsed to split up to
 
-if CLIENT then
+if SERVER then
+
+	util.AddNetworkString( "pe_pickup" )
+	util.AddNetworkString( "pe_playsound" )
+
+	concommand.Add( "pe_drop" , function( ply , cmd , args , fullstr )
+		
+		if not IsValid( ply ) then
+			return
+		end
+		
+		local nwslot = args[1]
+		
+		if not nwslot then
+			return
+		end
+		
+		local slotent = ply:GetNWEntity( nwslot )
+		
+		--user tried to drop an invalid or an entity which is not a predicted entity, or doesn't have a slot assigned
+		
+		if not IsValid( slotent ) or not slotent.IsPredictedEnt or slotent:GetSlotName() == "" then
+			return
+		end
+		
+		slotent:Drop( false )
+		
+	end)
+else
 	
 	--tells the hud to show the player the entity pickup
 	language.Add( "invalid_entity" , "Invalid Entity" )

@@ -38,10 +38,6 @@ if CLIENT then
 	ENT.JetpackFireNone = Color( 255 , 255 , 255 , 0 )
 	ENT.JetpackFireRed = Color( 255 , 128 , 128 , 255 )
 	
-	ENT.SpawnIconInfo = {
-		Pos = vector_origin,
-		Ang = Angle( 170 , -30 , 0 ),
-	}
 else
 	
 	ENT.StandaloneApeShitAngular = Vector( 0 , 10 , 10 )	--do a corkscrew
@@ -903,46 +899,6 @@ else
 		if particlenodraw then
 			self.JetpackParticleEmitter:Draw()
 		end
-	end
-	
-	
-	function ENT:SetupCustomHUDElements( panel )
-		
-		--TODO: use a quarter of a circle instead
-		
-		panel.FuelGauge = panel:Add( "DPanel" )
-		panel.FuelGauge:SetSize( panel:GetWide() , panel:GetTall() / 4 )
-		panel.FuelGauge:Dock( BOTTOM )
-		
-		panel.FuelGauge.FuelColorEmpty = Color( 255 , 127 ,127 , 255 )
-		panel.FuelGauge.FuelColorFilled = Color( 127 , 127 , 255 , 255 )
-		panel.FuelGauge.Paint = function( self , w , h )
-			surface.SetDrawColor( self.FuelColorEmpty )
-			surface.DrawRect( 0 , 0 , w , h )
-			
-			surface.SetDrawColor( self.FuelColorFilled )
-			surface.DrawRect( w * ( 1 - self.FuelFraction ) , 0 , w , h )
-		end
-	
-		panel.CustomThink = function( self )
-			self.FuelGauge.FuelFraction = self:GetEntity():GetFuelFraction()
-		end
-	end
-	
-	function ENT:SpawnIconSetup( flags )
-		local tab = {
-			active = self:GetActive(),
-			wingclosure = self:GetWingClosure(),
-		}
-		self:SetActive( false )
-		self:SetWingClosure( 1 )
-		return tab
-	end
-	
-	function ENT:SpawnIconRestore( flags , tab )
-		if not tab then return end
-		self:SetActive( tab.active )
-		self:SetWingClosure( tab.wingclosure )
 	end
 
 end

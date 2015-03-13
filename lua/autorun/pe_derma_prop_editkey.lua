@@ -1,3 +1,9 @@
+AddCSLuaFile()	--I know that files in autorun are automatically added, but sometimes it fucks up
+
+if SERVER then
+	return
+end
+
 --[[
 	A DProperty that allows the user to set a preferred key using the same DBinder used in sandbox's tools
 ]]
