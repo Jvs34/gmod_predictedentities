@@ -163,6 +163,7 @@ function ENT:Initialize()
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
 		self:InstallHook( "CanEditVariable" , self.HandleCanEditVariable )
+		
 		self:SetUseType( SIMPLE_USE )
 		self:SetInButton( 0 )	--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
 		self:SetKey( BUTTON_CODE_NONE )
@@ -171,6 +172,7 @@ function ENT:Initialize()
 		self:InstallHook( "PostDrawViewModel" , self.DrawViewModelInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
 		self:InstallHook( "NetworkEntityCreated" , self.HandleFullPacketUpdate )
+		
 		language.Add( self:GetClass() , self.PrintName )
 		language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
 		self.IsPredictable = false	--failsafe
@@ -344,8 +346,8 @@ if SERVER then
 			return false
 		end
 		
-		--we're already carried by this guy OR we're carried in general OR that guy's using that slot already
-		if self:IsCarriedBy( activator ) or self:IsCarried() or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
+		--we're carried in general OR that guy's using that slot already
+		if self:IsCarried() or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
 			return false
 		end
 		
@@ -518,15 +520,11 @@ else
 	end
 	
 	--when a full packet gets received by the client, this hook is called, so we need to reset the IsPredictable var because this shit sucks!
-	--TODO: when the update gets pushed with the new behaviour, disable this
-	
 	function ENT:HandleFullPacketUpdate( ent )
 		if ent == self then
 			self.IsPredictable = false
 		end
 	end
-	
-	--TODO: when the update gets pushed with the new behaviour, change this to self:SetPredictable( LocalPlayer() == self:GetControllingPlayer() )
 	
 	function ENT:HandlePrediction()
 	
@@ -555,7 +553,7 @@ else
 			local mykey = self:GetKey()
 			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
 				
-				--these checks are clientside, so they're not really *SECURE* per say, but using PlayerButtonDown/Up is kind of unreliable too
+				--these checks are clientside, so they're not really *SECURE* per say, but using PlayerButtonDown/Up is kind of unreliable too ( for prediction at least )
 				--plus the coder shouldn't really rely on this for security, but more of an utility
 				if self:IsValidButton( mykey ) and input.IsButtonDown( mykey ) then
 					if self:IsKeyAllowed( mykey ) then
@@ -569,9 +567,9 @@ else
 	function ENT:DrawFirstPersonInternal()
 		local ply = LocalPlayer()
 		if self.AttachesToPlayer and self:IsCarriedBy( ply ) and not ply:ShouldDrawLocalPlayer() then
-			cam.Start3D( nil , nil , nil , nil , nil , nil , nil , 1 , -1 )
+			cam.Start3D( nil , nil , nil , nil , nil , nil , nil , 1 , -1 )	--znear is 1 and zfar is -1
 				render.DepthRange( 0 , 0.1 )	--same depth hack valve uses in source!
-				self:DrawFirstPerson( ply )
+					self:DrawFirstPerson( ply )
 				render.DepthRange( 0 , 1 )		--they don't even set these back to the original values
 			cam.End3D()
 		end
@@ -654,6 +652,7 @@ function ENT:WasKeyPressed( mv )
 	return false
 end
 
+--these functions should totally not be tied to this SENT, but I don't want to go out of my way to add them to an util file
 function ENT:IsValidButton( btn )
 	return btn > BUTTON_CODE_NONE and btn < BUTTON_CODE_COUNT
 end
