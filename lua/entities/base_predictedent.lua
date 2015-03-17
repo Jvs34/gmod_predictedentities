@@ -147,27 +147,24 @@ end
 function ENT:Initialize()
 	self.HandledHooks = {}
 	
-	--predicted hooks hooking with hookers, but not blackjack
+	--predicted hooks hooking with hookers, and blackjack, actually, screw the blackjack
 	self:InstallHook( "StartCommand" , self.HandlePredictedStartCommand )
 	self:InstallHook( "SetupMove" , self.HandlePredictedSetupMove )
 	self:InstallHook( "Move" , self.HandlePredictedMove )
 	self:InstallHook( "PlayerTick" , self.HandlePredictedThink )
 	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove )
 	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround )
-	
 	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity )
 	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation )
 	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent )
-	
-	self:InstallHook( "CanEditVariable" , self.HandleCanEditVariable )
-	
-	
+		
 	if SERVER then
 		self:InstallHook( "SetupPlayerVisibility" , self.HandleEntityVisibility )
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
+		self:InstallHook( "CanEditVariable" , self.HandleCanEditVariable )
 		self:SetUseType( SIMPLE_USE )
-		self:SetInButton( 0 )--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
+		self:SetInButton( 0 )	--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
 		self:SetKey( BUTTON_CODE_NONE )
 	else
 		self:InstallHook( "PreDrawEffects" , self.DrawFirstPersonInternal )
@@ -274,7 +271,10 @@ if SERVER then
 	
 	function ENT:Use( activator, caller, useType, value )
 		--TODO: support for stealing other people's entities by looking and then +use'ing them?
-		self:Attach( activator )
+		
+		if not self:Attach( activator ) then
+			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
+		end
 	end
 
 	function ENT:InitPhysics()
@@ -344,14 +344,18 @@ if SERVER then
 			return false
 		end
 		
+		--we're already carried by this guy OR we're carried in general OR that guy's using that slot already
 		if self:IsCarriedBy( activator ) or self:IsCarried() or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
-			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
 			return false
 		end
 		
 		if not forced then
-			local canattach = self:CanAttach( activator )
-		
+			local canattach = hook.Run( "PlayerCanPickupItem" , activator , self )
+			
+			if canattach == nil then
+				canattach = self:CanAttach( activator )
+			end
+			
 			--we can allow the coder to only stop the attach if it's not forced
 			if canattach == false then
 				return canattach
@@ -423,7 +427,7 @@ if SERVER then
 				self:EmitSound( "Weapon_Crowbar.Single" )
 			end
 			
-			if not activator:IsBot() then
+			if not activator:IsPlayer() or not activator:IsBot() then
 				net.Start( "pe_pickup" )
 					net.WriteString( self:GetClass() )
 					net.WriteBit( dropped )
@@ -926,6 +930,11 @@ function ENT:CalcAbsolutePosition( pos , ang )
 end
 
 function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted , activator , worldpos )
+	
+	--must've been called manually by some ent:Fire or ent:Input functions
+	if IsValid( activator ) and not activator:IsPlayer() then
+		activator = NULL
+	end
 	
 	if not level then
 		level = 75
