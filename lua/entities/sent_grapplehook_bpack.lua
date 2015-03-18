@@ -588,7 +588,7 @@ else
 		local endgrapplepos = vector_origin
 		local endgrappleang = angle_zero
 		
-		if self:IsCarriedByLocalPlayer() and not self:GetControllingPlayer():ShouldDrawLocalPlayer() then
+		if self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
 			local eyepos = self:GetControllingPlayer():EyePos()
 			local aimvecang = self:GetControllingPlayer():EyeAngles()
 			startgrapplepos = eyepos + aimvecang:Up() * - 30
@@ -602,7 +602,7 @@ else
 			
 			if self:GetAttachTime() >= CurTime() or self:IsHookReturning() then
 				
-				dosway = self:IsCarriedByLocalPlayer()
+				dosway = self:IsCarriedByLocalPlayer( true )
 				
 				travelfraction = math.Clamp( math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() ) , 0 , 1 )
 				

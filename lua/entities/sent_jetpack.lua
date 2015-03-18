@@ -872,7 +872,7 @@ else
 		--to prevent the smoke from drawing inside of the player when he's looking at a mirror, draw it manually if he's the local player
 		--this behaviour is disabled if he's not the one actually using the jetpack ( this also happens when the jetpack is dropped and flies off )
 		
-		local particlenodraw = self:IsCarriedByLocalPlayer()
+		local particlenodraw = self:IsCarriedByLocalPlayer( true )
 		
 		self.JetpackParticleEmitter:SetNoDraw( particlenodraw )
 		

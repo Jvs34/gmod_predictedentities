@@ -514,9 +514,25 @@ else
 		--override me
 	end
 	
-	--TODO: add spectator support for this, might have to rework some checks in the child entities
-	function ENT:IsCarriedByLocalPlayer()
+	function ENT:IsCarriedByLocalPlayer( checkspectator )
+		if checkspectator then
+			if LocalPlayer():GetObserverMode() ~= OBS_MODE_NONE then
+				return self:IsCarriedBy( LocalPlayer():GetObserverTarget() )
+			end
+		end
 		return self:IsCarriedBy( LocalPlayer() )
+	end
+	
+	function ENT:ShouldDrawLocalPlayer( checkspectator )
+		if checkspectator then
+			if LocalPlayer():GetObserverMode() == OBS_MODE_IN_EYE and IsValid( LocalPlayer():GetObserverTarget() ) then
+				if LocalPlayer():GetObserverTarget():IsPlayer() then
+					return LocalPlayer():GetObserverTarget():ShouldDrawLocalPlayer() --assuming this even works, otherwise just return false
+				end
+				return false
+			end
+		end
+		return LocalPlayer():ShouldDrawLocalPlayer()
 	end
 	
 	--when a full packet gets received by the client, this hook is called, so we need to reset the IsPredictable var because this shit sucks!
@@ -565,17 +581,17 @@ else
 	end
 	
 	function ENT:DrawFirstPersonInternal()
-		local ply = LocalPlayer()
-		if self.AttachesToPlayer and self:IsCarriedBy( ply ) and not ply:ShouldDrawLocalPlayer() then
+		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
 			cam.Start3D( nil , nil , nil , nil , nil , nil , nil , 1 , -1 )	--znear is 1 and zfar is -1
 				render.DepthRange( 0 , 0.1 )	--same depth hack valve uses in source!
-					self:DrawFirstPerson( ply )
+					self:DrawFirstPerson( self:GetControllingPlayer() )
 				render.DepthRange( 0 , 1 )		--they don't even set these back to the original values
 			cam.End3D()
 		end
 	end
 	
 	--viewmodels don't draw without an associated weapon ( this is due to garryness, they always do in source )
+	--TODO: spectator support
 	function ENT:DrawViewModelInternal( vm , ply , wpn )
 		if self.AttachesToPlayer and self:IsCarriedBy( ply ) then
 			self:DrawOnViewModel( ply , vm , ply:GetHands() ) --this will stay here
@@ -900,7 +916,7 @@ function ENT:GetCustomParentOrigin()
 	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
 	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
 		
-	if CLIENT and self:IsCarriedByLocalPlayer() and not ply:ShouldDrawLocalPlayer() then
+	if CLIENT and self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
 		ply:SetupBones()
 	end
 
