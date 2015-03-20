@@ -505,7 +505,7 @@ else
 			return
 		end
 		
-		if not self:IsCarried() or not self:IsCarriedByLocalPlayer() or ( self:IsCarriedByLocalPlayer() and calledinprediction )then
+		if not self:IsCarried() or not self:IsCarriedByLocalPlayer() or ( self:IsCarriedByLocalPlayer() and calledinprediction ) then
 			self:HandleLoopingSounds()
 		end
 	end
@@ -742,6 +742,8 @@ function ENT:HandlePredictedStartCommand( ply , cmd )
 	
 		--allows the user to have a fake keybind by manually checking his buttons instead of having the player bind a button to a command ( which most users don't even know anything about ).
 		--he can configure this key at anytime by editing the entity ( if it allows it in the first place )
+		
+		--startcommand is also called clientside in singleplayer, so this is fine
 		if CLIENT then
 			self:HandleButtonBind( ply , cmd )
 		end
@@ -1084,4 +1086,38 @@ else
 		
 		ent:EmitPESound( soundname , level , pitch , volume , chan , false , NULL , pos )
 	end)
+	
+	--[[
+		A DProperty that allows the user to set a preferred key using the same DBinder used in sandbox's tools
+	]]
+
+	local PANEL = {}
+
+	function PANEL:Init()
+	end
+
+	function PANEL:Setup( vars )
+
+		self:Clear()
+		
+		local ctrl = self:Add( "DBinder" )
+		ctrl:Dock( FILL )
+		
+		self.IsEditing = function( self )
+			return ctrl.Trapping
+		end
+		
+		self.SetValue = function ( self , val )
+			ctrl:SetSelected( tonumber( val ) )	--use this instead of setValue to possibly avoid feedback loops
+		end
+		
+		--DBinder doesn't have an onchange callback, so we must do this little hack to add it
+		ctrl.SetValue = function( ctrl , val )
+			ctrl:SetSelected( val )
+			self:ValueChanged( val )
+		end
+
+	end
+
+	derma.DefineControl( "DProperty_EditKey" , "" , PANEL , "DProperty_Generic" )
 end
