@@ -23,14 +23,16 @@ if CLIENT then
 	ENT.JetpackWings = {
 		Scale = 0.4,
 		Model = Model( "models/xqm/jettailpiece1.mdl" ),
-		{
-			OffsetVec = Vector( 0 , -9 , 0 ),
-			OffsetAng = Angle( 0 , 0 , 90 ),
-		},
-		{
-			OffsetVec = Vector( 0 , 10 , 0 ),
-			OffsetAng = Angle( 180 , 0 , -90 ),
-		},
+		Offsets = {
+			{
+				OffsetVec = Vector( 0 , -9 , 0 ),
+				OffsetAng = Angle( 0 , 0 , 90 ),
+			},
+			{
+				OffsetVec = Vector( 0 , 10 , 0 ),
+				OffsetAng = Angle( 180 , 0 , -90 ),
+			},
+		}
 	}
 	
 	ENT.JetpackFireBlue = Color( 0 , 0 , 255 , 128 )
@@ -583,6 +585,8 @@ if SERVER then
 				angular = self.StandaloneApeShitAngular
 			end
 			
+			--yes I know we're technically modifying the variable stored in ENT.StandaloneApeShitLinear and that it might fuck up other jetpacks
+			--but it won't because we're simply using it as a cached vector_origin and overriding the z anyway
 			force.z = -self:GetJetpackVelocity()
 			
 			return angular * physobj:GetMass() , force * physobj:GetMass() , SIM_LOCAL_FORCE
@@ -704,12 +708,9 @@ else
 	end
 	
 	function ENT:HandleWings()
-		if not IsValid( self.LeftWing ) then
-			self.LeftWing = self:CreateWing()
-		end
-
-		if not IsValid( self.RightWing ) then
-			self.RightWing = self:CreateWing()
+	
+		if not IsValid( self.Wing ) then
+			self.Wing = self:CreateWing()
 		end
 
 		if self:GetLastActive() ~= self:GetActive() then
@@ -739,6 +740,8 @@ else
 	end
 	
 	function ENT:DrawWings( flags )
+		
+		--it's safe to call these, since setupbones is called up above, we don't want to call that too many times
 		local pos = self:GetPos()
 		local ang = self:GetAngles()
 
@@ -748,30 +751,25 @@ else
 		self.WingMatrix:SetTranslation( Vector( 0 ,0 , dist ) )	--how far inside the jetpack we should go to hide our scaled down wings
 		self.WingMatrix:Scale( Vector( 1 , 1 , self:GetWingClosure() ) ) --our scale depends on the wing closure
 		
-		if IsValid( self.LeftWing ) then
-			local gpos , gang = LocalToWorld( self.JetpackWings[1].OffsetVec , self.JetpackWings[1].OffsetAng , pos , ang )
-			self.LeftWing:SetRenderOrigin( gpos )
-			self.LeftWing:SetRenderAngles( gang )
-			self.LeftWing:EnableMatrix( "RenderMultiply" , self.WingMatrix )
-			self.LeftWing:DrawModel( flags )
+		if IsValid( self.Wing ) then
+		
+			self.Wing:EnableMatrix( "RenderMultiply" , self.WingMatrix )
+			
+			for i , v in pairs( self.JetpackWings.Offsets ) do
+				local gpos , gang = LocalToWorld( v.OffsetVec , v.OffsetAng , pos , ang )
+				self.Wing:SetPos( gpos )
+				self.Wing:SetAngles( gang )
+				self.Wing:SetupBones()
+				self.Wing:DrawModel( flags )
+			end
+			
 		end
 
-		if IsValid( self.RightWing ) then
-			local gpos , gang = LocalToWorld( self.JetpackWings[2].OffsetVec , self.JetpackWings[2].OffsetAng , pos , ang )
-			self.RightWing:SetRenderOrigin( gpos )
-			self.RightWing:SetRenderAngles( gang )
-			self.RightWing:EnableMatrix( "RenderMultiply" , self.WingMatrix )
-			self.RightWing:DrawModel( flags )
-		end
 	end
 
 	function ENT:RemoveWings()
-		if IsValid( self.LeftWing ) then
-			self.LeftWing:Remove()
-		end
-
-		if IsValid( self.RightWing ) then
-			self.RightWing:Remove()
+		if IsValid( self.Wing ) then
+			self.Wing:Remove()
 		end
 	end
 
