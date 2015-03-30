@@ -58,9 +58,11 @@ end
 
 function ENT:SetupDataTables()
 	BaseClass.SetupDataTables( self )
+	self:DefineNWVar( "Int" , "Key" )	--override it to disallow people from editing the key since it's unused
 	
 	self:DefineNWVar( "Bool" , "DoLongJump" )
 	self:DefineNWVar( "Bool" , "LongJumping" )
+	
 	self:DefineNWVar( "Float" , "LongJumpSpeed" , true , "The speed to apply on a long jump" , 1 , 1000 )
 	self:DefineNWVar( "Float" , "LongJumpAnimCycle" )
 end
