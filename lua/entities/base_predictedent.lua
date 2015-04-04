@@ -505,7 +505,7 @@ else
 			return
 		end
 		
-		if not self:IsCarried() or not self:IsCarriedByLocalPlayer() or ( self:IsCarriedByLocalPlayer() and calledinprediction ) then
+		if game.SinglePlayer() or not self:IsCarried() or not self:IsCarriedByLocalPlayer() or ( self:IsCarriedByLocalPlayer() and calledinprediction ) then
 			self:HandleLoopingSounds()
 		end
 	end
