@@ -5,6 +5,10 @@ An entity base that you can use to create any sort of player usable addon, such 
 
 It has support for custom keybindings and right click editing.
 
+I think of this entity base as complete, I can't really think of any other features to implement without bloating it ( already learned from that mistake ).
+
+However, feel free to leave an issue to have something implemented or even a pull request.
+
 ======================
 
-I'll try to make something to auto generate documentation for the wiki, right now I can't be arsed mantaining this.
+I'll try to make something to auto generate documentation for the wiki, right now I can't be arsed manually mantaining this.
