@@ -171,7 +171,7 @@ function ENT:Initialize()
 		self:InstallHook( "PreDrawEffects" , self.DrawFirstPersonInternal )
 		self:InstallHook( "PostDrawViewModel" , self.DrawViewModelInternal )
 		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
-		self:InstallHook( "NetworkEntityCreated" , self.HandleFullPacketUpdate )
+		self:InstallHook( "NotifyShouldTransmit" , self.HandleFullPacketUpdate )
 		
 		language.Add( self:GetClass() , self.PrintName )
 		language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
@@ -536,9 +536,11 @@ else
 	end
 	
 	--when a full packet gets received by the client, this hook is called, so we need to reset the IsPredictable var because this shit sucks!
-	function ENT:HandleFullPacketUpdate( ent )
-		if ent == self then
+	--the beta contains the Entity:GetPredictable() accessor, so for now we still have to force this approach
+	function ENT:HandleFullPacketUpdate( ent , shouldtransmit )
+		if ent == self and shouldtransmit then
 			self.IsPredictable = false
+			self:HandlePrediction()
 		end
 	end
 	
