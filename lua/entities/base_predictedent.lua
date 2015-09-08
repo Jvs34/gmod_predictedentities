@@ -535,7 +535,7 @@ else
 		return LocalPlayer():ShouldDrawLocalPlayer()
 	end
 	
-	--when a full packet gets received by the client, this hook is called, so we need to reset the IsPredictable var because this shit sucks!
+	--when a full packet gets received by the client, this hook is called, so we need to reset the IsPredictable var because the predictability state is reset
 	--the beta contains the Entity:GetPredictable() accessor, so for now we still have to force this approach
 	function ENT:HandleFullPacketUpdate( ent , shouldtransmit )
 		if ent == self and shouldtransmit then
