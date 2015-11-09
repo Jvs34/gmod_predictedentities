@@ -175,7 +175,6 @@ function ENT:Initialize()
 		
 		language.Add( self:GetClass() , self.PrintName )
 		language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
-		self.IsPredictable = false	--failsafe
 	end
 end
 
@@ -535,11 +534,9 @@ else
 		return LocalPlayer():ShouldDrawLocalPlayer()
 	end
 	
-	--when a full packet gets received by the client, this hook is called, so we need to reset the IsPredictable var because the predictability state is reset
-	--the beta contains the Entity:GetPredictable() accessor, so for now we still have to force this approach
+	--immediately make this entity predicted again, if it's equipped by this localplayer
 	function ENT:HandleFullPacketUpdate( ent , shouldtransmit )
 		if ent == self and shouldtransmit then
-			self.IsPredictable = false
 			self:HandlePrediction()
 		end
 	end
@@ -550,15 +547,14 @@ else
 		
 		--either the gravity gun or some other stuff is carrying me, don't do anything on prediction
 		--because they might enable it to carry us around smoothly
-		
-		if self:GetBeingHeld() then
-			--just in case
-			carried = false
+		--also don't enable prediction in singleplayer
+			
+		if self:GetBeingHeld() or game.SinglePlayer() then
+			return
 		end
-		
-		if self.IsPredictable ~= carried then
+				
+		if self:GetPredictable() ~= carried then
 			self:SetPredictable( carried )
-			self.IsPredictable = carried
 		end
 	end
 	
