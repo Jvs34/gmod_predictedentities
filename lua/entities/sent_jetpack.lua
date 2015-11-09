@@ -597,22 +597,18 @@ if SERVER then
 	function ENT:PhysicsCollide( data , physobj )
 		--taken straight from valve's code, it's needed since garry overwrote VPhysicsCollision, friction sound is still there though
 		--because he didn't override the VPhysicsFriction
-		if SERVER then
-			--only do this check serverside because if the gravity gun holds us, the clientside collisions still happen
-			--and play sounds on regardless of garry's override
-			if data.DeltaTime >= 0.05 and data.Speed >= 70 then
-				local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
-				if volume > 1 then
-					volume = 1
-				end
-				
-				--TODO: find a better impact sound for this model
-				self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
+		if data.DeltaTime >= 0.05 and data.Speed >= 70 then
+			local volume = data.Speed * data.Speed * ( 1 / ( 320 * 320 ) )
+			if volume > 1 then
+				volume = 1
 			end
 			
-			if self:CheckDetonate( data , physobj ) then
-				self:Detonate()
-			end
+			--TODO: find a better impact sound for this model
+			self:EmitSound( "SolidMetal.ImpactHard" , nil , nil , volume , CHAN_BODY )
+		end
+		
+		if self:CheckDetonate( data , physobj ) then
+			self:Detonate()
 		end
 	end
 	
