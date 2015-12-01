@@ -534,6 +534,9 @@ if SERVER then
 		if dmginfo:GetDamage() > 3 and not self:GetGoneApeshit() then
 			local rand = math.random( 1 , 10 )
 			if rand <= 2 then
+				if IsValid( self:GetControllingPlayer() ) then
+					self:Drop( true )
+				end
 				self:SetGoneApeshit( true )
 			end
 		end
@@ -542,6 +545,12 @@ if SERVER then
 	function ENT:OnAttach( ply )
 		self:SetDoGroundSlam( false )
 		self:SetSolid( SOLID_BBOX )	--we can still be hit when on the player's back
+	end
+	
+	function ENT:CanAttach( ply )
+		if self:GetGoneApeshit() then
+			return false
+		end
 	end
 
 	function ENT:OnDrop( ply , forced )
