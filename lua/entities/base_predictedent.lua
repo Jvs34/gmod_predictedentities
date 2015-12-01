@@ -241,6 +241,7 @@ end
 if SERVER then
 	
 	--for map inputs mostly, but other addons may also be using these inputs trough ent:Input or ent:Fire
+	--more inputs might come in the future
 	
 	function ENT:AcceptInput( inputName, activator, called, data )
 		
@@ -259,7 +260,7 @@ if SERVER then
 		end
 		
 	end
-	
+	--although we should probably do validity checks on them first, but considering this would *probably* be called from maps it should be ok
 	--copied from env_skypaint, allows to have the DT vars set as if they were key values
 	
 	function ENT:KeyValue( key, value )
@@ -271,8 +272,6 @@ if SERVER then
 	end
 	
 	function ENT:Use( activator, caller, useType, value )
-		--TODO: support for stealing other people's entities by looking and then +use'ing them?
-		
 		if not self:Attach( activator ) then
 			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
 		end
@@ -307,7 +306,7 @@ if SERVER then
 		self:SetSolid( SOLID_NONE )
 	end
 	
-	function ENT:OnAttach( ply )
+	function ENT:OnAttach( ply , forced )
 		--override me
 	end
 	
@@ -333,7 +332,9 @@ if SERVER then
 	function ENT:OnRemovePhysics( physobj )
 		--override me
 	end
-
+	
+	--being attached forcibly is usually something that happens when you want to spawn the player with this item, and you
+	--don't want gamemode logic to interfere with it
 	function ENT:Attach( activator , forced )
 		
 		--we were forced to attach to this player, so drop first to clear out values
@@ -350,14 +351,18 @@ if SERVER then
 			return false
 		end
 		
+		--we can allow the coder or gamemode to only stop the pickup if it's not forced
 		if not forced then
+			--simulate ourselves being a normal item pickup
+			--the reason we're asking this first, is that first we want to make sure the gamemode is OK with us being able to pickup this entity
 			local canattach = hook.Run( "PlayerCanPickupItem" , activator , self )
 			
-			if canattach == nil then
-				canattach = self:CanAttach( activator )
+			--THEN we ask the coder if he really wants us to pickup his entity, in case it's out of "ammo", or some other restrictions
+			local mycanattach = self:CanAttach( activator )
+			if mycanattach == false then
+				canattach = mycanattach
 			end
 			
-			--we can allow the coder to only stop the attach if it's not forced
 			if canattach == false then
 				return canattach
 			end
@@ -382,10 +387,11 @@ if SERVER then
 	end
 
 	function ENT:Drop( forced )
+		
+		--we can allow the coder to only stop the drop if it's not forced
 		if not forced then
 			local candrop = self:CanDrop( self:GetControllingPlayer() )
 		
-			--we can allow the coder to only stop the drop if it's not forced
 			if candrop == false then
 				return candrop
 			end
