@@ -53,9 +53,21 @@ function ENT:PredictedSetupMove( owner , mv , usercmd )
 	self:HandleFuel( true )
 	
 	if self:GetActive() then
+		local eyeang = owner:EyeAngles()
 		--TODO: make an input vector from AIM and movement keys, then set that to InputVector
+		local inputvec = Vector( mv:GetForwardSpeed() , mv:GetSideSpeed() , 0 ) --upspeed is only used underwater if I recall correctly --mv:GetUpSpeed() )
+		inputvec:Normalize()
+		
+		--now rotate by the eyeangles
+		--inputvec:Rotate( eyeang )
+		
+		self:SetInputVector( inputvec )
 		
 		--TODO: after making the input vector, zero out the player's input movedata, we don't want him to have access to source's default air control
+		mv:SetForwardSpeed( 0 )
+		mv:SetSideSpeed( 0 )
+		mv:SetUpSpeed( 0 )
+		
 		
 		--TODO: holding space: hover mode from willox's code?
 		
