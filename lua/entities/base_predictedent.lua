@@ -427,7 +427,6 @@ if SERVER then
 		--GetShouldPlayPickupSound is actually a Lua table value that is then checked in c++, so it starts out as nil, wow garry
 		if self.ShowPickupNotice and ( self:GetShouldPlayPickupSound() == nil or self:GetShouldPlayPickupSound() ) then
 			
-			--TODO: different sound when dropping, crowbar's attack sound maybe?
 			if not dropped then
 				self:EmitSound( "HL2Player.PickupWeapon" )
 			else
@@ -845,7 +844,6 @@ end
 
 
 local movedatameta = FindMetaTable( "CMoveData" )
---who knows, it might be renamed in the future!
 
 local emptyvalues = {
 	[TYPE_VECTOR] = vector_origin,
