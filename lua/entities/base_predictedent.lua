@@ -469,7 +469,7 @@ if SERVER then
 			local allow = self:CanPlayerEditVariable( ply , key , val , editor )
 			
 			if key == "Key" then
-				local btn = tostring( val )
+				local btn = tonumber( val )
 				if btn and not self:IsKeyAllowed( btn ) then
 					allow = false
 				end
@@ -607,7 +607,7 @@ else
 		end
 	end
 	
-	function ENT:DrawFirstPerson( ply , origin , angles , fov )
+	function ENT:DrawFirstPerson( ply )
 		--override me
 	end
 	
