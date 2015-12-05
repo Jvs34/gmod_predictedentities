@@ -11,4 +11,8 @@ However, feel free to leave an issue to have something implemented or even a pul
 
 ======================
 
-I'll try to make something to auto generate documentation for the wiki, right now I can't be arsed manually mantaining this.
+Head over to the wiki for a small tutorial on how to create one.
+
+======================
+
+I'll try to make something to auto generate documentation for functions for the wiki, right now I can't be arsed manually mantaining this.
