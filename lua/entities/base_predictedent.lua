@@ -626,6 +626,15 @@ else
 	end
 
 	function ENT:Draw( flags )
+		local pos , ang = self:GetCustomParentOrigin()
+		--even though the calcabsoluteposition hook should already prevent this, it doesn't on other players
+		--might as well not give it the benefit of the doubt in the first place
+		if pos and ang then
+			self:SetPos( pos )
+			self:SetAngles( ang )
+			self:SetupBones()
+		end
+		
 		self:DrawModel( flags )
 	end
 	
@@ -925,7 +934,7 @@ function ENT:GetCustomParentOrigin()
 	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
 	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
 	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
-		
+	
 	if CLIENT and self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
 		ply:SetupBones()
 	end
