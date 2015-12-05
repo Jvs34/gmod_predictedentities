@@ -164,6 +164,12 @@ function ENT:Initialize()
 		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
 		self:InstallHook( "CanEditVariable" , self.HandleCanEditVariable )
 		
+		--just in case it has been spawned manually and the coder forgot
+		if self:GetSlotName() == "" then
+			ErrorNoHalt( self:GetClass() .. " was spawned without a slotname!!!!. Defaulting to classname\n" )
+			self:SetSlotName( self:GetClass() )
+		end
+		
 		self:SetUseType( SIMPLE_USE )
 		self:SetInButton( 0 )	--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
 		self:SetKey( BUTTON_CODE_NONE )
