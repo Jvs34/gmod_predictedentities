@@ -343,7 +343,7 @@ if SERVER then
 	--don't want gamemode logic to interfere with it
 	function ENT:Attach( activator , forced )
 		
-		--we were forced to attach to this player, so drop first to clear out values
+		--we were forced to attach to this player, so drop first to clear out some values
 		if forced then
 			self:Drop( forced )
 		end
@@ -412,13 +412,13 @@ if SERVER then
 			self:RemoveEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
 		
-		if not forced then
+		if not forced and self:IsCarried() then
 			self:SendItemMessage( self:GetControllingPlayer() , true )
 		end
 		
-		self:OnDrop( self:GetControllingPlayer() , forced )
-		
+		--only call OnDrop if we had a player controlling us, don't do it if we were just sweeping up some unclean values
 		if self:IsCarried() then
+			self:OnDrop( self:GetControllingPlayer() , forced )
 			self:GetControllingPlayer():SetNWEntity( self:GetSlotName() , NULL )
 		end
 
@@ -1036,7 +1036,11 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 end
 
 function ENT:OnRemove()
-
+	--if we're being forcibly removed, make sure we're also dropped properly, in case the entity needs to do
+	--some stuff on the player before it expires
+	if SERVER and self:IsCarried() then
+		self:Drop( true )
+	end
 end
 
 --stuff that should be in an autorun file but that I can't be arsed to split up to
