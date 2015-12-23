@@ -19,6 +19,7 @@ ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not,
 if SERVER then
 	ENT.DropOnDeath = true
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
+	ENT.DontTransmitToOthers = false --when true, don't transmit to anyone except the owner, this MIGHT conflict with addons that make use of SetPreventTransmit, so mind that!
 else
 	ENT.RenderGroup = RENDERGROUP_OPAQUE
 end
@@ -501,6 +502,16 @@ if SERVER then
 	function ENT:HandleEntityVisibility( ply , viewent )
 		if self:IsCarriedBy( ply ) and not self.AttachesToPlayer and self ~= viewent then --viewents already add themselves to the pvs
 			AddOriginToPVS( self:GetPos() )
+		end
+		
+		--HOW CONVENIENT!!! this hook is called before the client computes what he can see
+		--so we can simply use this before this entity gets recomputed for transmission
+		if self.DontTransmitToOthers and not game.SinglePlayer() then
+			if self:IsCarried() then
+				self:SetPreventTransmit( ply , not self:IsCarriedBy( ply ) )
+			else
+				self:SetPreventTransmit( ply , false )
+			end
 		end
 	end
 
