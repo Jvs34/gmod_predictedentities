@@ -507,11 +507,14 @@ if SERVER then
 		--HOW CONVENIENT!!! this hook is called before the client computes what he can see
 		--so we can simply use this before this entity gets recomputed for transmission
 		if self.DontTransmitToOthers and not game.SinglePlayer() then
+			
+			local shouldpreventtransmit = false
+			
 			if self:IsCarried() then
-				self:SetPreventTransmit( ply , not self:IsCarriedBy( ply ) )
-			else
-				self:SetPreventTransmit( ply , false )
+				shouldpreventtransmit = not self:IsCarriedBy( ply , true )
 			end
+			
+			self:SetPreventTransmit( ply , shouldpreventtransmit )
 		end
 	end
 
@@ -536,12 +539,17 @@ else
 	end
 	
 	function ENT:IsCarriedByLocalPlayer( checkspectator )
+		
+		--moved this logic to IsCarriedBy
+		--[[
 		if checkspectator then
 			if LocalPlayer():GetObserverMode() ~= OBS_MODE_NONE then
 				return self:IsCarriedBy( LocalPlayer():GetObserverTarget() )
 			end
 		end
-		return self:IsCarriedBy( LocalPlayer() )
+		]]
+		
+		return self:IsCarriedBy( LocalPlayer() , checkspectator )
 	end
 	
 	function ENT:ShouldDrawLocalPlayer( checkspectator )
@@ -661,7 +669,12 @@ function ENT:IsCarried()
 	return self:IsCarriedBy( self:GetControllingPlayer() )
 end
 
-function ENT:IsCarriedBy( ply )
+function ENT:IsCarriedBy( ply , checkspectator )
+	
+	if checkspectator and ply:GetObserverMode() ~= OBS_MODE_NONE then
+		return self:IsCarriedBy( ply:GetObserverTarget() )
+	end
+	
 	return IsValid( ply ) and ply == self:GetControllingPlayer() and self:GetControllingPlayer():GetNWEntity( self:GetSlotName() ) == self
 end
 
