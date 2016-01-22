@@ -115,6 +115,7 @@ function ENT:Initialize()
 		self:SetGrappleNormal( vector_origin )
 		self:SetIsAttached( false )
 		self:SetAttachSoundPlayed( false )
+		self:SetAttachedEntity( NULL )
 		self:Detach()
 	else
 		self:CreateModels()
@@ -129,9 +130,10 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "PullSpeed" , true , "Pull speed" , 0 , 3500 )
 	self:DefineNWVar( "Float" , "GrappleFraction" )
 	self:DefineNWVar( "Float" , "GrappleLength" )
-	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 4 )
-	self:DefineNWVar( "Vector" , "AttachedTo" )
 	
+	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 4 )
+	
+	self:DefineNWVar( "Vector" , "AttachedTo" )
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
 	
 	self:DefineNWVar( "Bool" , "IsAttached" )
@@ -139,6 +141,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "DoReturn" , true , "Hook returns on detach" )
 	
 	self:DefineNWVar( "Entity" , "HookHelper" )
+	self:DefineNWVar( "Entity" , "AttachedEntity" )
 end
 
 
@@ -158,6 +161,7 @@ end
 function ENT:Detach( forced )
 	self:SetIsAttached( false )
 	self:SetAttachTime( CurTime() )
+	self:SetAttachedEntity( NULL )
 	
 	local returntime = self:GetDoReturn() and Lerp( self:GetGrappleFraction() , 0 , self.HookMaxTime ) or 0.5
 	self:SetAttachStart( CurTime() + returntime )
@@ -211,7 +215,12 @@ function ENT:HandleDetach( predicted , mv )
 	end
 	]]
 	
-	if self:GetIsAttached() then 
+	if self:GetIsAttached() then
+		
+		if self:GetAttachedEntity() ~= NULL then
+		
+		end
+		
 		if self:ShouldStopPulling( mv ) then
 			self:Detach()
 			return
@@ -253,6 +262,7 @@ function ENT:HandleSounds( predicted )
 					e:SetSurfaceProp( 48 )	--idk, I just took it from flatgrass's wall
 					e:SetDamageType( DMG_BULLET )
 					e:SetHitBox( 0 )
+					--TODO: do this on the attached entity if it's valid instead
 					if CLIENT then
 						e:SetEntity( game.GetWorld() )
 					else
@@ -341,15 +351,20 @@ function ENT:FireHook()
 	
 	self:SetNextFire( CurTime() + 0.1 )
 	
-	self:GetControllingPlayer():LagCompensation( true )
+	if SERVER then
+		self:GetControllingPlayer():LagCompensation( true )
+	end
 	
 	local result = self:DoHookTrace()
 	
-	self:GetControllingPlayer():LagCompensation( false )
+	if SERVER then
+		self:GetControllingPlayer():LagCompensation( false )
+	end
 	
 	if not result.HitSky and result.Hit and not result.HitNoDraw then
 		local timetoreach = Lerp( result.Fraction , 0 , self.HookMaxTime )
 		
+		self:SetAttachedEntity( result.Entity )
 		self:SetAttachedTo( result.HitPos )
 		self:SetAttachTime( CurTime() + timetoreach )
 		self:SetAttachStart( CurTime() )
@@ -375,8 +390,33 @@ function ENT:GetDirection()
 	return ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):GetNormalized()
 end
 
+--TODO: if we attach to an entity, we should also store it in a dtvar so we constantly check if it's physobj was removed (or even just the entity itself)
+function ENT.HookTraceFilter( ent )
+	
+	if not IsValid( ent ) then
+		return
+	end
+	
+	if ent == game.GetWorld() then
+		return true
+	end
+	
+	if ent:IsPlayer() or ent:IsNPC() or ent:IsRagdoll() then
+		return false
+	end
+	
+	--this is where the prediction error will happen
+	--this is kind of lame, since we're assuming we might hit its physobj rather than other ones, but that's why we also filter out ragdolls I guess
+	--also filter out clientside only or serverside only entities that have physics
+	local physobj = ent:GetPhysicsObject()
+	if ent:EntIndex() ~= -1 and IsValid( physobj ) and not physobj:IsMotionEnabled() then
+		return true
+	end
+	
+	return false
+end
+
 function ENT:DoHookTrace( checkdetach )
-	--TODO: allow hooking to entities that never move, maybe trough the callback?
 	local startpos = self:GetPos()
 	local normal = self:GetUp()
 	
@@ -394,18 +434,31 @@ function ENT:DoHookTrace( checkdetach )
 		endpos = startpos + normal * self.HookMaxRange
 	end
 	
+	--[[
+		even if we only see that entity serverside and we attach to it, the prediction error will have no impact on movement whatsoever, since we have a
+		delay anyway
+		
+		you might see the hook stutter a bit, but it's better than being limited by brushes only
+	]]
+	
 	local tr = {
-		--TODO: custom filter callback?
+		
+		--[[
 		filter = {
 			self:GetControllingPlayer(),
 			self,
 		},
-		mask = MASK_PLAYERSOLID_BRUSHONLY,	--anything that stops player movement stops the trace
+		]]
+		
+		filter = self.HookTraceFilter,
+		mask = MASK_SOLID,	--anything that is solid can stop the trace
 		start = startpos,
 		endpos = endpos,
 		mins = self.HookHullMins,
 		maxs = self.HookHullMaxs
 	}
+
+	
 	return util.TraceHull( tr )
 end
 
@@ -467,6 +520,9 @@ if SERVER then
 	end
 	
 	function ENT:DoInitPhysics()
+		--TODO: do we actually want a physics object that acts like a ring or something? that would be nice
+		--here's what I can do, set the model to something that has a similar shape, and then get the mesh from it and modify it with Lua or something
+		
 		self:PhysicsInitBox( self.MinBounds , self.MaxBounds )
 		self:SetCollisionBounds( self.MinBounds , self.MaxBounds )
 		self:SetMoveType( MOVETYPE_VPHYSICS )
@@ -490,17 +546,20 @@ if SERVER then
 			if dist > self:GetGrappleLength() then
 				physobj:Wake()
 				local force = self:GetDirection() * self:GetPullSpeed()
+				--TODO: add angular force to the actual point where the cable is attached to this entity, rather than floating around
 				local angular = vector_origin
-				
+				--TODO: don't we have to multiply by delta or some shit?
 				return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
 			end
 		end
+		
 	end
 	
 else
 	
 	function ENT:CreateModels()
-		--create all the models, use EnableMatrix to setup the offsets because it's easier and faster than doing that everytime
+		--create all the models, use EnableMatrix to setup the offsets because it's easier and faster than doing that everytime, at least in this static case
+		--we might have to do it dynamically on the hook if I want to do some fancy animations, but considering it's small and you barely see it, it's not worth it
 		self.CSModels = {}
 		
 		local bodybasematrix = Matrix()
@@ -588,6 +647,7 @@ else
 		local endgrapplepos = vector_origin
 		local endgrappleang = angle_zero
 		
+		--the "Local" player is carrying this, so draw the hook a bit below his head and not the position of his actual thirdperson model
 		if self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
 			local eyepos = self:GetControllingPlayer():EyePos()
 			local aimvecang = self:GetControllingPlayer():EyeAngles()
@@ -597,11 +657,13 @@ else
 		if self:GetIsAttached() or self:IsHookReturning() then
 			endgrappleang = self:GetGrappleNormal():Angle()
 			
+			--other players don't need your fancy ass swirling rope, maybe they would like to, but the fps drop wouldn't be nice, so let's just leave it at that
 			local dosway = false
 			local travelfraction = 0
 			
 			if self:GetAttachTime() >= CurTime() or self:IsHookReturning() then
 				
+				--enable it on our "Local" ( and spectator ) player
 				dosway = self:IsCarriedByLocalPlayer( true )
 				
 				travelfraction = math.Clamp( math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() ) , 0 , 1 )
@@ -626,6 +688,8 @@ else
 				
 				local ang = ( endgrapplepos - startgrapplepos ):Angle()
 				local swayres = math.floor( Lerp( lengthfraction , 64 , 16 ) )	--number of segments to use for the swayamount
+				
+				--fancy, not entirely realistic and kind of expensive due to the garbage collection on vectors I guess?
 				
 				render.StartBeam( swayres + 2 )
 				
@@ -656,6 +720,7 @@ else
 				render.EndBeam()
 				
 			else
+			
 				
 				render.StartBeam( 2 )
 					render.AddBeam( startgrapplepos , cablesize , 2 , color_white )
