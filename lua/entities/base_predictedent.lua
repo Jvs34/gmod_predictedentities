@@ -364,7 +364,7 @@ if SERVER then
 		end
 		
 		--we're carried in general OR that guy's using that slot already
-		if self:IsCarried() or IsValid( activator:GetNWEntity( self:GetSlotName() ) ) then
+		if self:IsCarried() or IsValid( self.GetOnPlayer( activator , self:GetSlotName() ) ) then
 			return false
 		end
 		
@@ -396,7 +396,7 @@ if SERVER then
 
 		self:SendItemMessage( activator , false )
 		
-		activator:SetNWEntity( self:GetSlotName() , self )
+		self.SetOnPlayer( self:GetControllingPlayer() , self:GetSlotName() , self )
 		self:SetControllingPlayer( activator )
 		
 		self:OnAttach( self:GetControllingPlayer() , forced )
@@ -430,7 +430,7 @@ if SERVER then
 		--only call OnDrop if we had a player controlling us, don't do it if we were just sweeping up some unclean values
 		if self:IsCarried() then
 			self:OnDrop( self:GetControllingPlayer() , forced )
-			self:GetControllingPlayer():SetNWEntity( self:GetSlotName() , NULL )
+			self.SetOnPlayer( self:GetControllingPlayer() , self:GetSlotName() , NULL )
 		end
 
 		self:SetControllingPlayer( NULL )
@@ -669,6 +669,16 @@ else
 	
 end
 
+--these are here to "unify" our two calls to SetNWEntity and GetNWEntity
+--these might be called from pe_drop and some other stuff, so we can't rely on the entity itself being present, as lame as that is
+function ENT.SetOnPlayer( ply , slot , ent )
+	ply:SetNW2Entity( slot , ent )
+end
+
+function ENT.GetOnPlayer( ply , slot )
+	return ply:GetNW2Entity( slot )
+end
+
 function ENT:IsAttached()
 	local ply = self:GetControllingPlayer()
 	return self:GetOwner() == ply and self:GetParent() == ply
@@ -685,7 +695,7 @@ function ENT:IsCarriedBy( ply , checkspectator )
 		return self:IsCarriedBy( ply:GetObserverTarget() )
 	end
 	
-	return IsValid( ply ) and ply == self:GetControllingPlayer() and self:GetControllingPlayer():GetNWEntity( self:GetSlotName() ) == self
+	return IsValid( ply ) and ply == self:GetControllingPlayer() and self.GetOnPlayer( self:GetControllingPlayer() , self:GetSlotName() ) == self
 end
 
 function ENT:IsKeyDown( mv )
@@ -749,7 +759,8 @@ function ENT:IsKeyAllowed( btn )
 	if bit.band( self.KeyAllowedFlags , self.KeyAllowedJoystick ) == 0 and self:IsJoystickButton( btn ) then
 		return false
 	end
-	return true
+	
+	return self:IsValidButton( btn )
 end
 
 function ENT:HandleCalcMainActivity( ply , velocity )
@@ -1083,7 +1094,10 @@ if SERVER then
 
 	util.AddNetworkString( "pe_pickup" )
 	util.AddNetworkString( "pe_playsound" )
-
+	
+	--save the function before ENT gets removed during registration
+	local GetPredictedEntityOnPlayer = ENT.GetOnPlayer
+	
 	concommand.Add( "pe_drop" , function( ply , cmd , args , fullstr )
 		
 		if not IsValid( ply ) then
@@ -1096,7 +1110,7 @@ if SERVER then
 			return
 		end
 		
-		local slotent = ply:GetNWEntity( nwslot )
+		local slotent = GetPredictedEntityOnPlayer( ply , nwslot )--ply:GetNWEntity( nwslot )
 		
 		--user tried to drop an invalid or an entity which is not a predicted entity, or doesn't have a slot assigned
 		
@@ -1107,6 +1121,7 @@ if SERVER then
 		slotent:Drop( false )
 		
 	end)
+	
 else
 	
 	--tells the hud to show the player the entity pickup
