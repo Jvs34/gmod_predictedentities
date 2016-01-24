@@ -396,10 +396,10 @@ if SERVER then
 
 		self:SendItemMessage( activator , false )
 		
-		self.SetOnPlayer( self:GetControllingPlayer() , self:GetSlotName() , self )
+		self.SetOnPlayer( activator , self:GetSlotName() , self )
 		self:SetControllingPlayer( activator )
 		
-		self:OnAttach( self:GetControllingPlayer() , forced )
+		self:OnAttach( activator , forced )
 		return true
 	end
 
