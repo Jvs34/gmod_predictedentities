@@ -121,8 +121,12 @@ function ENT:Initialize()
 		self:SetLastFlameTrace( nil )
 	end
 	
-	self:SetCustomCollisionCheck( true )
-	self:InstallHook( "ShouldCollide" , self.HandleShouldCollide )
+	--disabled because this isn't all that worth it at the moment, especially due to the position of the jetpack
+	--it's kind of hard to filter all the traces and keep some, because the shouldcollide hook is called with NULL as the second entity
+	--and it's the same case for bullets
+	
+	--self:SetCustomCollisionCheck( true )
+	--self:InstallHook( "ShouldCollide" , self.HandleShouldCollide )
 end
 
 function ENT:SetupDataTables()
@@ -544,7 +548,7 @@ if SERVER then
 	
 	function ENT:OnAttach( ply )
 		self:SetDoGroundSlam( false )
-		self:SetSolid( SOLID_BBOX )	--we can still be hit when on the player's back
+		--self:SetSolid( SOLID_BBOX )	--we can still be hit when on the player's back
 	end
 	
 	function ENT:CanAttach( ply )

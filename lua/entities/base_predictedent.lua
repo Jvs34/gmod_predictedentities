@@ -20,6 +20,7 @@ if SERVER then
 	ENT.DropOnDeath = true
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
 	ENT.DontTransmitToOthers = false --when true, don't transmit to anyone except the owner, this MIGHT conflict with addons that make use of SetPreventTransmit, so mind that!
+	ENT.ShouldLagCompensate = true 	--automatically enables/disables lag compensation when physics are created and destroyed, might be annoying for some so disable this if you want
 else
 	ENT.RenderGroup = RENDERGROUP_OPAQUE
 end
@@ -285,7 +286,16 @@ if SERVER then
 	end
 
 	function ENT:InitPhysics()
-		self:SetLagCompensated( true )
+		--don't actually initialize the physics if we're getting removed anyway
+		if self:IsEFlagSet( EFL_KILLME ) then 
+			return 
+		end
+		
+		
+		if self.ShouldLagCompensate then
+			self:SetLagCompensated( true )
+		end
+
 		self:DoInitPhysics()
 		self:OnInitPhysics( self:GetPhysicsObject() )
 	end
@@ -299,8 +309,8 @@ if SERVER then
 
 	function ENT:RemovePhysics()
 		
-		if self.AttachesToPlayer then
-			self:SetLagCompensated( false )--lag compensation works really lame with parenting due to vinh's fix to players being lag compensated in vehicles
+		if self.AttachesToPlayer and self.ShouldLagCompensate then
+			self:SetLagCompensated( false )	--entities that are attached to players will be moved back when the player is, so don't make them lag compensate on their own
 		end
 		
 		self:OnRemovePhysics( self:GetPhysicsObject() )
