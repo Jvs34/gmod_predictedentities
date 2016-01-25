@@ -130,8 +130,9 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "PullSpeed" , true , "Pull speed" , 0 , 3500 )
 	self:DefineNWVar( "Float" , "GrappleFraction" )
 	self:DefineNWVar( "Float" , "GrappleLength" )
+	self:DefineNWVar( "Float" , "GrappleFractionBeforeReturn" )
 	
-	self:DefineNWVar( "Int" , "PullMode" , true , "Pull mode" , 1 , 4 )
+	self:DefineNWVar( "Int" , "PullMode" ) --, true , "Pull mode" , 1 , 4 )
 	
 	self:DefineNWVar( "Vector" , "AttachedTo" )
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
@@ -163,6 +164,9 @@ function ENT:Detach( forced )
 	self:SetIsAttached( false )
 	self:SetAttachTime( CurTime() )
 	self:SetAttachedEntity( NULL )
+	
+
+	
 	
 	local returntime = 0.25--Lerp( self:GetGrappleFraction() , 0 , self.HookMaxTime )
 	self:SetAttachStart( CurTime() + returntime )
@@ -200,8 +204,19 @@ function ENT:HandleDetach( predicted , mv )
 	
 	--sets the grapple fraction to how much the grapple actually traveled
 	if self:GetAttachedTo() ~= vector_origin then
+		
 		local travelfraction = math.Clamp( math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() ) , 0 , 1 )
+		
+		if not self:GetIsAttached() and self:GetGrappleFractionBeforeReturn() ~= 0 then
+			travelfraction = Lerp( travelfraction , 0 , self:GetGrappleFractionBeforeReturn() )
+		end
+		
 		self:SetGrappleFraction( travelfraction )
+		
+		if self:GetIsAttached() then
+			self:SetGrappleFractionBeforeReturn( travelfraction )
+		end
+		
 	end
 	
 	if self:GetIsAttached() then
