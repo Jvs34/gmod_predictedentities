@@ -620,7 +620,8 @@ else
 	
 	function ENT:DrawFirstPersonInternal()
 		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
-			cam.Start3D( nil , nil , nil , nil , nil , nil , nil , 1 , -1 )	--znear is 1 and zfar is -1
+			local fov = nil	--TODO: allow changing the FOV
+			cam.Start3D( nil , nil , fov , nil , nil , nil , nil , 1 , -1 )	--znear is 1 and zfar is -1
 				render.DepthRange( 0 , 0.1 )	--same depth hack valve uses in source!
 					self:DrawFirstPerson( self:GetControllingPlayer() )
 				render.DepthRange( 0 , 1 )		--they don't even set these back to the original values
@@ -629,9 +630,8 @@ else
 	end
 	
 	--viewmodels don't draw without an associated weapon ( this is due to garryness, they always do in source )
-	--TODO: spectator support
 	function ENT:DrawViewModelInternal( vm , ply , wpn )
-		if self.AttachesToPlayer and self:IsCarriedBy( ply ) then
+		if self.AttachesToPlayer and self:IsCarriedBy( ply , true ) then
 			self:DrawOnViewModel( ply , vm , ply:GetHands() ) --this will stay here
 		end
 	end

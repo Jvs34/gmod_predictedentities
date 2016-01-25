@@ -107,7 +107,7 @@ function ENT:Initialize()
 		self:SetKey( KEY_G )	--the starting key to trigger us
 		self:InitPhysics()
 		
-		self:SetDoReturn( false )
+		self:SetHookMissed( false )
 		self:SetNextFire( CurTime() + 1 )
 		self:SetAttachTime( CurTime() )
 		self:SetAttachStart( CurTime() )
@@ -138,7 +138,7 @@ function ENT:SetupDataTables()
 	
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
-	self:DefineNWVar( "Bool" , "DoReturn" , true , "Hook returns on detach" )
+	self:DefineNWVar( "Bool" , "HookMissed" )
 	
 	self:DefineNWVar( "Entity" , "HookHelper" )
 	self:DefineNWVar( "Entity" , "AttachedEntity" )
@@ -159,11 +159,12 @@ function ENT:Think()
 end
 
 function ENT:Detach( forced )
+	self:SetHookMissed( true )
 	self:SetIsAttached( false )
 	self:SetAttachTime( CurTime() )
 	self:SetAttachedEntity( NULL )
 	
-	local returntime = self:GetDoReturn() and Lerp( self:GetGrappleFraction() , 0 , self.HookMaxTime ) or 0.5
+	local returntime = 0.25--Lerp( self:GetGrappleFraction() , 0 , self.HookMaxTime )
 	self:SetAttachStart( CurTime() + returntime )
 	self:SetNextFire( CurTime() + returntime )
 	self:SetAttachSoundPlayed( false )
@@ -197,25 +198,18 @@ function ENT:HandleDetach( predicted , mv )
 		return
 	end
 	
-	--[[
-	if self:GetDoReturn() and self:GetAttachedTo() ~= vector_origin then
-		local atchpos = self:GetPos()
-		
-		if IsValid( self:GetControllingPlayer() ) then
-			atchpos = self:GetControllingPlayer():EyePos()
-		end
-	
-		local travelfraction = math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() )
-
-		local destpos = LerpVector( travelfraction , atchpos , self:GetAttachedTo() )
-		
-		local frac = ( destpos - atchpos ):Length() / self.HookMaxRange
-		frac = math.Clamp( frac , 0 , 1 )
-		self:SetHookTraveledFraction( frac )
+	--sets the grapple fraction to how much the grapple actually traveled
+	if self:GetAttachedTo() ~= vector_origin then
+		local travelfraction = math.Clamp( math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() ) , 0 , 1 )
+		self:SetGrappleFraction( travelfraction )
 	end
-	]]
 	
 	if self:GetIsAttached() then
+		
+		if self:GetAttachTime() < CurTime() and self:GetHookMissed() then
+			self:Detach()
+			return
+		end
 		
 		if self:GetAttachedEntity() ~= NULL then
 		
@@ -233,13 +227,11 @@ function ENT:IsRopeObstructed()
 	return false
 end
 
-function ENT:IsHookReturning()
-	return self:GetDoReturn() and self:GetAttachStart() >= CurTime() and self:GetAttachTime() <= CurTime() and not self:GetIsAttached() and self:GetAttachedTo() ~= vector_origin
-end
+
 
 function ENT:HandleSounds( predicted )
 	if self:GetIsAttached() then
-		if self:GetAttachTime() < CurTime() then
+		if self:GetAttachTime() < CurTime() and not self:GetHookMissed() then
 			
 			if not self:GetAttachSoundPlayed() then
 				
@@ -289,9 +281,17 @@ function ENT:HandleLoopingSounds()
 	if not self.ReelSound then
 		self.ReelSound = CreateSound( self , "grapplehook.reelsound" )
 	end
-	if self:GetIsAttached() then
+	
+	if self:GetGrappleFraction() > 0 then
 		if self:GetAttachTime() < CurTime() then	
-			self.ReelSound:PlayEx( 0.3 , 200 )
+			local reelpitch = 200
+			
+			--when not attached we want the pitch to increase more when we're close to 0
+			if not self:GetIsAttached() then
+				reelpitch = reelpitch + Lerp( self:GetGrappleFraction() , 55 , 20 )
+			end
+			
+			self.ReelSound:PlayEx( 0.3 , reelpitch )
 			self.LaunchSound:Stop()
 		else
 			self.LaunchSound:PlayEx( 1 , 50 / self.HookCableSize )
@@ -314,15 +314,16 @@ function ENT:PredictedMove( owner , mv )
 	if self:CanPull( mv ) then
 
 		owner:SetGroundEntity( NULL )
-		
 		if self:GetPullMode() == 2 then
 			mv:SetVelocity( self:GetDirection() * self:GetPullSpeed() )
+		--[[
 		elseif self:GetPullMode() == 3 then
 			local currenthooklength = Lerp( self:GetGrappleFraction() , 0 , self.HookMaxRange )
 			local curdistance = ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length()
 			if curdistance > currenthooklength then
 				mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * mv:GetVelocity():Length() * 0.5 )
 			end
+		]]
 		elseif self:GetPullMode() == 4 then
 			local eye_pos = self:GetControllingPlayer():EyePos()
 
@@ -344,6 +345,10 @@ function ENT:PredictedThink( owner , mv )
 	self:HandleSounds( true )
 end
 
+function ENT:IsHookActive()
+	return self:GetGrappleFraction() ~= 0
+end
+
 function ENT:FireHook()
 	if self:GetIsAttached() then
 		return
@@ -361,26 +366,30 @@ function ENT:FireHook()
 		self:GetControllingPlayer():LagCompensation( false )
 	end
 	
-	if not result.HitSky and result.Hit and not result.HitNoDraw then
-		local timetoreach = Lerp( result.Fraction , 0 , self.HookMaxTime )
-		
-		self:SetAttachedEntity( result.Entity )
-		self:SetAttachedTo( result.HitPos )
-		self:SetAttachTime( CurTime() + timetoreach )
-		self:SetAttachStart( CurTime() )
-		self:SetIsAttached( true )
-		self:SetGrappleNormal( self:GetDirection() )
-		self:SetGrappleFraction( result.Fraction )
-		self:SetGrappleLength( ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length() )
-		
-		self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_WEAPON , true )
-		
-		local seq = self:GetControllingPlayer():LookupSequence( "flinch_stomach_01" )
-		if seq and seq ~= ACT_INVALID then
-			self:GetControllingPlayer():AddVCDSequenceToGestureSlot( GESTURE_SLOT_FLINCH , seq , 0 , true )
-		end
+	--[[
+		so, here's the thing
+		even if we miss the hook, aka we hit the sky, we still want a "hitpos", but we'll mark that hook as missed, which will make it autodetach when reaching the distance
+	]]
+	
+	local timetoreach = Lerp( result.Fraction , 0 , self.HookMaxTime )
+	--not result.HitSky and result.Hit and not result.HitNoDraw
+	self:SetHookMissed( result.HitSky or not result.Hit or result.HitNoDraw )
+	self:SetAttachedEntity( result.Entity )
+	self:SetAttachedTo( result.HitPos )
+	self:SetAttachTime( CurTime() + timetoreach )
+	self:SetAttachStart( CurTime() )
+	self:SetIsAttached( true )
+	self:SetGrappleNormal( self:GetDirection() )
+	self:SetGrappleFraction( result.Fraction )
+	self:SetGrappleLength( ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length() )
+	
+	self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_WEAPON , true )
+	
+	local seq = self:GetControllingPlayer():LookupSequence( "flinch_stomach_01" )
+	if seq and seq ~= ACT_INVALID then
+		self:GetControllingPlayer():AddVCDSequenceToGestureSlot( GESTURE_SLOT_FLINCH , seq , 0 , true )
 	end
-
+	
 end
 
 function ENT:GetDirection()
@@ -644,8 +653,8 @@ else
 		
 		local startgrapplepos , startgrappleang = self:GetHookAttachment()
 		
-		local endgrapplepos = vector_origin
-		local endgrappleang = angle_zero
+		local endgrapplepos = startgrapplepos
+		local endgrappleang = startgrappleang
 		
 		--the "Local" player is carrying this, so draw the hook a bit below his head and not the position of his actual thirdperson model
 		if self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
@@ -654,33 +663,17 @@ else
 			startgrapplepos = eyepos + aimvecang:Up() * - 30
 		end
 		
-		if self:GetIsAttached() or self:IsHookReturning() then
+		--other players don't need your fancy ass swirling rope, maybe they would like to, but the fps drop wouldn't be nice, so let's just leave it at that
+		local dosway = self:IsCarriedByLocalPlayer( true ) and self:GetIsAttached()
+		local travelfraction = self:GetGrappleFraction()
+		
+		if travelfraction ~= 0 then
 			endgrappleang = self:GetGrappleNormal():Angle()
-			
-			--other players don't need your fancy ass swirling rope, maybe they would like to, but the fps drop wouldn't be nice, so let's just leave it at that
-			local dosway = false
-			local travelfraction = 0
-			
-			if self:GetAttachTime() >= CurTime() or self:IsHookReturning() then
-				
-				--enable it on our "Local" ( and spectator ) player
-				dosway = self:IsCarriedByLocalPlayer( true )
-				
-				travelfraction = math.Clamp( math.TimeFraction( self:GetAttachStart() , self:GetAttachTime() , CurTime() ) , 0 , 1 )
-				
-				endgrapplepos = LerpVector( travelfraction , startgrapplepos , self:GetAttachedTo() )
-				
-			else
-			
-				endgrapplepos = self:GetAttachedTo()
-				
-			end
-			
+			endgrapplepos = LerpVector( travelfraction , startgrapplepos , self:GetAttachedTo() )
 			render.SetMaterial( self.CableMaterial )
-			
+		
 			--only do this expensive rendering when carried by the local player
-			
-			if dosway and not self:IsHookReturning() then
+			if dosway then
 				
 				local swayamount = Lerp( travelfraction , 4 * cablesize , 0 )	--bigger cable = bigger sway
 				
@@ -718,7 +711,7 @@ else
 					render.AddBeam( endgrapplepos , cablesize , 3 , color_white )
 					
 				render.EndBeam()
-				
+			
 			else
 			
 				
@@ -728,10 +721,12 @@ else
 				render.EndBeam()
 				
 			end
-			
-			self:DrawHook( endgrapplepos , endgrappleang , flags )
-			
+		
+		
 		end
+		
+		self:DrawHook( endgrapplepos , endgrappleang , flags )
+			
 	end
 	
 	--draws the hook at the given position
@@ -769,7 +764,7 @@ else
 		
 		self:DrawCSModel( self:GetPos() , self:GetAngles() , flags )
 		
-		if not self:GetIsAttached() and not self:IsHookReturning() then
+		if not self:IsHookActive() then
 			local hpos , hang = self:GetHookAttachment()
 			self:DrawHook( hpos , hang )
 		end
