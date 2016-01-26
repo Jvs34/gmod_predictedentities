@@ -98,8 +98,7 @@ end
 function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
-		self:SetModel( "models/props_junk/wood_crate001a.mdl" )
-		self:DrawShadow( false )
+		self:SetModel( "models/props_phx/wheels/magnetic_small.mdl" )
 		
 		self:SetPullMode( 1 )
 		self:SetPullSpeed( 2000 )
@@ -165,9 +164,6 @@ function ENT:Detach( forced )
 	self:SetAttachTime( CurTime() )
 	self:SetAttachedEntity( NULL )
 	
-
-	
-	
 	local returntime = 0.25--Lerp( self:GetGrappleFraction() , 0 , self.HookMaxTime )
 	self:SetAttachStart( CurTime() + returntime )
 	self:SetNextFire( CurTime() + returntime )
@@ -226,7 +222,9 @@ function ENT:HandleDetach( predicted , mv )
 			return
 		end
 		
+		
 		if self:GetAttachedEntity() ~= NULL then
+		--check the entity's physobj, if it was unfrozen even for a frame, detach us
 		
 		end
 		
@@ -253,12 +251,6 @@ function ENT:HandleSounds( predicted )
 				--play the hit sound only the controlling player and one on the world position
 				
 				if IsValid( self:GetControllingPlayer() ) then
-					local seq = self:GetControllingPlayer():LookupSequence( "flinch_stomach_02" )
-					
-					if seq and seq ~= ACT_INVALID then
-						self:GetControllingPlayer():AddVCDSequenceToGestureSlot( GESTURE_SLOT_FLINCH , seq , 0 , true )
-					end
-					
 					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , predicted , self:GetControllingPlayer() )
 				end
 				
@@ -466,14 +458,6 @@ function ENT:DoHookTrace( checkdetach )
 	]]
 	
 	local tr = {
-		
-		--[[
-		filter = {
-			self:GetControllingPlayer(),
-			self,
-		},
-		]]
-		
 		filter = self.HookTraceFilter,
 		mask = MASK_SOLID,	--anything that is solid can stop the trace
 		start = startpos,
@@ -535,14 +519,10 @@ if SERVER then
 	end
 	
 	function ENT:OnDrop( ply , forced )
-		--like for the jetpack, we still let the entity function as usual when the user dies
-		if not ply:Alive() then
-			return
-		end
-		
-		self:Detach( not forced )
 	end
 	
+	--Nevermind! I found a wheel which has mostly the shape I want, so screw this hacky shit
+	--[[
 	function ENT:DoInitPhysics()
 		--TODO: do we actually want a physics object that acts like a ring or something? that would be nice
 		--here's what I can do, set the model to something that has a similar shape, and then get the mesh from it and modify it with Lua or something
@@ -553,10 +533,10 @@ if SERVER then
 		self:SetSolid( SOLID_VPHYSICS )
 		self:PhysWake()
 	end
+	]]
 	
 	function ENT:OnInitPhysics( physobj )
 		self:StartMotionController()
-		physobj:SetMass( 120 )
 	end
 
 	function ENT:OnRemovePhysics()
@@ -566,15 +546,12 @@ if SERVER then
 	function ENT:PhysicsSimulate( physobj , delta )
 		
 		if self:GetIsAttached() and not self:GetBeingHeld() and self:CanPull() then
-			local dist = ( self:GetAttachedTo() - physobj:GetPos() ):Length()
-			if dist > self:GetGrappleLength() then
-				physobj:Wake()
-				local force = self:GetDirection() * self:GetPullSpeed()
-				--TODO: add angular force to the actual point where the cable is attached to this entity, rather than floating around
-				local angular = vector_origin
-				--TODO: don't we have to multiply by delta or some shit?
-				return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
-			end
+			physobj:Wake()
+			local force = self:GetDirection() * self:GetPullSpeed()
+			--TODO: add angular force to the actual point where the cable is attached to this entity, rather than floating around
+			local angular = vector_origin
+			--TODO: don't we have to multiply by delta or some shit?
+			return angular , force * physobj:GetMass() , SIM_GLOBAL_FORCE
 		end
 		
 	end
@@ -762,7 +739,7 @@ else
 		
 		--[[
 		render.SetMaterial( self.WireFrame )
-		render.DrawBox( pos, ang, self.HookHullMins, self.HookHullMaxs, color_white, true )
+		render.DrawBox( pos, angle_zero, self.HookHullMins, self.HookHullMaxs, color_white, true )
 		]]
 	end
 	
@@ -774,9 +751,9 @@ else
 		if pos and ang then
 			self:SetPos( pos )
 			self:SetAngles( ang )
-			self:SetupBones()	--seems to be needed since we're never technically drawing the model
+			self:SetupBones()
 		end
-		
+
 		self:DrawCSModel( self:GetPos() , self:GetAngles() , flags )
 		
 		if not self:IsHookActive() then
