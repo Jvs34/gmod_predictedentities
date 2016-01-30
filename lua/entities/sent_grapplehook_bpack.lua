@@ -117,7 +117,8 @@ function ENT:Initialize()
 		self:SetAttachedEntity( NULL )
 		self:Detach()
 	else
-		self:CreateModels()
+		self.CSModels = {}
+		self.CSModels.Hook = {}
 	end
 end
 
@@ -128,7 +129,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Float" , "AttachStart" )
 	self:DefineNWVar( "Float" , "PullSpeed" , true , "Pull speed" , 0 , 3500 )
 	self:DefineNWVar( "Float" , "GrappleFraction" )
-	self:DefineNWVar( "Float" , "GrappleLength" )
+	--self:DefineNWVar( "Float" , "GrappleLength" )
 	self:DefineNWVar( "Float" , "GrappleFractionBeforeReturn" )
 	
 	self:DefineNWVar( "Int" , "PullMode" ) --, true , "Pull mode" , 1 , 4 )
@@ -136,9 +137,11 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Vector" , "AttachedTo" )
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
 	
+	self:DefineNWVar( "Bool" , "ButtonPressed" )
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
 	self:DefineNWVar( "Bool" , "HookMissed" )
+	
 	
 	self:DefineNWVar( "Entity" , "HookHelper" )
 	self:DefineNWVar( "Entity" , "AttachedEntity" )
@@ -149,8 +152,13 @@ function ENT:Think()
 	self:HandleHookHelper( false )
 	
 	if not self:IsCarried() then
+		self:HandleHook( false )
 		self:HandleDetach( false )
 		self:HandleSounds( false )
+	end
+	
+	if CLIENT then
+		self:HandleModels()
 	end
 	
 	BaseClass.Think( self )
@@ -173,6 +181,7 @@ end
 function ENT:HandleHookHelper( predicted )
 	
 	if CLIENT then
+			
 		return
 	end
 	
@@ -309,28 +318,37 @@ function ENT:HandleLoopingSounds()
 	end
 end
 
-function ENT:PredictedSetupMove( owner , mv , usercmd )
-	if self:IsKeyDown( mv ) then
+function ENT:HandleHook( predicted , ply , mv , usercmd )
+	if CLIENT and not predicted then
+		return
+	end
+	
+	if self:IsKeyDown( mv ) or self:GetButtonPressed() then
 		if self:GetNextFire() <= CurTime() then
 			self:FireHook()
 		end
 	end
 end
 
+function ENT:PredictedSetupMove( owner , mv , usercmd )
+	self:HandleHook( true , owner , mv , usercmd )
+end
+
 function ENT:PredictedMove( owner , mv )
 	if self:CanPull( mv ) then
 
 		owner:SetGroundEntity( NULL )
+		--[[
+
 		if self:GetPullMode() == 2 then
 			mv:SetVelocity( self:GetDirection() * self:GetPullSpeed() )
-		--[[
 		elseif self:GetPullMode() == 3 then
 			local currenthooklength = Lerp( self:GetGrappleFraction() , 0 , self.HookMaxRange )
 			local curdistance = ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length()
 			if curdistance > currenthooklength then
 				mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * mv:GetVelocity():Length() * 0.5 )
 			end
-		]]
+		
 		elseif self:GetPullMode() == 4 then
 			local eye_pos = self:GetControllingPlayer():EyePos()
 
@@ -342,8 +360,9 @@ function ENT:PredictedMove( owner , mv )
 				mv:SetVelocity( mv:GetVelocity() + dir * (dist - self:GetGrappleLength()) ) -- Translate velocity to be within distance of hook
 			end
 		else
+		]]
 			mv:SetVelocity( mv:GetVelocity() + self:GetDirection() * self:GetPullSpeed() * FrameTime() )
-		end
+		--end
 	end
 end
 
@@ -363,13 +382,13 @@ function ENT:FireHook()
 	
 	self:SetNextFire( CurTime() + 0.1 )
 	
-	if SERVER then
+	if SERVER and IsValid( self:GetControllingPlayer() ) then
 		self:GetControllingPlayer():LagCompensation( true )
 	end
 	
 	local result = self:DoHookTrace()
 	
-	if SERVER then
+	if SERVER and IsValid( self:GetControllingPlayer() ) then
 		self:GetControllingPlayer():LagCompensation( false )
 	end
 	
@@ -388,15 +407,8 @@ function ENT:FireHook()
 	self:SetIsAttached( true )
 	self:SetGrappleNormal( self:GetDirection() )
 	self:SetGrappleFraction( result.Fraction )
-	self:SetGrappleLength( ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length() )
-	
+	--self:SetGrappleLength( ( self:GetAttachedTo() - self:GetControllingPlayer():EyePos() ):Length() )
 	self:EmitPESound( "grapplehook.launch" , nil , nil , nil , CHAN_WEAPON , true )
-	
-	local seq = self:GetControllingPlayer():LookupSequence( "flinch_stomach_01" )
-	if seq and seq ~= ACT_INVALID then
-		self:GetControllingPlayer():AddVCDSequenceToGestureSlot( GESTURE_SLOT_FLINCH , seq , 0 , true )
-	end
-	
 end
 
 function ENT:GetDirection()
@@ -417,7 +429,7 @@ function ENT.HookTraceFilter( ent )
 		return true
 	end
 	
-	if ent:IsPlayer() or ent:IsNPC() or ent:IsRagdoll() then
+	if ent:IsPlayer() or ent:IsNPC() or ent:IsRagdoll() or ent:GetClass() == "sent_grapplehook_bpack" then
 		return false
 	end
 	
@@ -434,7 +446,13 @@ end
 
 function ENT:DoHookTrace( checkdetach )
 	local startpos = self:GetPos()
-	local normal = self:GetUp()
+	local normal = self:GetForward()
+	
+	if not self:IsCarried() then
+		local hookpos , hookang = self:GetHookAttachment()
+		startpos = hookpos
+		normal = hookang:Forward()
+	end
 	
 	if checkdetach then
 		normal = self:GetDirection()
@@ -465,14 +483,13 @@ function ENT:DoHookTrace( checkdetach )
 		mins = self.HookHullMins,
 		maxs = self.HookHullMaxs
 	}
-
 	
 	return util.TraceHull( tr )
 end
 
 function ENT:ShouldStopPulling( mv )
 	if not self:IsCarried() then
-		return false
+		return not self:GetButtonPressed()
 	end
 	
 	return not self:IsKeyDown( mv )
@@ -516,24 +533,12 @@ end
 if SERVER then
 
 	function ENT:OnAttach( ply )
+		self:SetButtonPressed( false )
 	end
 	
 	function ENT:OnDrop( ply , forced )
+		self:SetButtonPressed( self:IsKeyDown() )
 	end
-	
-	--Nevermind! I found a wheel which has mostly the shape I want, so screw this hacky shit
-	--[[
-	function ENT:DoInitPhysics()
-		--TODO: do we actually want a physics object that acts like a ring or something? that would be nice
-		--here's what I can do, set the model to something that has a similar shape, and then get the mesh from it and modify it with Lua or something
-		
-		self:PhysicsInitBox( self.MinBounds , self.MaxBounds )
-		self:SetCollisionBounds( self.MinBounds , self.MaxBounds )
-		self:SetMoveType( MOVETYPE_VPHYSICS )
-		self:SetSolid( SOLID_VPHYSICS )
-		self:PhysWake()
-	end
-	]]
 	
 	function ENT:OnInitPhysics( physobj )
 		self:StartMotionController()
@@ -556,70 +561,99 @@ if SERVER then
 		
 	end
 	
+	function ENT:OnTakeDamage( dmginfo )
+		if not self:IsCarried() then
+			
+			if dmginfo:IsDamageType( DMG_CLUB ) then
+				self:SetButtonPressed( not self:GetButtonPressed() )
+				if IsValid( self:GetPhysicsObject() ) then
+					self:GetPhysicsObject():EnableMotion( true )
+				end
+			else
+				--only take physics damage from damage types that don't whack the button
+				if IsValid( self:GetPhysicsObject() ) then
+					self:TakePhysicsDamage( dmginfo )
+				end
+			end
+		end
+	end
 else
 	
-	function ENT:CreateModels()
+	function ENT:HandleModels()
 		--create all the models, use EnableMatrix to setup the offsets because it's easier and faster than doing that everytime, at least in this static case
 		--we might have to do it dynamically on the hook if I want to do some fancy animations, but considering it's small and you barely see it, it's not worth it
-		self.CSModels = {}
 		
-		local bodybasematrix = Matrix()
-		bodybasematrix:Scale( Vector( 0.25 , 0.25 , 0.5 ) )
+		if not IsValid( self.CSModels["bodybase"] ) then
+			local bodybasematrix = Matrix()
+			bodybasematrix:Scale( Vector( 0.25 , 0.25 , 0.5 ) )
+			
+			self.CSModels["bodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
+			self.CSModels["bodybase"]:SetNoDraw( true )
+			self.CSModels["bodybase"]:EnableMatrix( "RenderMultiply" , bodybasematrix )
+		end
 		
-		self.CSModels["bodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
-		self.CSModels["bodybase"]:SetNoDraw( true )
-		self.CSModels["bodybase"]:EnableMatrix( "RenderMultiply" , bodybasematrix )
+		if not IsValid( self.CSModels["backbodybase"] ) then
+			local backbasematrix = Matrix()
+			backbasematrix:Scale( Vector( 0.25 , 0.25 , 0.5 ) )
+			backbasematrix:SetAngles( Angle( 0 , 180 , 0 ) )
+			
+			self.CSModels["backbodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
+			self.CSModels["backbodybase"]:SetNoDraw( true )
+			self.CSModels["backbodybase"]:EnableMatrix( "RenderMultiply" , backbasematrix )
+		end
 		
-		local backbasematrix = Matrix()
-		backbasematrix:Scale( Vector( 0.25 , 0.25 , 0.5 ) )
-		backbasematrix:SetAngles( Angle( 0 , 180 , 0 ) )
-		
-		self.CSModels["backbodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
-		self.CSModels["backbodybase"]:SetNoDraw( true )
-		self.CSModels["backbodybase"]:EnableMatrix( "RenderMultiply" , backbasematrix )
 				
-		local hookmatrix = Matrix()
-		hookmatrix:SetAngles( Angle( 90 , 0 , 0 ) )
-		hookmatrix:Scale( Vector( 1 , 1 , 0.1 ) / 4 )
-		
-		self.CSModels.Hook = {}
-		self.CSModels.Hook["hook"] = ClientsideModel( "models/props_lab/jar01b.mdl" )
-		self.CSModels.Hook["hook"]:SetNoDraw( true )
-		self.CSModels.Hook["hook"]:EnableMatrix( "RenderMultiply" , hookmatrix )
+		if not IsValid( self.CSModels.Hook["hook"] ) then
+			local hookmatrix = Matrix()
+			hookmatrix:SetAngles( Angle( 90 , 0 , 0 ) )
+			hookmatrix:Scale( Vector( 1 , 1 , 0.1 ) / 4 )
+
+			self.CSModels.Hook["hook"] = ClientsideModel( "models/props_lab/jar01b.mdl" )
+			self.CSModels.Hook["hook"]:SetNoDraw( true )
+			self.CSModels.Hook["hook"]:EnableMatrix( "RenderMultiply" , hookmatrix )
+		end
 		
 		--yes this is lame, yes I don't care
 		
-		local hookgibmatrixleft = Matrix()
-		hookgibmatrixleft:SetScale( Vector( 1 , 1 , 5 ) / 6 )
-		hookgibmatrixleft:SetAngles( Angle( -45 + 90 , 0 , 90 ) )
-		hookgibmatrixleft:SetTranslation( Vector( 0.5 , 0 , -1 ) )
-		self.CSModels.Hook["hookgibleft"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
-		self.CSModels.Hook["hookgibleft"]:SetNoDraw( true )
-		self.CSModels.Hook["hookgibleft"]:EnableMatrix( "RenderMultiply" , hookgibmatrixleft )
-
-		local hookgibmatrixright = Matrix()
-		hookgibmatrixright:SetScale( Vector( 1 , 1 , 5 ) / 6 )
-		hookgibmatrixright:SetAngles( Angle( 0 , -45 , 0 ) )
-		hookgibmatrixright:SetTranslation( Vector( 0.5 , -1 , 0 ) )
-		self.CSModels.Hook["hookgibright"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
-		self.CSModels.Hook["hookgibright"]:SetNoDraw( true )
-		self.CSModels.Hook["hookgibright"]:EnableMatrix( "RenderMultiply" , hookgibmatrixright )
+		if not IsValid( self.CSModels.Hook["hookgibleft"] ) then
+			local hookgibmatrixleft = Matrix()
+			hookgibmatrixleft:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+			hookgibmatrixleft:SetAngles( Angle( -45 + 90 , 0 , 90 ) )
+			hookgibmatrixleft:SetTranslation( Vector( 0.5 , 0 , -1 ) )
+			self.CSModels.Hook["hookgibleft"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
+			self.CSModels.Hook["hookgibleft"]:SetNoDraw( true )
+			self.CSModels.Hook["hookgibleft"]:EnableMatrix( "RenderMultiply" , hookgibmatrixleft )
+		end
 		
-		local hookgibmatrixup = Matrix()
-		hookgibmatrixup:SetScale( Vector( 1 , 1 , 5 ) / 6 )
-		hookgibmatrixup:SetAngles( Angle( -45 , 0 , -90 ) )
-		hookgibmatrixup:SetTranslation( Vector( 0.5, 0 , 1 ) )
-		self.CSModels.Hook["hookgibup"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
-		self.CSModels.Hook["hookgibup"]:SetNoDraw( true )
-		self.CSModels.Hook["hookgibup"]:EnableMatrix( "RenderMultiply" , hookgibmatrixup )
+		if not IsValid( self.CSModels.Hook["hookgibright"] ) then
+			local hookgibmatrixright = Matrix()
+			hookgibmatrixright:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+			hookgibmatrixright:SetAngles( Angle( 0 , -45 , 0 ) )
+			hookgibmatrixright:SetTranslation( Vector( 0.5 , -1 , 0 ) )
+			self.CSModels.Hook["hookgibright"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
+			self.CSModels.Hook["hookgibright"]:SetNoDraw( true )
+			self.CSModels.Hook["hookgibright"]:EnableMatrix( "RenderMultiply" , hookgibmatrixright )
+		end
 		
-		local hookgibmatrixdown = Matrix()
-		hookgibmatrixdown:SetScale( Vector( 1 , 1 , 5 ) / 6 )
-		hookgibmatrixdown:SetAngles( Angle( 0 , 90 - 45 , 180 ) )
-		hookgibmatrixdown:SetTranslation( Vector( 0.5, 1 , 0 ) )
-		self.CSModels.Hook["hookgibdown"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
-		self.CSModels.Hook["hookgibdown"]:SetNoDraw( true )
-		self.CSModels.Hook["hookgibdown"]:EnableMatrix( "RenderMultiply" , hookgibmatrixdown )
+		if not IsValid( self.CSModels.Hook["hookgibup"] ) then
+			local hookgibmatrixup = Matrix()
+			hookgibmatrixup:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+			hookgibmatrixup:SetAngles( Angle( -45 , 0 , -90 ) )
+			hookgibmatrixup:SetTranslation( Vector( 0.5, 0 , 1 ) )
+			self.CSModels.Hook["hookgibup"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
+			self.CSModels.Hook["hookgibup"]:SetNoDraw( true )
+			self.CSModels.Hook["hookgibup"]:EnableMatrix( "RenderMultiply" , hookgibmatrixup )
+		end
+		
+		if not IsValid( self.CSModels.Hook["hookgibdown"] ) then
+			local hookgibmatrixdown = Matrix()
+			hookgibmatrixdown:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+			hookgibmatrixdown:SetAngles( Angle( 0 , 90 - 45 , 180 ) )
+			hookgibmatrixdown:SetTranslation( Vector( 0.5, 1 , 0 ) )
+			self.CSModels.Hook["hookgibdown"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
+			self.CSModels.Hook["hookgibdown"]:SetNoDraw( true )
+			self.CSModels.Hook["hookgibdown"]:EnableMatrix( "RenderMultiply" , hookgibmatrixdown )
+		end
 	end
 	
 	function ENT:RemoveModels()
