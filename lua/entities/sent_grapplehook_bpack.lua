@@ -590,6 +590,7 @@ else
 			self.CSModels["bodybase"] = ClientsideModel( "models/props_lab/teleportring.mdl" )
 			self.CSModels["bodybase"]:SetNoDraw( true )
 			self.CSModels["bodybase"]:EnableMatrix( "RenderMultiply" , bodybasematrix )
+			
 		end
 		
 		if not IsValid( self.CSModels["backbodybase"] ) then
@@ -617,7 +618,7 @@ else
 		
 		if not IsValid( self.CSModels.Hook["hookgibleft"] ) then
 			local hookgibmatrixleft = Matrix()
-			hookgibmatrixleft:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+			hookgibmatrixleft:SetScale( Vector( 1 , 1 , 1 ) / 6 )
 			hookgibmatrixleft:SetAngles( Angle( -45 + 90 , 0 , 90 ) )
 			hookgibmatrixleft:SetTranslation( Vector( 0.5 , 0 , -1 ) )
 			self.CSModels.Hook["hookgibleft"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
@@ -627,7 +628,7 @@ else
 		
 		if not IsValid( self.CSModels.Hook["hookgibright"] ) then
 			local hookgibmatrixright = Matrix()
-			hookgibmatrixright:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+			hookgibmatrixright:SetScale( Vector( 1 , 1 , 1 ) / 6 )
 			hookgibmatrixright:SetAngles( Angle( 0 , -45 , 0 ) )
 			hookgibmatrixright:SetTranslation( Vector( 0.5 , -1 , 0 ) )
 			self.CSModels.Hook["hookgibright"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
@@ -637,7 +638,7 @@ else
 		
 		if not IsValid( self.CSModels.Hook["hookgibup"] ) then
 			local hookgibmatrixup = Matrix()
-			hookgibmatrixup:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+			hookgibmatrixup:SetScale( Vector( 1 , 1 , 1 ) / 6 )
 			hookgibmatrixup:SetAngles( Angle( -45 , 0 , -90 ) )
 			hookgibmatrixup:SetTranslation( Vector( 0.5, 0 , 1 ) )
 			self.CSModels.Hook["hookgibup"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
@@ -647,7 +648,7 @@ else
 		
 		if not IsValid( self.CSModels.Hook["hookgibdown"] ) then
 			local hookgibmatrixdown = Matrix()
-			hookgibmatrixdown:SetScale( Vector( 1 , 1 , 5 ) / 6 )
+			hookgibmatrixdown:SetScale( Vector( 1 , 1 , 1 ) / 6 )
 			hookgibmatrixdown:SetAngles( Angle( 0 , 90 - 45 , 180 ) )
 			hookgibmatrixdown:SetTranslation( Vector( 0.5, 1 , 0 ) )
 			self.CSModels.Hook["hookgibdown"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
