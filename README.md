@@ -15,4 +15,4 @@ Head over to the wiki for a small tutorial on how to create one.
 
 ======================
 
-I'll try to make something to auto generate documentation for functions for the wiki, right now I can't be arsed manually mantaining this.
+I'll try to make something to auto generate documentation for functions for the wiki, but the documentation right now is good enough.
