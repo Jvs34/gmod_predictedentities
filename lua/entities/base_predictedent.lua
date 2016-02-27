@@ -6,6 +6,8 @@ AddCSLuaFile()
 	
 	For instance you could make a jetpack that flies off when the equipping player dies, or you can make a controllable plane but still allow
 	full movement on the player
+	
+	This file is licensed under the MIT license, so go nuts.
 ]]
 
 DEFINE_BASECLASS( "base_entity" )
