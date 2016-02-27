@@ -9,6 +9,8 @@ I think of this entity base as complete, I can't really think of any other featu
 
 However, feel free to leave an issue to have something implemented or even a pull request.
 
+The license is MIT for the entity base only, obviously.
+
 ======================
 
 Head over to the wiki for a small tutorial on how to create one.
