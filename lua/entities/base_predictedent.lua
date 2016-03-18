@@ -185,6 +185,9 @@ function ENT:Initialize()
 		
 		language.Add( self:GetClass() , self.PrintName )
 		language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
+		
+		--internally this returns the original convar if it was already created, so it's not that big of a deal, this could be done in a better way however
+		self.ConfigurableConVar = CreateConVar( self:GetConVarName() , self:GetKey() , FCVAR_ARCHIVE + FCVAR_USERINFO , "Configures the key for "..self:GetClass() )
 	end
 end
 
@@ -270,6 +273,7 @@ if SERVER then
 		end
 		
 	end
+	
 	--although we should probably do validity checks on them first, but considering this would *probably* be called from maps it should be ok
 	--copied from env_skypaint, allows to have the DT vars set as if they were key values
 	
@@ -400,6 +404,14 @@ if SERVER then
 		
 		self.SetOnPlayer( activator , self:GetSlotName() , self )
 		self:SetControllingPlayer( activator )
+		
+		--if the player has a customized key for this entity, use that instead
+		--we do this here so that OnAttach can make use of it
+		local plykey = self:GetControllingPlayerConVarKey()
+		
+		if self:IsKeyAllowed( plykey ) and plykey ~= self:GetKey() then
+			self:SetKey( plykey )
+		end
 		
 		self:OnAttach( activator , forced )
 		return true
@@ -532,6 +544,10 @@ if SERVER then
 
 else
 
+	function ENT:GetConVar()
+		return self.ConfigurableConVar
+	end
+	
 	function ENT:InternalHandleLoopingSounds( calledinprediction )
 		--the calledinprediction variable makes it so HandleLoopingSounds is called from ENT:Think instead
 		--and yes, this will never be set at all during singleplayer because there's no prediction
@@ -602,19 +618,33 @@ else
 	
 	function ENT:HandleButtonBind( ply , cmd )
 		
+		--this is a one way server to client saving, the reason I do this is because the user should usually change the value from
+		--client to server with the edit system, it still goes to the server, but not to the cvar first, so we save it from the client to the cvar
+		
+		--basically we just use the cvar as a way to save the button, but it does come at the cost of not being able to update the cvar and have it update on the
+		--entity, this will probably change in the future
+		local mykey = self:GetKey()
+		
+		if self:GetInButton() > 0 then
+			local cv = self:GetConVar()
+			
+			if cv then
+				if ( mykey ~= cv:GetInt() and self:IsKeyAllowed( mykey ) ) or not self:IsKeyAllowed( cv:GetInt() ) then
+					cv:SetInt( mykey )
+				end
+			end
+		end
+		
 		--don't even bother if the InButton isn't set or the player is already pressing the button on his own
 		--maybe someone wants the entity to be activated by an IN_ enum used by player movement or something
 		
 		if self:GetInButton() > 0 and bit.band( cmd:GetButtons() , self:GetInButton() ) == 0 then
-			local mykey = self:GetKey()
+			
 			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
-				
 				--these checks are clientside, so they're not really *SECURE* per say, but using PlayerButtonDown/Up is kind of unreliable too ( for prediction at least )
 				--plus the coder shouldn't really rely on this for security, but more of an utility
-				if self:IsValidButton( mykey ) and input.IsButtonDown( mykey ) then
-					if self:IsKeyAllowed( mykey ) then
-						cmd:SetButtons( bit.bor( cmd:GetButtons() , self:GetInButton() ) )
-					end
+				if self:IsKeyAllowed( mykey ) and input.IsButtonDown( mykey ) then
+					cmd:SetButtons( bit.bor( cmd:GetButtons() , self:GetInButton() ) )
 				end
 			end
 		end
@@ -763,6 +793,25 @@ function ENT:IsKeyAllowed( btn )
 	end
 	
 	return self:IsValidButton( btn )
+end
+
+function ENT:GetConVarName()
+	return "prdent_key_"..self:GetClass()
+end
+
+function ENT:GetControllingPlayerConVarKey()
+	local defaultkey = BUTTON_CODE_NONE
+	
+	if not self:IsCarried() then
+		return defaultkey
+	end
+	
+	if SERVER then
+		return self:GetControllingPlayer():GetInfoNum( self:GetConVarName() , defaultkey )
+	else
+		--the clientside implementation of GetInfoNum makes a GetConVar lookup everytime, so use the cached one instead
+		self:GetConVar():GetInt()
+	end
 end
 
 function ENT:HandleCalcMainActivity( ply , velocity )
