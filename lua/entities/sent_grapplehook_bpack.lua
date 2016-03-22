@@ -161,9 +161,8 @@ function ENT:Think()
 		self:HandleModels()
 	end
 	
-	BaseClass.Think( self )
 	
-	return true
+	return BaseClass.Think( self )
 end
 
 function ENT:Detach( forced )
