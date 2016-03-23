@@ -46,11 +46,13 @@ ENT.AttachmentInfo = {
 }
 ]]
 
---temporary system because willox is tired of the whole id offsets shenanigans, and so am I
---should probably port this to the css weapon base as well
---this is all going to change once vinh is done with prediction on his new NWVars system, until then, this'll stay here
---actually, this'll stay here regardless, the editable thing garry added for the dt vars is quite neat
-
+--[[
+	This is a wrapper for NetworkVars/DTVars (same thing) so we can handle their slots properly for child classes instead
+	of having to modify them manually everytime something changes in order
+	
+	This could be switched to NWVars2 (vinh vars) but then I would have to hack in support for right-click editing, since that's
+	based on NetworkVars and some other getters
+]]
 function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , maxval , customelement , filt )
 	
 	if not self.DefinedDTVars[dttype] then
@@ -140,7 +142,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Entity" , "ControllingPlayer" )
 	self:DefineNWVar( "Bool" , "BeingHeld" )
 	self:DefineNWVar( "String" , "SlotName" )
-	self:DefineNWVar( "Float" , "NextFire" )
+	self:DefineNWVar( "Float" , "NextFire" ) --similar to primaryattack on a weapon
 	
 	--only allow the user to modify the button if the coder wants this entity to have an usable key
 	
@@ -567,16 +569,6 @@ else
 	end
 	
 	function ENT:IsCarriedByLocalPlayer( checkspectator )
-		
-		--moved this logic to IsCarriedBy
-		--[[
-		if checkspectator then
-			if LocalPlayer():GetObserverMode() ~= OBS_MODE_NONE then
-				return self:IsCarriedBy( LocalPlayer():GetObserverTarget() )
-			end
-		end
-		]]
-		
 		return self:IsCarriedBy( LocalPlayer() , checkspectator )
 	end
 	
