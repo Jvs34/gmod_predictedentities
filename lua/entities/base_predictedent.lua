@@ -87,7 +87,7 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 	
 	local edit = nil
 	
-	if editable and self.DefinedDTVars[dttype].EditableElement then
+	if editable	then
 		edit = {
 			KeyName = dtname:lower(),
 			Edit = {
@@ -398,6 +398,16 @@ if SERVER then
 			self:SetParent( activator )
 			self:SetOwner( activator )
 			self:SetTransmitWithParent( true )
+			
+			--[[
+			if self.DontTransmitToOthers then
+				--force a recheck of the transmission, so UpdateTransmitState() is called right away
+				self:AddEFlags( EFL_FORCE_CHECK_TRANSMIT )
+			else
+				self:SetTransmitWithParent( true )
+			end
+			]]
+			
 			self:SetNoDraw( true )
 			self:AddEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
@@ -435,6 +445,16 @@ if SERVER then
 			self:SetOwner( NULL )
 			self:InitPhysics()
 			self:SetTransmitWithParent( false )
+			
+			--[[
+			if self.DontTransmitToOthers then
+				--force a recheck during a drop
+				self:AddEFlags( EFL_FORCE_CHECK_TRANSMIT )
+			else
+				self:SetTransmitWithParent( false )
+			end
+			]]
+			
 			self:SetNoDraw( false )
 			self:RemoveEFlags( EFL_NO_PHYSCANNON_INTERACTION )
 		end
@@ -532,6 +552,8 @@ if SERVER then
 		
 		--HOW CONVENIENT!!! this hook is called before the client computes what he can see
 		--so we can simply use this before this entity gets recomputed for transmission
+		
+		--TODO: This will be removed and the ENT:UpdateTransmitState() below will be enabled once Willox is done with TRANSMIT_OWNERONLY
 		if self.DontTransmitToOthers and not game.SinglePlayer() then
 			
 			local shouldpreventtransmit = false
@@ -543,7 +565,20 @@ if SERVER then
 			self:SetPreventTransmit( ply , shouldpreventtransmit )
 		end
 	end
-
+	
+	--[[
+	function ENT:UpdateTransmitState()
+		
+		
+		if self.DontTransmitToOthers and self:IsCarried() then
+			return TRANSMIT_OWNERONLY
+		end
+		
+		
+		--don't return anything, default behaviour
+	end
+	]]
+	
 else
 
 	function ENT:GetConVar()
