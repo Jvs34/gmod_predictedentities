@@ -87,7 +87,7 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 	
 	local edit = nil
 	
-	if editable	then
+	if editable then
 		edit = {
 			KeyName = dtname:lower(),
 			Edit = {
