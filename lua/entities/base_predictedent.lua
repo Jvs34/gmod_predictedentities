@@ -868,6 +868,8 @@ function ENT:HandlePlayerButtonInternal( ply , btn , pressed )
 	if self:IsKeyAllowed( mykey ) and btn == mykey then
 		self:SetKeyPressed( pressed )
 	end
+	
+	self:PredictedPlayerButtonPress( ply , btn , pressed )
 end
 
 function ENT:HandlePredictedSetupMove( ply , mv , cmd )
@@ -912,6 +914,10 @@ function ENT:HandlePredictedHitGround( ply , inwater , onfloater , speed )
 end
 
 function ENT:PredictedStartCommand( ply , cmd )
+	--override me
+end
+
+function ENT:PredictedPlayerButtonPress( ply , btn , pressed )
 	--override me
 end
 
