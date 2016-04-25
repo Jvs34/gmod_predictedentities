@@ -20,6 +20,9 @@ ENT.PrintName = "Grappling hook Belt"
 if CLIENT then
 	ENT.CableMaterial = Material( "cable/cable2" )
 	--ENT.WireFrame = Material( "models/wireframe" )
+	
+	AccessorFunc( ENT , "NextHookPreview" , "NextHookPreview" )
+	AccessorFunc( ENT , "HookPreviewTrace" , "HookPreviewTrace" )
 else
 	ENT.ShowPickupNotice = true
 end
@@ -102,7 +105,6 @@ function ENT:Initialize()
 		
 		self:SetPullMode( 1 )
 		self:SetPullSpeed( 2000 )
-		self:SetInButton( 2 ^ 26 )	--after IN_ATTACK3 ( which is 2 ^ 25 )
 		self:SetKey( KEY_G )	--the starting key to trigger us
 		self:InitPhysics()
 		
@@ -119,6 +121,8 @@ function ENT:Initialize()
 	else
 		self.CSModels = {}
 		self.CSModels.Hook = {}
+		self:SetNextHookPreview( 0 )
+		self:SetHookPreviewTrace( nil )
 	end
 end
 
@@ -137,7 +141,6 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Vector" , "AttachedTo" )
 	self:DefineNWVar( "Vector" , "GrappleNormal" )
 	
-	self:DefineNWVar( "Bool" , "ButtonPressed" )
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
 	self:DefineNWVar( "Bool" , "HookMissed" )
@@ -159,6 +162,7 @@ function ENT:Think()
 	
 	if CLIENT then
 		self:HandleModels()
+		self:HandleHookPreview()
 	end
 	
 	
@@ -322,7 +326,7 @@ function ENT:HandleHook( predicted , ply , mv , usercmd )
 		return
 	end
 	
-	if self:IsKeyDown( mv ) or self:GetButtonPressed() then
+	if self:IsKeyDown( mv ) then
 		if self:GetNextFire() <= CurTime() then
 			self:FireHook()
 		end
@@ -487,10 +491,6 @@ function ENT:DoHookTrace( checkdetach )
 end
 
 function ENT:ShouldStopPulling( mv )
-	if not self:IsCarried() then
-		return not self:GetButtonPressed()
-	end
-	
 	return not self:IsKeyDown( mv )
 end
 
@@ -532,11 +532,9 @@ end
 if SERVER then
 
 	function ENT:OnAttach( ply )
-		self:SetButtonPressed( false )
 	end
 	
 	function ENT:OnDrop( ply , forced )
-		self:SetButtonPressed( self:IsKeyDown() )
 	end
 	
 	function ENT:OnInitPhysics( physobj )
@@ -564,7 +562,7 @@ if SERVER then
 		if not self:IsCarried() then
 			
 			if dmginfo:IsDamageType( DMG_CLUB ) then
-				self:SetButtonPressed( not self:GetButtonPressed() )
+				self:SetKeyPressed( not self:GetKeyPressed() )
 				if IsValid( self:GetPhysicsObject() ) then
 					self:GetPhysicsObject():EnableMotion( true )
 				end
@@ -668,6 +666,20 @@ else
 			if IsValid( v ) then
 				v:Remove()
 			end
+		end
+	end
+	
+	function ENT:HandleHookPreview()
+		--only when equipped
+		if not self:IsCarried() then
+			return
+		end
+		
+		if self:GetNextHookPreview() < UnPredictedCurTime() then
+			local tr = self:DoHookTrace()
+			
+			self:SetHookPreviewTrace( tr )
+			self:SetNextHookPreview( UnPredictedCurTime() + 0.05 )
 		end
 	end
 	
@@ -812,8 +824,25 @@ else
 		]]
 	end
 	
-	function ENT:DrawFirstPerson( ply , vm )
+	function ENT:DrawPreview()
+		--don't draw if we're still attached
+		if self:IsHookActive() then
+			return
+		end
+		
+		local tr = self:GetHookPreviewTrace()
+		if tr then
+			
+			
+			if tr.Hit then
+				self:DrawHook( tr.HitPos , tr.Normal:Angle() )
+			end
+			
+		end
+	end
 	
+	function ENT:DrawFirstPerson( ply , vm )
+		--self:DrawPreview()
 	end
 
 end

@@ -46,7 +46,6 @@ end
 function ENT:Initialize()
 	BaseClass.Initialize( self )
 	if SERVER then
-		self:SetInButton( IN_JUMP )
 		self:SetModel( "models/thrusters/jetpack.mdl" )
 		self:InitPhysics()
 		self:SetLongJumpSpeed( 550 )
@@ -109,7 +108,7 @@ function ENT:PredictedSetupMove( owner , data )
 	--:Crouching() only checks if the player is fully crouched, but not if he's in the middle of the crouching, that info is inaccessible from Lua
 	--so might as well check if the player is not crouched but still pressing IN_DUCK
 	
-	if not self:GetDoLongJump() and owner:OnGround() and not owner:Crouching() and owner:KeyDown( IN_DUCK ) and self:WasKeyPressed( data ) and owner:WaterLevel() == 0 then
+	if not self:GetDoLongJump() and owner:OnGround() and not owner:Crouching() and data:KeyDown( IN_DUCK ) and data:KeyPressed( IN_JUMP ) and owner:WaterLevel() == 0 then
 		if data:GetVelocity():Length2D() > owner:GetWalkSpeed() / 4 then
 			owner:SetGroundEntity( NULL )
 			self:SetDoLongJump( true )

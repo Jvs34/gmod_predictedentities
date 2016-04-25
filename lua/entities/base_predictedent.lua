@@ -146,8 +146,8 @@ function ENT:SetupDataTables()
 	
 	--only allow the user to modify the button if the coder wants this entity to have an usable key
 	
-	self:DefineNWVar( "Int" , "InButton" )
 	self:DefineNWVar( "Int" , "Key" , true , "Button" , BUTTON_CODE_NONE + 1 , BUTTON_CODE_LAST , "EditKey" )
+	self:DefineNWVar( "Bool" , "KeyPressed" )
 end
 
 function ENT:Initialize()
@@ -163,7 +163,10 @@ function ENT:Initialize()
 	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity )
 	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation )
 	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent )
-		
+	
+	self:InstallHook( "PlayerButtonDown" , self.HandlePlayerButtonDown ) --holding the button down
+	self:InstallHook( "PlayerButtonUp" , self.HandlePlayerButtonUp ) --unholding it
+	
 	if SERVER then
 		self:InstallHook( "SetupPlayerVisibility" , self.HandleEntityVisibility )
 		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
@@ -177,7 +180,6 @@ function ENT:Initialize()
 		end
 		
 		self:SetUseType( SIMPLE_USE )
-		self:SetInButton( 0 )	--set this to an IN_ enum ( using a raw number is fine, as long as it's below 32 bits )
 		self:SetKey( BUTTON_CODE_NONE )
 	else
 		self:InstallHook( "PreDrawEffects" , self.DrawFirstPersonInternal )
@@ -240,6 +242,7 @@ function ENT:Think()
 
 		--Ideally this would be handled on the callback of SetControllingPlayer clientside, but we don't have that yet
 		self:HandlePrediction()
+		self:HandleButtonBind()
 		self:InternalHandleLoopingSounds()
 	end
 	
@@ -424,6 +427,9 @@ if SERVER then
 		if self:IsKeyAllowed( plykey ) and plykey ~= self:GetKey() then
 			self:SetKey( plykey )
 		end
+		
+		--THIS IS VERY SUBJECTIVE
+		self:SetKeyPressed( false ) --only reset the button press state when equipped
 		
 		self:OnAttach( activator , forced )
 		return true
@@ -643,7 +649,7 @@ else
 		end
 	end
 	
-	function ENT:HandleButtonBind( ply , cmd )
+	function ENT:HandleButtonBind()
 		
 		--this is a one way server to client saving, the reason I do this is because the user should usually change the value from
 		--client to server with the edit system, it still goes to the server, but not to the cvar first, so we save it from the client to the cvar
@@ -652,29 +658,14 @@ else
 		--entity, this will probably change in the future
 		local mykey = self:GetKey()
 		
-		if self:GetInButton() > 0 then
-			local cv = self:GetConVar()
-			
-			if cv then
-				if ( mykey ~= cv:GetInt() and self:IsKeyAllowed( mykey ) ) or not self:IsKeyAllowed( cv:GetInt() ) then
-					cv:SetInt( mykey )
-				end
+		local cv = self:GetConVar()
+		
+		if cv then
+			if ( mykey ~= cv:GetInt() and self:IsKeyAllowed( mykey ) ) or not self:IsKeyAllowed( cv:GetInt() ) then
+				cv:SetInt( mykey )
 			end
 		end
-		
-		--don't even bother if the InButton isn't set or the player is already pressing the button on his own
-		--maybe someone wants the entity to be activated by an IN_ enum used by player movement or something
-		
-		if self:GetInButton() > 0 and bit.band( cmd:GetButtons() , self:GetInButton() ) == 0 then
-			
-			if not ( gui.IsGameUIVisible() or ply:IsTyping() ) then
-				--these checks are clientside, so they're not really *SECURE* per say, but using PlayerButtonDown/Up is kind of unreliable too ( for prediction at least )
-				--plus the coder shouldn't really rely on this for security, but more of an utility
-				if self:IsKeyAllowed( mykey ) and input.IsButtonDown( mykey ) then
-					cmd:SetButtons( bit.bor( cmd:GetButtons() , self:GetInButton() ) )
-				end
-			end
-		end
+
 	end
 	
 	function ENT:DrawFirstPersonInternal()
@@ -757,36 +748,8 @@ function ENT:IsCarriedBy( ply , checkspectator )
 	return IsValid( ply ) and ply == self:GetControllingPlayer() and self.GetOnPlayer( self:GetControllingPlayer() , self:GetSlotName() ) == self
 end
 
-function ENT:IsKeyDown( mv )
-
-	if self:GetInButton() <= 0 then
-		return false
-	end
-	
-	if self:IsCarried() then
-		if mv then
-			return mv:KeyDown( self:GetInButton() )
-		end
-		return self:GetControllingPlayer():KeyDown( self:GetInButton() )
-	end
-	
-	return false
-end
-
-function ENT:WasKeyPressed( mv )
-
-	if self:GetInButton() <= 0 then
-		return false
-	end
-	
-	if self:IsCarried() then
-		if mv then
-			return mv:KeyPressed( self:GetInButton() )
-		end
-		return self:GetControllingPlayer():KeyPressed( self:GetInButton() )
-	end
-	
-	return false
+function ENT:IsKeyDown()
+	return self:GetKeyPressed()
 end
 
 --these functions should totally not be tied to this SENT, but I don't want to go out of my way to add them to an util file
@@ -880,16 +843,26 @@ end
 
 function ENT:HandlePredictedStartCommand( ply , cmd )
 	if self:IsCarriedBy( ply ) then
-	
-		--allows the user to have a fake keybind by manually checking his buttons instead of having the player bind a button to a command ( which most users don't even know anything about ).
-		--he can configure this key at anytime by editing the entity ( if it allows it in the first place )
-		
-		--startcommand is also called clientside in singleplayer, so this is fine
-		if CLIENT then
-			self:HandleButtonBind( ply , cmd )
-		end
-		
 		self:PredictedStartCommand( ply , cmd )
+	end
+end
+
+function ENT:HandlePlayerButtonDown( ply , btn )
+	if self:IsCarriedBy( ply ) then
+		self:HandlePlayerButtonInternal( ply , btn , true )
+	end
+end
+
+function ENT:HandlePlayerButtonUp( ply , btn )
+	if self:IsCarriedBy( ply ) then
+		self:HandlePlayerButtonInternal( ply , btn , false )
+	end
+end
+
+function ENT:HandlePlayerButtonInternal( ply , btn , pressed )
+	local mykey = self:GetKey()
+	if self:IsKeyAllowed( mykey ) and btn == mykey then
+		self:SetKeyPressed( pressed )
 	end
 end
 
