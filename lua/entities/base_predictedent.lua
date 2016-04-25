@@ -792,16 +792,20 @@ end
 function ENT:GetControllingPlayerConVarKey()
 	local defaultkey = BUTTON_CODE_NONE
 	
-	if not self:IsCarried() then
-		return defaultkey
+	if self:IsCarried() then
+		if SERVER then
+			return self:GetControllingPlayer():GetInfoNum( self:GetConVarName() , defaultkey )
+		else
+			--the clientside implementation of GetInfoNum makes a GetConVar lookup everytime, so use the cached one instead
+			local cv = self:GetConVar()
+			
+			if cv then
+				return cv:GetInt()
+			end
+		end
 	end
 	
-	if SERVER then
-		return self:GetControllingPlayer():GetInfoNum( self:GetConVarName() , defaultkey )
-	else
-		--the clientside implementation of GetInfoNum makes a GetConVar lookup everytime, so use the cached one instead
-		self:GetConVar():GetInt()
-	end
+	return defaultkey
 end
 
 function ENT:HandleCalcMainActivity( ply , velocity )
