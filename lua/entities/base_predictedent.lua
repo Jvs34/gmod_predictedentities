@@ -422,6 +422,8 @@ if SERVER then
 		
 		--if the player has a customized key for this entity, use that instead
 		--we do this here so that OnAttach can make use of it
+		
+		--this also allows us to prevent the key from another user to be written clientside and override ours
 		local plykey = self:GetControllingPlayerConVarKey()
 		
 		if self:IsKeyAllowed( plykey ) and plykey ~= self:GetKey() then
@@ -658,6 +660,7 @@ else
 		--entity, this will probably change in the future
 		local mykey = self:GetKey()
 		
+		--can't use GetControllingPlayerConVarKey as I also need to SetInt on it
 		local cv = self:GetConVar()
 		
 		if cv then
@@ -721,6 +724,7 @@ end
 
 --these are here to "unify" our two calls to SetNWEntity and GetNWEntity
 --these might be called from pe_drop and some other stuff, so we can't rely on the entity itself being present, as lame as that is
+--the alternative would be to have these as global, which would be lamer
 function ENT.SetOnPlayer( ply , slot , ent )
 	ply:SetNW2Entity( slot , ent )
 end
