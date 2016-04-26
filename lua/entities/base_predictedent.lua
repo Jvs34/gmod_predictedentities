@@ -980,26 +980,24 @@ function ENT:BackupMoveData( mv )
 	
 	local sv = {}
 	--save the movedata by name on the table, then go trough the metatable to get the setters and set values to empty ones
-	sv.Origin =	mv:GetOrigin()
-	sv.Velocity = mv:GetVelocity()
-	sv.Angles = mv:GetAngles()
-	sv.OldAngles = mv:GetOldAngles()
-	sv.AbsMoveAngles = mv:GetAbsMoveAngles()
-	sv.MoveAngles = mv:GetMoveAngles()
-	sv.MaxSpeed = mv:GetMaxSpeed()
-	sv.MaxClientSpeed = mv:GetMaxClientSpeed()
-	sv.Buttons = mv:GetButtons()
-	sv.OldButtons = mv:GetOldButtons()
-	sv.ImpulseCommand = mv:GetImpulseCommand()
-	sv.ForwardSpeed = mv:GetForwardSpeed()
-	sv.SideSpeed = mv:GetSideSpeed()
-	sv.UpSpeed = mv:GetUpSpeed()
-	sv.ConstraintRadius = mv:GetConstraintRadius()
 	
-	for i , v in pairs( sv ) do
-		local setter = movedatameta["Set"..i]
-		if setter and emptyvalues[TypeID( v )] ~= nil then
-			setter( mv , emptyvalues[TypeID( v )] * 1 )
+	for i , v in pairs( movedatameta ) do
+		--see if this function has a pattern like "Get*" or whatever
+		--then strip out "Get" and add it here
+		local functionname = i
+		if functionname:find( "^Get" ) then
+			local functionnamestripped = functionname:gsub( "^Get" , "" )
+			
+			local backupvalue = v( mv ) --call the metatable function with the cmovedata as the argument
+			
+			sv[functionnamestripped] = backupvalue
+			
+			--now call the setter to clean all the values on the cmovedata
+			local setter = movedatameta["Set"..functionnamestripped]
+			
+			if setter and emptyvalues[TypeID( backupvalue )] ~= nil then
+				setter( mv , emptyvalues[TypeID( backupvalue )] * 1 )
+			end
 		end
 	end
 	
