@@ -1103,23 +1103,23 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 	end
 	
 	if SERVER then
-	
-		local plys = {}
+		
+		local plys = RecipientFilter()
+		
 		if IsValid( activator ) and not predicted and not activator:IsBot() then
-			plys = activator
+			plys:AddPlayer( activator )
 		else
-			for i , v in ipairs( player.GetHumans() ) do
-				
-				if predicted and self:IsCarriedBy( v ) then
-					continue
-				end
-				
-				plys[#plys + 1] = v
-			end
 			
-			if #plys == 0 then
-				return
+			plys:AddPVS( self:GetPos() )
+			
+			if predicted and IsValid( self:GetControllingPlayer() ) then
+				plys:RemovePlayer( self:GetControllingPlayer() )
 			end
+
+		end
+					
+		if plys:GetCount() == 0 then
+			return
 		end
 		
 		net.Start( "pe_playsound" )

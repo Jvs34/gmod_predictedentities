@@ -19,7 +19,6 @@ ENT.PrintName = "Grappling hook Belt"
 
 if CLIENT then
 	ENT.CableMaterial = Material( "cable/cable2" )
-	--ENT.WireFrame = Material( "models/wireframe" )
 	
 	AccessorFunc( ENT , "NextHookPreview" , "NextHookPreview" )
 	AccessorFunc( ENT , "HookPreviewTrace" , "HookPreviewTrace" )
@@ -36,7 +35,6 @@ ENT.HookHullMins = Vector( -2 , -2 , -2 )
 ENT.HookHullMaxs = ENT.HookHullMins * -1
 ENT.HookCableSize = 0.5
 
---TODO: position ourselves on the player's belt
 ENT.AttachmentInfo = {
 	BoneName = "ValveBiped.Bip01_Spine1",
 	OffsetVec = Vector( 0 , 2.5 , 0 ),
@@ -48,15 +46,14 @@ ENT.HookAttachmentInfo = {
 	OffsetAng = angle_zero,
 }
 
---[[
 sound.Add( {
 	name = "grapplehook.hit",
-	channel = CHAN_ITEM,
-	volume = 0.7,
+	channel = CHAN_BODY,
+	volume = 1,
 	level = 75,
-	sound = "^vehicles/digger_grinder_loop1.wav"
+	pitch = 115,
+	sound = ")npc/roller/blade_cut.wav"
 })
-]]
 
 sound.Add( {
 	name = "grapplehook.launch",
@@ -64,8 +61,10 @@ sound.Add( {
 	volume = 1,
 	level = 75,
 	pitch = 150,
-	sound = "weapons/ar2/npc_ar2_altfire.wav"
-	--sound = "ambient/machines/catapult_throw.wav"
+	--pitch = 180,
+	sound = ")weapons/crossbow/fire1.wav"
+	--sound = ")weapons/ar2/npc_ar2_altfire.wav" --this one is also nice
+	--sound = "ambient/machines/catapult_throw.wav" --too annoying
 })
 
 sound.Add( {
@@ -263,7 +262,7 @@ function ENT:HandleSounds( predicted )
 				--play the hit sound only the controlling player and one on the world position
 				
 				if IsValid( self:GetControllingPlayer() ) then
-					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , predicted , self:GetControllingPlayer() )
+					self:EmitPESound( "grapplehook.hit" , nil , nil , nil , CHAN_BODY , predicted , self:GetControllingPlayer() )
 				end
 				
 				if IsFirstTimePredicted() then
@@ -283,7 +282,7 @@ function ENT:HandleSounds( predicted )
 				end
 				
 				if SERVER then
-					self:EmitPESound( "NPC_CombineMine.CloseHooks" , nil , nil , nil , CHAN_BODY , self:IsCarried() , self:GetControllingPlayer() , self:GetAttachedTo() )
+					self:EmitPESound( "grapplehook.hit" , nil , nil , nil , CHAN_BODY , self:IsCarried() , self:GetControllingPlayer() , self:GetAttachedTo() )
 				end
 				
 				self:SetAttachSoundPlayed( true )
@@ -782,11 +781,7 @@ else
 				v:DrawModel( flags )
 			end
 		end
-		
-		--[[
-		render.SetMaterial( self.WireFrame )
-		render.DrawBox( pos, angle_zero, self.HookHullMins, self.HookHullMaxs, color_white, true )
-		]]
+
 	end
 	
 	function ENT:Draw( flags )
@@ -817,11 +812,7 @@ else
 				v:DrawModel( flags )
 			end
 		end
-		
-		--[[
-		render.SetMaterial( self.WireFrame )
-		render.DrawBox( pos, ang, self.MinBounds , self.MaxBounds, color_white, true )
-		]]
+
 	end
 	
 	function ENT:DrawPreview()
