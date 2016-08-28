@@ -20,6 +20,21 @@ ENT.PrintName = "Grappling hook Belt"
 if CLIENT then
 	ENT.CableMaterial = Material( "cable/cable2" )
 	
+	
+	ENT.ChainTexture = GetRenderTarget( "ChainTexture" , 512 , 512 , false )
+
+	ENT.ChainMaterial = CreateMaterial( "ChainMaterial" , 
+	"UnlitGeneric" , 
+	{
+		["$basetexture"] = "cable/cable2",	
+		["$vertexcolor"] = 1,
+		["$vertexalpha"] = 1,
+	})
+	
+	ENT.ChainMaterial:SetTexture( "$basetexture" , ENT.ChainTexture )
+	ENT.ChainModel = nil
+	ENT.RenderedChainTexture = false
+	
 	AccessorFunc( ENT , "NextHookPreview" , "NextHookPreview" )
 	AccessorFunc( ENT , "HookPreviewTrace" , "HookPreviewTrace" )
 else
@@ -73,6 +88,14 @@ sound.Add( {
 	volume = 0.7,
 	level = 75,
 	sound = "^vehicles/digger_grinder_loop1.wav"
+})
+
+sound.Add( {
+	name = "grapplehook.chainreelsound",
+	channel = CHAN_WEAPON,
+	volume = 0.7,
+	level = 75,
+	sound = "^physics/metal/metal_chainlink_scrape_rough_loop1.wav"
 })
 
 sound.Add( {
@@ -143,6 +166,7 @@ function ENT:SetupDataTables()
 	self:DefineNWVar( "Bool" , "IsAttached" )
 	self:DefineNWVar( "Bool" , "AttachSoundPlayed" )
 	self:DefineNWVar( "Bool" , "HookMissed" )
+	self:DefineNWVar( "Bool" , "UseChainRope" , true, "Use Chain" )
 	
 	
 	self:DefineNWVar( "Entity" , "HookHelper" )
@@ -300,6 +324,10 @@ function ENT:HandleLoopingSounds()
 		self.ReelSound = CreateSound( self , "grapplehook.reelsound" )
 	end
 	
+	if not self.ChainReelSound then
+		self.ChainReelSound = CreateSound( self , "grapplehook.chainreelsound" )
+	end
+	
 	if self:GetGrappleFraction() > 0 then
 		if self:GetAttachTime() < CurTime() then	
 			local reelpitch = 200
@@ -310,13 +338,28 @@ function ENT:HandleLoopingSounds()
 			end
 			
 			self.ReelSound:PlayEx( 0.3 , reelpitch )
+			
+			if self:GetUseChainRope() then
+				reelpitch = 100 + Lerp( self:GetGrappleFraction() , 55 , 20 )
+				self.ChainReelSound:PlayEx( 1 , reelpitch )
+			else
+				self.ChainReelSound:Stop()
+			end
+			
 			self.LaunchSound:Stop()
 		else
 			self.LaunchSound:PlayEx( 1 , 50 / self.HookCableSize )
+			
+			if self:GetUseChainRope() then
+				self.ChainReelSound:PlayEx( 1 , 100 )
+			else
+				self.ChainReelSound:Stop()
+			end
 		end
 	else
 		self.LaunchSound:Stop()
 		self.ReelSound:Stop()
+		self.ChainReelSound:Stop()
 	end
 end
 
@@ -701,20 +744,27 @@ else
 		end
 		
 		--other players don't need your fancy ass swirling rope, maybe they would like to, but the fps drop wouldn't be nice, so let's just leave it at that
-		local dosway = self:IsCarriedByLocalPlayer( true ) and self:GetIsAttached()
+		local dosway = self:IsCarriedByLocalPlayer( true ) and self:GetIsAttached() and not self:GetUseChainRope()
 		local travelfraction = self:GetGrappleFraction()
 		
 		if travelfraction ~= 0 then
 			endgrappleang = self:GetGrappleNormal():Angle()
 			endgrapplepos = LerpVector( travelfraction , startgrapplepos , self:GetAttachedTo() )
-			render.SetMaterial( self.CableMaterial )
-		
+			
+			local length = ( endgrapplepos - startgrapplepos ):Length()
+			
+			if not self:GetUseChainRope() then
+				render.SetMaterial( self.CableMaterial )
+			else
+				render.SetMaterial( self.ChainMaterial )
+			end
+			
 			--only do this expensive rendering when carried by the local player
 			if dosway then
 				
 				local swayamount = Lerp( travelfraction , 4 * cablesize , 0 )	--bigger cable = bigger sway
 				
-				local lengthfraction = ( endgrapplepos - startgrapplepos ):Length() / self.HookMaxRange
+				local lengthfraction = length / self.HookMaxRange
 				
 				local ang = ( endgrapplepos - startgrapplepos ):Angle()
 				local swayres = math.floor( Lerp( lengthfraction , 64 , 16 ) )	--number of segments to use for the swayamount
@@ -751,11 +801,17 @@ else
 			
 			else
 			
-				
-				render.StartBeam( 2 )
-					render.AddBeam( startgrapplepos , cablesize , 2 , color_white )
-					render.AddBeam( endgrapplepos , cablesize , 3 , color_white )
-				render.EndBeam()
+				if not self:GetUseChainRope() then
+					render.StartBeam( 2 )
+						render.AddBeam( startgrapplepos , cablesize , 2 , color_white )
+						render.AddBeam( endgrapplepos , cablesize , 3 , color_white )
+					render.EndBeam()
+				else
+					render.StartBeam( 2 )
+						render.AddBeam( startgrapplepos , cablesize * 40 , length * 0.05 , color_white )
+						render.AddBeam( endgrapplepos , cablesize * 40 , 0 , color_white )
+					render.EndBeam()
+				end
 				
 			end
 		
@@ -835,5 +891,80 @@ else
 	function ENT:DrawFirstPerson( ply , vm )
 		--self:DrawPreview()
 	end
-
+	
+	
+	local grapplehooktable = ENT
+	
+	hook.Add( "PostRender" , "RenderChainTextureOnce" , function()
+		local ENT = grapplehooktable
+		
+		if ENT.RenderedChainTexture then
+			return
+		end
+		
+		if not IsValid( ENT.ChainModel ) then
+			ENT.ChainModel = ClientsideModel( "models/props_c17/utilityconnecter005.mdl" )
+			ENT.ChainModel:SetNoDraw( true )
+			ENT.ChainModel:SetModelScale( 0.5 , 0 )
+			ENT.ChainModel:Spawn()
+			ENT.ChainModel.Length = 11 * 0.5
+		end
+		
+		local oldrt = render.GetRenderTarget()
+		local scrw , scrh = ScrW() , ScrH()
+		render.SetRenderTarget( ENT.ChainTexture )
+		render.ClearDepth()
+		render.Clear( 0 , 0 , 0 , 0 )
+		render.SetViewPort( 0 , 0 , ENT.ChainTexture:Width() , ENT.ChainTexture:Height() )
+			
+		cam.Start3D( vector_origin - Vector( 0 , 11 , -1.2 ) , Angle( 0 , 90 , 0 ) , 90 , 0 , 0 , ENT.ChainTexture:Width() , ENT.ChainTexture:Height() , nil , nil )
+			render.SuppressEngineLighting( true )
+			render.SetLightingOrigin( vector_origin )
+			render.ResetModelLighting( 1 , 1 , 1 )
+			render.SetColorModulation( 1 , 1 , 1 )
+			
+			render.SetWriteDepthToDestAlpha( false )
+			
+			local pointa = Vector( 0 , 0 , -10 )
+			local pointb = Vector( 0 , 0 , 10 )
+			
+			if IsValid( ENT.ChainModel ) then
+				local direction = ( pointb - pointa ):GetNormalized()
+				local chainlength = ( pointb - pointa ):Length()
+				local subd = chainlength / ENT.ChainModel.Length
+				
+				local ang = direction:Angle()
+				ang.p = 0
+				ang.r = direction:Angle().p
+				ang:RotateAroundAxis( Vector( 0 , 0 , -1 ) , -90 )
+				
+				for i = 0 , math.Round( subd ) do
+					local p , a = LocalToWorld( Vector( 0 , -ENT.ChainModel.Length * i , 0 ) , angle_zero or angle_zero , pointa , ang )
+					
+					if i % 2 == 0 then
+						local __
+						__ , a = LocalToWorld( Vector( 0 , -ENT.ChainModel.Length * i , 0 ) , Angle( 90 , 0 , 0 ) , pointa , ang )
+					end
+					
+					ENT.ChainModel:SetPos( p )
+					ENT.ChainModel:SetAngles( a )
+					ENT.ChainModel:SetupBones()
+					ENT.ChainModel:DrawModel()
+				end
+			end
+			
+			render.SuppressEngineLighting( false )
+		
+		cam.End3D()
+		
+		render.SetRenderTarget( oldrt )
+		render.SetViewPort( 0 , 0 , scrw , scrh )
+		
+		if IsValid( ENT.ChainModel ) then
+			ENT.ChainModel:Remove()
+		end
+		
+		ENT.RenderedChainTexture = true
+	end)
+	
 end
