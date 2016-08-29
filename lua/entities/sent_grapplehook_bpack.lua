@@ -17,6 +17,9 @@ DEFINE_BASECLASS( "base_predictedent" )
 ENT.Spawnable = true
 ENT.PrintName = "Grappling hook Belt"
 
+local renderedChainTexture = 0
+local chainmodel = nil
+
 if CLIENT then
 	ENT.CableMaterial = Material( "cable/cable2" )
 	
@@ -31,9 +34,8 @@ if CLIENT then
 		["$vertexalpha"] = 1,
 	})
 	
-	ENT.ChainMaterial:SetTexture( "$basetexture" , ENT.ChainTexture )
-	ENT.ChainModel = nil
-	ENT.RenderedChainTexture = false
+	
+	
 	
 	AccessorFunc( ENT , "NextHookPreview" , "NextHookPreview" )
 	AccessorFunc( ENT , "HookPreviewTrace" , "HookPreviewTrace" )
@@ -48,7 +50,8 @@ ENT.HookMaxTime = 4	--max time in seconds the hook needs to reach the maxrange
 ENT.HookMaxRange = 10000
 ENT.HookHullMins = Vector( -2 , -2 , -2 )
 ENT.HookHullMaxs = ENT.HookHullMins * -1
-ENT.HookCableSize = 0.5
+ENT.HookCableSize = 1
+ENT.HookSize = 3
 
 ENT.AttachmentInfo = {
 	BoneName = "ValveBiped.Bip01_Spine1",
@@ -348,7 +351,7 @@ function ENT:HandleLoopingSounds()
 			
 			self.LaunchSound:Stop()
 		else
-			self.LaunchSound:PlayEx( 1 , 50 / self.HookCableSize )
+			self.LaunchSound:PlayEx( 1 , 100 )
 			
 			if self:GetUseChainRope() then
 				self.ChainReelSound:PlayEx( 1 , 100 )
@@ -558,6 +561,13 @@ function ENT:OnRemove()
 			self:StopSound( "grapplehook.reelsound" )
 		end
 		
+		if self.ChainReelSound then
+			self.ChainReelSound:Stop()
+			self.ChainReelSound = nil
+		else
+			self:StopSound( "grapplehook.chainreelsound" )
+		end
+		
 	else
 		if IsValid( self:GetHookHelper() ) then
 			self:GetHookHelper():Remove()
@@ -623,6 +633,7 @@ else
 		--we might have to do it dynamically on the hook if I want to do some fancy animations, but considering it's small and you barely see it, it's not worth it
 		
 		if not IsValid( self.CSModels["bodybase"] ) then
+			
 			local bodybasematrix = Matrix()
 			bodybasematrix:Scale( Vector( 0.25 , 0.25 , 0.5 ) )
 			
@@ -646,7 +657,7 @@ else
 		if not IsValid( self.CSModels.Hook["hook"] ) then
 			local hookmatrix = Matrix()
 			hookmatrix:SetAngles( Angle( 90 , 0 , 0 ) )
-			hookmatrix:Scale( Vector( 1 , 1 , 0.1 ) / 4 )
+			hookmatrix:Scale( Vector( 1 , 1 , 0.1 ) / 4 * self.HookSize )
 
 			self.CSModels.Hook["hook"] = ClientsideModel( "models/props_lab/jar01b.mdl" )
 			self.CSModels.Hook["hook"]:SetNoDraw( true )
@@ -657,9 +668,9 @@ else
 		
 		if not IsValid( self.CSModels.Hook["hookgibleft"] ) then
 			local hookgibmatrixleft = Matrix()
-			hookgibmatrixleft:SetScale( Vector( 1 , 1 , 1 ) / 6 )
+			hookgibmatrixleft:SetScale( Vector( 1 , 1 , 1 ) / 6 * self.HookSize )
 			hookgibmatrixleft:SetAngles( Angle( -45 + 90 , 0 , 90 ) )
-			hookgibmatrixleft:SetTranslation( Vector( 0.5 , 0 , -1 ) )
+			hookgibmatrixleft:SetTranslation( Vector( 0.5 , 0 , -1 ) * self.HookSize )
 			self.CSModels.Hook["hookgibleft"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
 			self.CSModels.Hook["hookgibleft"]:SetNoDraw( true )
 			self.CSModels.Hook["hookgibleft"]:EnableMatrix( "RenderMultiply" , hookgibmatrixleft )
@@ -667,9 +678,9 @@ else
 		
 		if not IsValid( self.CSModels.Hook["hookgibright"] ) then
 			local hookgibmatrixright = Matrix()
-			hookgibmatrixright:SetScale( Vector( 1 , 1 , 1 ) / 6 )
+			hookgibmatrixright:SetScale( Vector( 1 , 1 , 1 ) / 6 * self.HookSize )
 			hookgibmatrixright:SetAngles( Angle( 0 , -45 , 0 ) )
-			hookgibmatrixright:SetTranslation( Vector( 0.5 , -1 , 0 ) )
+			hookgibmatrixright:SetTranslation( Vector( 0.5 , -1 , 0 ) * self.HookSize )
 			self.CSModels.Hook["hookgibright"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
 			self.CSModels.Hook["hookgibright"]:SetNoDraw( true )
 			self.CSModels.Hook["hookgibright"]:EnableMatrix( "RenderMultiply" , hookgibmatrixright )
@@ -677,9 +688,9 @@ else
 		
 		if not IsValid( self.CSModels.Hook["hookgibup"] ) then
 			local hookgibmatrixup = Matrix()
-			hookgibmatrixup:SetScale( Vector( 1 , 1 , 1 ) / 6 )
+			hookgibmatrixup:SetScale( Vector( 1 , 1 , 1 ) / 6 * self.HookSize )
 			hookgibmatrixup:SetAngles( Angle( -45 , 0 , -90 ) )
-			hookgibmatrixup:SetTranslation( Vector( 0.5, 0 , 1 ) )
+			hookgibmatrixup:SetTranslation( Vector( 0.5, 0 , 1 ) * self.HookSize )
 			self.CSModels.Hook["hookgibup"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
 			self.CSModels.Hook["hookgibup"]:SetNoDraw( true )
 			self.CSModels.Hook["hookgibup"]:EnableMatrix( "RenderMultiply" , hookgibmatrixup )
@@ -687,9 +698,9 @@ else
 		
 		if not IsValid( self.CSModels.Hook["hookgibdown"] ) then
 			local hookgibmatrixdown = Matrix()
-			hookgibmatrixdown:SetScale( Vector( 1 , 1 , 1 ) / 6 )
+			hookgibmatrixdown:SetScale( Vector( 1 , 1 , 1 ) / 6 * self.HookSize )
 			hookgibmatrixdown:SetAngles( Angle( 0 , 90 - 45 , 180 ) )
-			hookgibmatrixdown:SetTranslation( Vector( 0.5, 1 , 0 ) )
+			hookgibmatrixdown:SetTranslation( Vector( 0.5, 1 , 0 ) * self.HookSize )
 			self.CSModels.Hook["hookgibdown"] = ClientsideModel( "models/Gibs/manhack_gib05.mdl" )
 			self.CSModels.Hook["hookgibdown"]:SetNoDraw( true )
 			self.CSModels.Hook["hookgibdown"]:EnableMatrix( "RenderMultiply" , hookgibmatrixdown )
@@ -728,6 +739,10 @@ else
 	--draws the rope and grapple
 	
 	function ENT:DrawGrapple( flags )
+		if renderedChainTexture == 0 then
+			renderedChainTexture = false
+		end
+		
 		
 		local cablesize = self.HookCableSize
 		
@@ -808,8 +823,8 @@ else
 					render.EndBeam()
 				else
 					render.StartBeam( 2 )
-						render.AddBeam( startgrapplepos , cablesize * 40 , length * 0.05 , color_white )
-						render.AddBeam( endgrapplepos , cablesize * 40 , 0 , color_white )
+						render.AddBeam( startgrapplepos , cablesize * 20 , length * 0.05 , color_white )
+						render.AddBeam( endgrapplepos , cablesize * 20 , 0 , color_white )
 					render.EndBeam()
 				end
 				
@@ -898,16 +913,17 @@ else
 	hook.Add( "PostRender" , "RenderChainTextureOnce" , function()
 		local ENT = grapplehooktable
 		
-		if ENT.RenderedChainTexture then
+		--only start rendering after the entity has been spawned the first time
+		if renderedChainTexture or renderedChainTexture == 0 then
 			return
 		end
 		
-		if not IsValid( ENT.ChainModel ) then
-			ENT.ChainModel = ClientsideModel( "models/props_c17/utilityconnecter005.mdl" )
-			ENT.ChainModel:SetNoDraw( true )
-			ENT.ChainModel:SetModelScale( 0.5 , 0 )
-			ENT.ChainModel:Spawn()
-			ENT.ChainModel.Length = 11 * 0.5
+		if not IsValid( chainmodel ) then
+			chainmodel = ClientsideModel( "models/props_c17/utilityconnecter005.mdl" )
+			chainmodel:SetNoDraw( true )
+			chainmodel:SetModelScale( 0.5 , 0 )
+			chainmodel:Spawn()
+			chainmodel.Length = 11 * 0.5
 		end
 		
 		local oldrt = render.GetRenderTarget()
@@ -928,10 +944,10 @@ else
 			local pointa = Vector( 0 , 0 , -10 )
 			local pointb = Vector( 0 , 0 , 10 )
 			
-			if IsValid( ENT.ChainModel ) then
+			if IsValid( chainmodel ) then
 				local direction = ( pointb - pointa ):GetNormalized()
 				local chainlength = ( pointb - pointa ):Length()
-				local subd = chainlength / ENT.ChainModel.Length
+				local subd = chainlength / chainmodel.Length
 				
 				local ang = direction:Angle()
 				ang.p = 0
@@ -939,17 +955,17 @@ else
 				ang:RotateAroundAxis( Vector( 0 , 0 , -1 ) , -90 )
 				
 				for i = 0 , math.Round( subd ) do
-					local p , a = LocalToWorld( Vector( 0 , -ENT.ChainModel.Length * i , 0 ) , angle_zero or angle_zero , pointa , ang )
+					local p , a = LocalToWorld( Vector( 0 , -chainmodel.Length * i , 0 ) , angle_zero or angle_zero , pointa , ang )
 					
 					if i % 2 == 0 then
 						local __
-						__ , a = LocalToWorld( Vector( 0 , -ENT.ChainModel.Length * i , 0 ) , Angle( 90 , 0 , 0 ) , pointa , ang )
+						__ , a = LocalToWorld( Vector( 0 , -chainmodel.Length * i , 0 ) , Angle( 90 , 0 , 0 ) , pointa , ang )
 					end
 					
-					ENT.ChainModel:SetPos( p )
-					ENT.ChainModel:SetAngles( a )
-					ENT.ChainModel:SetupBones()
-					ENT.ChainModel:DrawModel()
+					chainmodel:SetPos( p )
+					chainmodel:SetAngles( a )
+					chainmodel:SetupBones()
+					chainmodel:DrawModel()
 				end
 			end
 			
@@ -960,11 +976,12 @@ else
 		render.SetRenderTarget( oldrt )
 		render.SetViewPort( 0 , 0 , scrw , scrh )
 		
-		if IsValid( ENT.ChainModel ) then
-			ENT.ChainModel:Remove()
+		if IsValid( chainmodel ) then
+			chainmodel:Remove()
 		end
 		
-		ENT.RenderedChainTexture = true
+		ENT.ChainMaterial:SetTexture( "$basetexture" , ENT.ChainTexture )
+		renderedChainTexture = true
 	end)
 	
 end
