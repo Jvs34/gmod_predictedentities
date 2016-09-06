@@ -37,6 +37,10 @@ ENT.KeyAllowedAll = bit.bor( ENT.KeyAllowedKeyboard , ENT.KeyAllowedMouse , ENT.
 
 ENT.KeyAllowedFlags = ENT.KeyAllowedAll	--bitflag of the key types you want to use
 
+ENT.HookAlways = 1
+ENT.HookEquipped = 2
+ENT.HookCallback = 3
+
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
 ENT.AttachmentInfo = {
@@ -151,21 +155,31 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Initialize()
-	self.HandledHooks = {}
+	self.HandledHooks = {
+		[self.HookAlways] = {},
+		[self.HookEquipped] = {},
+		[self.HookCallback] = {}
+	}
+	
+	self.HookConditions = {
+		[self.HookAlways] = function( self ) return true end,
+		[self.HookEquipped] = function( self ) return self:IsCarried() end,
+		[self.HookCallback] = function( self ) return false end,
+	}
 	
 	--predicted hooks hooking with hookers, and blackjack, actually, screw the blackjack
-	self:InstallHook( "StartCommand" , self.HandlePredictedStartCommand )
-	self:InstallHook( "SetupMove" , self.HandlePredictedSetupMove )
-	self:InstallHook( "Move" , self.HandlePredictedMove )
-	self:InstallHook( "PlayerTick" , self.HandlePredictedThink )
-	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove )
-	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround )
-	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity )
-	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation )
-	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent )
+	self:InstallHook( "StartCommand" , self.HandlePredictedStartCommand , false , true )
+	self:InstallHook( "SetupMove" , self.HandlePredictedSetupMove , false , true )
+	self:InstallHook( "Move" , self.HandlePredictedMove , false , true )
+	self:InstallHook( "PlayerTick" , self.HandlePredictedThink , false , true )
+	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove , false , true )
+	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround , false , true  )
+	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity , false , true )
+	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation , false , true )
+	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent , false , true )
 	
-	self:InstallHook( "PlayerButtonDown" , self.HandlePlayerButtonDown ) --holding the button down
-	self:InstallHook( "PlayerButtonUp" , self.HandlePlayerButtonUp ) --unholding it
+	self:InstallHook( "PlayerButtonDown" , self.HandlePlayerButtonDown , false , true ) --holding the button down
+	self:InstallHook( "PlayerButtonUp" , self.HandlePlayerButtonUp , false , true ) --unholding it
 	
 	if SERVER then
 		self:InstallHook( "SetupPlayerVisibility" , self.HandleEntityVisibility )
@@ -182,9 +196,9 @@ function ENT:Initialize()
 		self:SetUseType( SIMPLE_USE )
 		self:SetKey( BUTTON_CODE_NONE )
 	else
-		self:InstallHook( "PreDrawEffects" , self.DrawFirstPersonInternal )
-		self:InstallHook( "PostDrawViewModel" , self.DrawViewModelInternal )
-		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer )
+		self:InstallHook( "PreDrawEffects" , self.DrawFirstPersonInternal , false , true )
+		self:InstallHook( "PostDrawViewModel" , self.DrawViewModelInternal , false , true )
+		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer , false , true )
 		self:InstallHook( "NotifyShouldTransmit" , self.HandleFullPacketUpdate )
 		
 		language.Add( self:GetClass() , self.PrintName )
@@ -200,24 +214,41 @@ end
 --prediction and other shit like drawing on a player might fuck up since the hooks got removed
 --Now this also works for adding a callback
 
-function ENT:InstallHook( hookname , handler , iscallback )
+function ENT:InstallHook( hookname , handler , iscallback , equippedonly )
 	if iscallback then
 		self:AddCallback( hookname , handler )
 	else
-		self.HandledHooks[hookname] = handler
+		if equippedonly then
+			self.HandledHooks[self.HookEquipped][hookname] = handler
+		else
+			self.HandledHooks[self.HookAlways][hookname] = handler
+		end
 	end
 end
 
-function ENT:HandleHooks()
+function ENT:HandleHooks( cleanup )
 
 	--this is direct access to the hook table, but it's not slow at all
 	local hooktable = hook.GetTable()
-	
-	for i , v in pairs( self.HandledHooks ) do
-		if not hooktable[i] or not hooktable[i][self] then
-			hook.Add( i , self , v )
+		
+	for hookindex = self.HookAlways , self.HookEquipped do
+		
+		local condition = self.HookConditions[hookindex]( self )
+		
+		for i , v in pairs( self.HandledHooks[hookindex] ) do
+			if condition and not cleanup then
+				if not hooktable[i] or not hooktable[i][self] then
+					hook.Add( i , self , v )
+				end
+			else
+				if hooktable[i] and hooktable[i][self] then
+					hook.Remove( i , self )
+				end
+			end
 		end
+	
 	end
+
 end
 
 function ENT:Think()
@@ -976,6 +1007,25 @@ local emptyvalues = {
 	[TYPE_NUMBER] = 0,
 }
 
+local methods = {}
+
+--cache the methods we can actually use
+for i , v in pairs( movedatameta ) do
+	--see if this function has a pattern like "Get*" or whatever
+	--then strip out "Get" and add it here
+	local functionname = i
+	if functionname:find( "^Get" ) then
+		local functionnamestripped = functionname:gsub( "^Get" , "" )
+		
+		local setter = movedatameta["Set"..functionnamestripped]
+		
+		if setter then
+			--add the stripped method to the table to reuse later
+			methods[#methods + 1] = functionnamestripped
+		end
+	end
+end
+
 function ENT:BackupMoveData( mv )
 	
 	if not mv or not movedatameta then
@@ -985,23 +1035,20 @@ function ENT:BackupMoveData( mv )
 	local sv = {}
 	--save the movedata by name on the table, then go trough the metatable to get the setters and set values to empty ones
 	
-	for i , v in pairs( movedatameta ) do
+	for i , v in pairs( methods ) do
 		--see if this function has a pattern like "Get*" or whatever
 		--then strip out "Get" and add it here
-		local functionname = i
-		if functionname:find( "^Get" ) then
-			local functionnamestripped = functionname:gsub( "^Get" , "" )
-			
-			local backupvalue = v( mv ) --call the metatable function with the cmovedata as the argument
-			
-			sv[functionnamestripped] = backupvalue
-			
-			--now call the setter to clean all the values on the cmovedata
-			local setter = movedatameta["Set"..functionnamestripped]
-			
-			if setter and emptyvalues[TypeID( backupvalue )] ~= nil then
-				setter( mv , emptyvalues[TypeID( backupvalue )] * 1 )
-			end
+		
+		--we could've cached the functions as well, but just in case someone wants us to use the modified ones
+		local getter = movedata["Get"..v]
+		local setter = movedata["Set"..v]
+		
+		local backupvalue = getter( mv )
+		
+		sv[v] = backupvalue
+		
+		if emptyvalues[TypeID( backupvalue )] ~= nil then
+			setter( mv , emptyvalues[TypeID( backupvalue )] * 1 )
 		end
 	end
 	
@@ -1149,6 +1196,8 @@ function ENT:OnRemove()
 	if SERVER and self:IsCarried() then
 		self:Drop( true )
 	end
+	
+	self:HandleHooks( true ) --remove the hooks immediately instead of relying on garry's "remove if called again"
 end
 
 --stuff that should be in an autorun file but that I can't be arsed to split up to
