@@ -18,6 +18,8 @@ ENT.Spawnable = false
 ENT.IsPredictedEnt = true
 ENT.AttachesToPlayer = true	--whether this entity attaches to the player or not, when true this removes physics and draws the entity on the player
 
+ENT.SaveButtonToCvar = false
+
 if SERVER then
 	ENT.DropOnDeath = true
 	ENT.ShowPickupNotice = false	--plays the pickup sound and shows the pickup message on the hud
@@ -37,9 +39,9 @@ ENT.KeyAllowedAll = bit.bor( ENT.KeyAllowedKeyboard , ENT.KeyAllowedMouse , ENT.
 
 ENT.KeyAllowedFlags = ENT.KeyAllowedAll	--bitflag of the key types you want to use
 
-ENT.HookAlways = 1
-ENT.HookEquipped = 2
-ENT.HookCallback = 3
+ENT.HookAlways = 1 --hooks in here always run
+ENT.HookEquipped = 2 --hooks in here are only added when the entity is equipped by user, and removed when unequipped
+ENT.HookCallback = 3 --these are callbacks handled with AddCallback, unfortunately we have no way to fully handle these
 
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
@@ -90,6 +92,9 @@ function ENT:DefineNWVar( dttype , dtname , editable , beautifulname , minval , 
 	self.DefinedDTVars[dttype][index] = dtname
 	
 	local edit = nil
+	
+	--this used to check if we could actually add the edit table, so we default it to nil to override it again
+	--in case of a child class
 	
 	if editable then
 		edit = {
@@ -203,9 +208,6 @@ function ENT:Initialize()
 		
 		language.Add( self:GetClass() , self.PrintName )
 		language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
-		
-		--internally this returns the original convar if it was already created, so it's not that big of a deal, this could be done in a better way however
-		self.ConfigurableConVar = CreateConVar( self:GetConVarName() , self:GetKey() , FCVAR_ARCHIVE + FCVAR_USERINFO , "Configures the key for "..self:GetClass() )
 	end
 end
 
@@ -265,6 +267,10 @@ function ENT:Think()
 		end
 		
 		--we have to network this ourselves since it's based on the physics object ( which is mainly serverside )
+		--the reason I'm networking this is that due to the gravity gun enabling prediction, it would screw with the manual
+		--predictable logic of this entity, so when we try to activate prediction, we check if we're being carried by the gravity gun
+		--to prevent disabling it
+		
 		--NOTE: this is not as expensive as it looks, it just checks for the FVPHYSICS_PLAYER_HELD flag on our physobj
 		self:SetBeingHeld( self:IsPlayerHolding() )
 	else
@@ -282,6 +288,7 @@ function ENT:Think()
 	--I'd say that's an accurate replication of the issue
 	
 	--default behaviour for scripted entities is to think every 200 milliseconds
+	--I suppose this should be configurable by child entities
 	
 	self:NextThink( CurTime() + engine.TickInterval() )
 	return true
@@ -291,6 +298,7 @@ if SERVER then
 	
 	--for map inputs mostly, but other addons may also be using these inputs trough ent:Input or ent:Fire
 	--more inputs might come in the future
+	--of course child entities are free to call the baseclass function after their own to chain stuff
 	
 	function ENT:AcceptInput( inputName, activator, called, data )
 		
@@ -455,10 +463,12 @@ if SERVER then
 		--we do this here so that OnAttach can make use of it
 		
 		--this also allows us to prevent the key from another user to be written clientside and override ours
-		local plykey = self:GetControllingPlayerConVarKey()
-		
-		if self:IsKeyAllowed( plykey ) and plykey ~= self:GetKey() then
-			self:SetKey( plykey )
+		if self.SaveButtonToCvar then
+			local plykey = self:GetControllingPlayerConVarKey()
+			
+			if self:IsKeyAllowed( plykey ) and plykey ~= self:GetKey() then
+				self:SetKey( plykey )
+			end
 		end
 		
 		--THIS IS VERY SUBJECTIVE
@@ -621,6 +631,18 @@ if SERVER then
 else
 
 	function ENT:GetConVar()
+	
+		--the slotname changed, so we forget this cvar to let another one with the same slot use it
+		--and we let the code below create/get one with our slotname
+		if self.ConfigurableConVar and self.ConfigurableConVar:GetName() ~= self:GetConVarName() then
+			self.ConfigurableConVar = nil
+		end
+		
+		if not self.ConfigurableConVar then
+			--internally this returns the original convar if it was already created, so it's not that big of a deal, this could be done in a better way however
+			self.ConfigurableConVar = CreateConVar( self:GetConVarName() , self:GetKey() , FCVAR_ARCHIVE + FCVAR_USERINFO , "Configures the key for "..self:GetSlotName().. " , created by "..self:GetClass() )
+		end
+		
 		return self.ConfigurableConVar
 	end
 	
@@ -683,23 +705,25 @@ else
 	end
 	
 	function ENT:HandleButtonBind()
+		--did not disable the function call from Think as someone might want to override this
 		
-		--this is a one way server to client saving, the reason I do this is because the user should usually change the value from
-		--client to server with the edit system, it still goes to the server, but not to the cvar first, so we save it from the client to the cvar
-		
-		--basically we just use the cvar as a way to save the button, but it does come at the cost of not being able to update the cvar and have it update on the
-		--entity, this will probably change in the future
-		local mykey = self:GetKey()
-		
-		--can't use GetControllingPlayerConVarKey as I also need to SetInt on it
-		local cv = self:GetConVar()
-		
-		if cv then
-			if ( mykey ~= cv:GetInt() and self:IsKeyAllowed( mykey ) ) or not self:IsKeyAllowed( cv:GetInt() ) then
-				cv:SetInt( mykey )
+		if self.SaveButtonToCvar then
+			--this is a one way server to client saving, the reason I do this is because the user should usually change the value from
+			--client to server with the edit system, it still goes to the server, but not to the cvar first, so we save it from the client to the cvar
+			
+			--basically we just use the cvar as a way to save the button, but it does come at the cost of not being able to update the cvar and have it update on the
+			--entity, this will probably change in the future
+			local mykey = self:GetKey()
+			
+			--can't use GetControllingPlayerConVarKey as I also need to SetInt on it
+			local cv = self:GetConVar()
+			
+			if cv then
+				if ( mykey ~= cv:GetInt() and self:IsKeyAllowed( mykey ) ) --[[or not self:IsKeyAllowed( cv:GetInt() )]] then
+					cv:SetInt( mykey )
+				end
 			end
 		end
-
 	end
 	
 	function ENT:DrawFirstPersonInternal()
@@ -821,7 +845,7 @@ function ENT:IsKeyAllowed( btn )
 end
 
 function ENT:GetConVarName()
-	return "prdent_key_"..self:GetClass()
+	return "prdent_key_"..self:GetSlotName()
 end
 
 function ENT:GetControllingPlayerConVarKey()
@@ -1002,9 +1026,10 @@ end
 local movedatameta = FindMetaTable( "CMoveData" )
 
 local emptyvalues = {
-	[TYPE_VECTOR] = vector_origin,
-	[TYPE_ANGLE] = angle_zero,
+	[TYPE_VECTOR] = vector_origin * 1,
+	[TYPE_ANGLE] = angle_zero * 1,
 	[TYPE_NUMBER] = 0,
+	[TYPE_ENTITY] = NULL,
 }
 
 local methods = {}
@@ -1048,7 +1073,7 @@ function ENT:BackupMoveData( mv )
 		sv[v] = backupvalue
 		
 		if emptyvalues[TypeID( backupvalue )] ~= nil then
-			setter( mv , emptyvalues[TypeID( backupvalue )] * 1 )
+			setter( mv , emptyvalues[TypeID( backupvalue )] )
 		end
 	end
 	
@@ -1086,9 +1111,9 @@ function ENT:GetCustomParentOrigin()
 		return
 	end
 	
-	--Jvs:	I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
-	--		when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
-	--		this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
+	--I put this here because since the entity moves to the player bone matrix, it'll only be updated on the client
+	--when the player is actally drawn, or his bones are setup again ( which happens before a draw anyway )
+	--this also fixes sounds on the client playing at the last location the LocalPlayer() was drawn
 	
 	if CLIENT and self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
 		ply:SetupBones()
