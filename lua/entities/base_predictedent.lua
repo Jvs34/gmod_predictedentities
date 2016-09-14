@@ -173,24 +173,24 @@ function ENT:Initialize()
 	}
 	
 	--predicted hooks hooking with hookers, and blackjack, actually, screw the blackjack
-	self:InstallHook( "StartCommand" , self.HandlePredictedStartCommand , false , true )
-	self:InstallHook( "SetupMove" , self.HandlePredictedSetupMove , false , true )
-	self:InstallHook( "Move" , self.HandlePredictedMove , false , true )
-	self:InstallHook( "PlayerTick" , self.HandlePredictedThink , false , true )
-	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove , false , true )
-	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround , false , true  )
-	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity , false , true )
-	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation , false , true )
-	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent , false , true )
+	self:InstallHook( "StartCommand" , self.HandlePredictedStartCommand , self.HookEquipped )
+	self:InstallHook( "SetupMove" , self.HandlePredictedSetupMove , self.HookEquipped )
+	self:InstallHook( "Move" , self.HandlePredictedMove , self.HookEquipped )
+	self:InstallHook( "PlayerTick" , self.HandlePredictedThink , self.HookEquipped )
+	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove , self.HookEquipped )
+	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround , self.HookEquipped )
+	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity , self.HookEquipped )
+	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation , self.HookEquipped )
+	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent , self.HookEquipped )
 	
-	self:InstallHook( "PlayerButtonDown" , self.HandlePlayerButtonDown , false , true ) --holding the button down
-	self:InstallHook( "PlayerButtonUp" , self.HandlePlayerButtonUp , false , true ) --unholding it
+	self:InstallHook( "PlayerButtonDown" , self.HandlePlayerButtonDown , self.HookEquipped ) --holding the button down
+	self:InstallHook( "PlayerButtonUp" , self.HandlePlayerButtonUp , self.HookEquipped ) --unholding it
 	
 	if SERVER then
-		self:InstallHook( "SetupPlayerVisibility" , self.HandleEntityVisibility )
-		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved )
-		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
-		self:InstallHook( "CanEditVariable" , self.HandleCanEditVariable )
+		self:InstallHook( "SetupPlayerVisibility" , self.HandleEntityVisibility , self.HookAlways )
+		self:InstallHook( "EntityRemoved" , self.OnControllerRemoved , self.HookAlways )
+		self:InstallHook( "PostPlayerDeath" , self.OnControllerDeath , self.HookAlways )	--using PostPlayerDeath as it's called on all kind of player deaths, even :KillSilent()
+		self:InstallHook( "CanEditVariable" , self.HandleCanEditVariable , self.HookAlways )
 		
 		--just in case it has been spawned manually and the coder forgot
 		if self:GetSlotName() == "" then
@@ -201,10 +201,11 @@ function ENT:Initialize()
 		self:SetUseType( SIMPLE_USE )
 		self:SetKey( BUTTON_CODE_NONE )
 	else
-		self:InstallHook( "PreDrawEffects" , self.DrawFirstPersonInternal , false , true )
-		self:InstallHook( "PostDrawViewModel" , self.DrawViewModelInternal , false , true )
-		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer , false , true )
-		self:InstallHook( "NotifyShouldTransmit" , self.HandleFullPacketUpdate )
+		self:InstallHook( "PreDrawEffects" , self.DrawFirstPersonInternal , self.HookEquipped )
+		self:InstallHook( "PostDrawViewModel" , self.DrawViewModelInternal , self.HookEquipped )
+		self:InstallHook( "PostPlayerDraw" , self.DrawOnPlayer , self.HookEquipped )
+		
+		self:InstallHook( "NotifyShouldTransmit" , self.HandleFullPacketUpdate , self.HookAlways )
 		
 		language.Add( self:GetClass() , self.PrintName )
 		language.Add( "dropped_"..self:GetClass() , "Dropped "..self.PrintName )
@@ -216,16 +217,17 @@ end
 --prediction and other shit like drawing on a player might fuck up since the hooks got removed
 --Now this also works for adding a callback
 
-function ENT:InstallHook( hookname , handler , iscallback , equippedonly )
-	if iscallback then
-		self:AddCallback( hookname , handler )
-	else
-		if equippedonly then
-			self.HandledHooks[self.HookEquipped][hookname] = handler
-		else
-			self.HandledHooks[self.HookAlways][hookname] = handler
-		end
+function ENT:InstallHook( hookname , handler , hooktype )
+	if not self.HandledHooks[hooktype] then
+		hooktype = self.HookAlways
 	end
+
+	self.HandledHooks[hooktype][hookname] = handler
+	
+	if hooktype == self.HookCallback then
+		self:AddCallback( hookname , handler )
+	end
+
 end
 
 function ENT:HandleHooks( cleanup )
@@ -1230,7 +1232,7 @@ function ENT:EmitPESound( soundname , level , pitch , volume , chan , predicted 
 		net.Send( plys )
 		
 	else
-		if ( IsFirstTimePredicted() and predicted ) or not predicted then
+		if ( predicted and IsFirstTimePredicted() ) or not predicted then
 			if worldpos and worldpos ~= vector_origin then
 				sound.Play( soundname, worldpos, level, pitch , volume )
 			else

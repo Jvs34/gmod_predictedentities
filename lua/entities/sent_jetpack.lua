@@ -120,13 +120,6 @@ function ENT:Initialize()
 		self:SetNextFlameTrace( 0 )
 		self:SetLastFlameTrace( nil )
 	end
-	
-	--disabled because this isn't all that worth it at the moment, especially due to the position of the jetpack
-	--it's kind of hard to filter all the traces and keep some, because the shouldcollide hook is called with NULL as the second entity
-	--and it's the same case for bullets
-	
-	--self:SetCustomCollisionCheck( true )
-	--self:InstallHook( "ShouldCollide" , self.HandleShouldCollide )
 end
 
 function ENT:SetupDataTables()
@@ -909,22 +902,6 @@ else
 		end
 	end
 
-end
-
-function ENT:HandleShouldCollide( ent1 , ent2 )
-	if ent1 ~= self then
-		return
-	end
-	
-	if self:IsCarried() then
-		if ent2:GetOwner() == self:GetControllingPlayer() or self:GetControllingPlayer() == ent2 then
-			return false
-		end
-		
-		if ent2:EntIndex() == 0 then
-			return false
-		end
-	end
 end
 
 function ENT:HandleMainActivityOverride( ply , velocity )
