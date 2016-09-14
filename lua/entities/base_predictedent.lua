@@ -329,6 +329,31 @@ if SERVER then
 
 	end
 	
+	function ENT:ChangeSlot( newslotname )
+		local oldslotname = self:GetSlotName()
+		
+		if newslotname == oldslotname then
+			return false
+		end
+		
+		local ply = self:GetControllingPlayer()
+		
+		--if we have a controlling player and he has an entity in the new slot, abort
+		if IsValid( ply ) and IsValid( self.GetOnPlayer( ply , newslotname ) ) then
+			--this slot is already occupied!!!
+			return false
+		end
+		
+		if IsValid( ply ) then
+			self.SetOnPlayer( ply , oldslotname , NULL )
+			self.SetOnPlayer( ply , newslotname , self )
+		end
+		
+		self:SetSlotName( newslotname )
+		
+		return true
+	end
+	
 	function ENT:Use( activator, caller, useType, value )
 		if not self:Attach( activator ) then
 			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
@@ -1319,10 +1344,17 @@ else
 		end
 		
 		--DBinder doesn't have an onchange callback, so we must do this little hack to add it
+		--[[
 		ctrl.SetValue = function( ctrl , val )
 			ctrl:SetSelected( val )
 			self:ValueChanged( val )
 		end
+		]]
+		
+		ctrl.OnChange = function( ctrl , val )
+			self:ValueChanged( val )
+		end
+		
 
 	end
 
