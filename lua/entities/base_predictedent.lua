@@ -233,6 +233,7 @@ end
 function ENT:HandleHooks( cleanup )
 
 	--this is direct access to the hook table, but it's not slow at all
+	--or at least, it shouldn't be as long as you don't have any ulib shit or some other hook overrides
 	local hooktable = hook.GetTable()
 		
 	for hookindex = self.HookAlways , self.HookEquipped do
@@ -356,6 +357,29 @@ if SERVER then
 		return true
 	end
 	
+	--useful for swapping out two slots at the same time and knowing the other entity,
+	--usually in an inventory system
+	function ENT:SwapSlotWith( predent )
+		local ply = self:GetControllingPlayer()
+		
+		if not self:IsCarriedBy( ply ) or not IsValid( predent ) or not predent.IsPredictedEnt 
+		or not predent:IsCarriedBy( ply ) then
+			return false
+		end
+		
+		local myslot = self:GetSlotName()
+		local otherslot = predent:GetSlotName()
+		
+		self.SetOnPlayer( ply , otherslot , self )
+		self.SetOnPlayer( ply , myslot , predent )
+		
+		self:SetSlotName( otherslot )
+		predent:SetSlotName( myslot )
+		
+		return true
+	end
+	
+	--override this if you want your equip logic to be different
 	function ENT:Use( activator, caller, useType, value )
 		if not self:Attach( activator ) then
 			self:EmitPESound( "HL2Player.UseDeny" , 150 , nil , 1 , nil , nil , activator )
