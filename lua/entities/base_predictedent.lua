@@ -41,7 +41,8 @@ ENT.KeyAllowedFlags = ENT.KeyAllowedAll	--bitflag of the key types you want to u
 
 ENT.HookAlways = 1 --hooks in here always run
 ENT.HookEquipped = 2 --hooks in here are only added when the entity is equipped by user, and removed when unequipped
-ENT.HookCallback = 3 --these are callbacks handled with AddCallback, unfortunately we have no way to fully handle these
+ENT.HookEquippedPrediction = 3 --like above, but on the client, only for the LocalPlayer() equipping this
+ENT.HookCallback = 4 --these are callbacks handled with AddCallback, unfortunately we have no way to fully handle these
 
 --example attachment info table, only used if AttachesToPlayer is true
 --[[
@@ -160,31 +161,48 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Initialize()
+
 	self.HandledHooks = {
 		[self.HookAlways] = {},
 		[self.HookEquipped] = {},
+		[self.HookEquippedPrediction] = {},
 		[self.HookCallback] = {}
 	}
 	
 	self.HookConditions = {
-		[self.HookAlways] = function( self ) return true end,
-		[self.HookEquipped] = function( self ) return self:IsCarried() end,
-		[self.HookCallback] = function( self ) return false end,
+		[self.HookAlways] = function( ent ) 
+			return true 
+		end,
+		[self.HookEquipped] = function( ent ) 
+			return ent:IsCarried() 
+		end,
+		[self.HookEquippedPrediction] = function( ent ) 
+			if SERVER then
+				return ent:IsCarried() --self.HookConditions[self.HookEquipped]( self )
+			else
+				return ent:IsCarriedByLocalPlayer()
+			end
+		end,
+		[self.HookCallback] = function( self ) 
+			return nil --nil means don't handle me
+		end,
 	}
 	
-	--predicted hooks hooking with hookers, and blackjack, actually, screw the blackjack
-	self:InstallHook( "StartCommand" , self.HandlePredictedStartCommand , self.HookEquipped )
-	self:InstallHook( "SetupMove" , self.HandlePredictedSetupMove , self.HookEquipped )
-	self:InstallHook( "Move" , self.HandlePredictedMove , self.HookEquipped )
-	self:InstallHook( "PlayerTick" , self.HandlePredictedThink , self.HookEquipped )
-	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove , self.HookEquipped )
-	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround , self.HookEquipped )
+	--predicted hooks hooking with hookers and futurama memes
+	self:InstallHook( "StartCommand" , self.HandlePredictedStartCommand , self.HookEquippedPrediction )
+	self:InstallHook( "SetupMove" , self.HandlePredictedSetupMove , self.HookEquippedPrediction )
+	self:InstallHook( "Move" , self.HandlePredictedMove , self.HookEquippedPrediction )
+	self:InstallHook( "PlayerTick" , self.HandlePredictedThink , self.HookEquippedPrediction )
+	self:InstallHook( "FinishMove" , self.HandlePredictedFinishMove , self.HookEquippedPrediction )
+	self:InstallHook( "OnPlayerHitGround" , self.HandlePredictedHitGround , self.HookEquippedPrediction )
+	self:InstallHook( "PlayerButtonDown" , self.HandlePlayerButtonDown , self.HookEquippedPrediction )
+	self:InstallHook( "PlayerButtonUp" , self.HandlePlayerButtonUp , self.HookEquippedPrediction )
+	
+	
 	self:InstallHook( "CalcMainActivity" , self.HandleCalcMainActivity , self.HookEquipped )
 	self:InstallHook( "UpdateAnimation" , self.HandleUpdateAnimation , self.HookEquipped )
 	self:InstallHook( "DoAnimationEvent" , self.HandleAnimationEvent , self.HookEquipped )
 	
-	self:InstallHook( "PlayerButtonDown" , self.HandlePlayerButtonDown , self.HookEquipped ) --holding the button down
-	self:InstallHook( "PlayerButtonUp" , self.HandlePlayerButtonUp , self.HookEquipped ) --unholding it
 	
 	if SERVER then
 		self:InstallHook( "SetupPlayerVisibility" , self.HandleEntityVisibility , self.HookAlways )
@@ -218,7 +236,8 @@ end
 --Now this also works for adding a callback
 
 function ENT:InstallHook( hookname , handler , hooktype )
-	if not self.HandledHooks[hooktype] then
+	
+	if self.HandledHooks[hooktype] == nil then
 		hooktype = self.HookAlways
 	end
 
@@ -235,23 +254,25 @@ function ENT:HandleHooks( cleanup )
 	--this is direct access to the hook table, but it's not slow at all
 	--or at least, it shouldn't be as long as you don't have any ulib shit or some other hook overrides
 	local hooktable = hook.GetTable()
-		
-	for hookindex = self.HookAlways , self.HookEquipped do
-		
+	
+	
+	
+	for hookindex , handledshooktab in pairs( self.HandledHooks ) do
 		local condition = self.HookConditions[hookindex]( self )
 		
-		for i , v in pairs( self.HandledHooks[hookindex] ) do
-			if condition and not cleanup then
-				if not hooktable[i] or not hooktable[i][self] then
-					hook.Add( i , self , v )
-				end
-			else
-				if hooktable[i] and hooktable[i][self] then
-					hook.Remove( i , self )
+		if condition ~= nil then
+			for i , v in pairs( handledshooktab ) do
+				if condition and not cleanup then
+					if not hooktable[i] or not hooktable[i][self] then
+						hook.Add( i , self , v )
+					end
+				else
+					if hooktable[i] and hooktable[i][self] then
+						hook.Remove( i , self )
+					end
 				end
 			end
 		end
-	
 	end
 
 end
