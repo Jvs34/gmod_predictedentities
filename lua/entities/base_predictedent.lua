@@ -304,6 +304,7 @@ function ENT:Think()
 		--Ideally this would be handled on the callback of SetControllingPlayer clientside, but we don't have that yet
 		self:HandlePrediction()
 		self:HandleButtonBind()
+		self:HandleContextMenuButton()
 		self:InternalHandleLoopingSounds()
 	end
 	
@@ -797,6 +798,39 @@ else
 			end
 		end
 	end
+	
+	function ENT:CreateContextMenuButton()
+	
+	end
+	
+	function ENT:GetContextMenuButton()
+	
+	end
+	
+	--forcefully removes it in case it fucks up
+	function ENT:RemoveContextMenuButton()
+	
+	end
+	
+	function ENT:HandleContextMenuButton()
+		
+		if not IsValid( g_ContextMenu ) then
+			return
+		end
+		
+		local buttonpanel = self:GetContextMenuButton()
+		
+		if IsValid( buttonpanel ) and not self:IsCarriedByLocalPlayer() then
+			self:RemoveContextMenuButton()
+		end
+		
+		if not IsValid( buttonpanel ) and self:IsCarriedByLocalPlayer() then
+			self:CreateContextMenuButton()
+		end
+		
+	end
+	
+
 	
 	function ENT:DrawFirstPersonInternal()
 		if self.AttachesToPlayer and self:IsCarriedByLocalPlayer( true ) and not self:ShouldDrawLocalPlayer( true ) then
@@ -1370,12 +1404,12 @@ else
 		A DProperty that allows the user to set a preferred key using the same DBinder used in sandbox's tools
 	]]
 
-	local PANEL = {}
+	local DBinderProperty = {}
 
-	function PANEL:Init()
+	function DBinderProperty:Init()
 	end
 
-	function PANEL:Setup( vars )
+	function DBinderProperty:Setup( vars )
 
 		self:Clear()
 		
@@ -1405,5 +1439,151 @@ else
 
 	end
 
-	derma.DefineControl( "DProperty_EditKey" , "" , PANEL , "DProperty_Generic" )
+	derma.DefineControl( "DProperty_EditKey" , "" , DBinderProperty , "DProperty_Generic" )
+	
+	local DPredEnt = {
+		matOverlay_Normal = Material( "gui/ContentIcon-normal.png" ),
+		matOverlay_Hovered = Material( "gui/ContentIcon-hovered.png" )
+	}
+	
+	AccessorFunc( DPredEnt, "m_MaxBorder", "MaxBorder" )
+	AccessorFunc( DPredEnt, "m_MaterialName", "MaterialName" )
+	
+	AccessorFunc( DPredEnt, "m_Border", "Border" )
+	AccessorFunc( DPredEnt, "m_Color", "Color" )
+	AccessorFunc( DPredEnt, "m_Type", "ContentType" )
+	AccessorFunc( DPredEnt, "m_SpawnName", "SpawnName" )
+	AccessorFunc( DPredEnt, "m_NPCWeapon", "NPCWeapon" )
+	AccessorFunc( DPredEnt, "m_Image", "Image" )
+	AccessorFunc( DPredEnt, "m_Label", "Label" )
+	
+	function DPredEnt:Init()
+		
+		local w , h = 128, 128
+		self:SetSize( w , h )
+		
+		self:SetPaintBackground( false )
+		
+		self:SetText( "" )
+		self:SetDoubleClickingEnabled( false )
+
+		self:SetImage( self:Add( "DImage" ) )
+		self:GetImage():SetVisible( false )
+
+		self:SetLabel( self:Add( "DLabel" ) )
+		self:GetLabel():Dock( BOTTOM )
+		
+		self:GetLabel():SetContentAlignment( 5 )
+		
+		self:GetLabel():SetTextColor( Color( 255, 255, 255, 255 ) )
+		self:GetLabel():SetExpensiveShadow( 1, Color( 0, 0, 0, 200 ) )
+
+		self:SetBorder( 0 )
+		
+		
+
+	end
+	
+
+
+	function DPredEnt:PerformLayout( w , h )
+		self:SetMaxBorder( w / 16 )
+		self:GetImage():SetPos( w / 32 , w / 32 )
+		self:GetImage():SetSize( w - w / 16 , h - w / 16 )
+		self:GetLabel():SetTall( math.Round( w / 7 ) )
+		self:GetLabel():DockMargin( math.Round( w / 32 ) , 0 , math.Round( w / 32 ) , math.Round( w / 21 ) )
+	end
+	
+	
+	function DPredEnt:SetName( name )
+
+		self:SetTooltip( name )
+		self:GetLabel():SetText( name )
+
+	end
+
+	function DPredEnt:SetMaterial( name )
+
+		self:SetMaterialName( name )
+
+		local mat = Material( name )
+
+		-- Look for the old style material
+		if not mat or mat:IsError() then
+
+			name = name:Replace( "entities/", "VGUI/entities/" )
+			name = name:Replace( ".png", "" )
+			mat = Material( name )
+
+		end
+
+		-- Couldn't find any material.. just return
+		if not mat or mat:IsError() then
+			return
+		end
+
+		self:GetImage():SetMaterial( mat )
+
+	end
+
+	function DPredEnt:DoRightClick()
+		self:OpenMenu()
+	end
+
+	function DPredEnt:DoClick()
+	end
+
+	function DPredEnt:OpenMenu()
+	end
+
+	function DPredEnt:OnDepressionChanged( b )
+	end
+
+	function DPredEnt:Paint( w, h )
+
+		if self.Depressed and not self.Dragging then
+			if self:GetBorder() ~= self:GetMaxBorder() then
+				self:SetBorder( self:GetMaxBorder() )
+				self:OnDepressionChanged( true )
+			end
+		else
+			if self:GetBorder() ~= 0 then
+				self:SetBorder( 0 )
+				self:OnDepressionChanged( false )
+			end
+		end
+
+		render.PushFilterMag( TEXFILTER.ANISOTROPIC )
+		render.PushFilterMin( TEXFILTER.ANISOTROPIC )
+		
+		local bx , by , bw , bh = self:GetBorder(), self:GetBorder(), w - self:GetBorder() * 2 , h - self:GetBorder() * 2
+		
+		
+		self:GetImage():PaintAt( bx + self:GetMaxBorder() / 2 , by + self:GetMaxBorder() / 2 , bw - self:GetMaxBorder() , bh - self:GetMaxBorder() )
+		
+		
+	
+		render.PopFilterMin()
+		render.PopFilterMag()
+
+		surface.SetDrawColor( 255, 255, 255, 255 )
+
+		if not dragndrop.IsDragging() and ( self:IsHovered() or self.Depressed or self:IsChildHovered() ) then
+
+			surface.SetMaterial( self.matOverlay_Hovered )
+			self:GetLabel():Hide()
+
+		else
+
+			surface.SetMaterial( self.matOverlay_Normal )
+			self:GetLabel():Show()
+
+		end
+
+		surface.DrawTexturedRect( bx , by , bw , bh )
+
+	end
+	
+	derma.DefineControl( "DPredEnt" , "ContentIcon for Predicted entities in the context menu" , DPredEnt , "DButton" )
+	
 end
