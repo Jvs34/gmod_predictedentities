@@ -799,33 +799,80 @@ else
 		end
 	end
 	
-	function ENT:CreateContextMenuButton()
 	
+	
+	function ENT:CreateContextMenuButton( iconlayout )
+		local button = iconlayout:Add( "DPredEnt" )
+		button:SetSize( 80 , 80 )
+		button:SetClassName( self.PrintName , self:GetSlotName() )
+		button:SetMaterial( self.Folder .. ".png" )
+		button:SetPredEnt( self )
+		--SetClassName
 	end
 	
-	function ENT:GetContextMenuButton()
-	
+	function ENT:GetContextMenuButton( iconlayout )
+		local contextbutton = nil
+		
+		for i = 0 , iconlayout:ChildCount() do
+			
+			local child = iconlayout:GetChild( i )
+			
+			if IsValid( child ) and child:GetName() == "DPredEnt" and child:GetSpawnName() == self:GetSlotName() and child:GetPredEnt() == self then
+				contextbutton = child
+				break
+			end
+			
+		end
+		
+		return contextbutton
 	end
 	
 	--forcefully removes it in case it fucks up
-	function ENT:RemoveContextMenuButton()
-	
+	function ENT:RemoveContextMenuButton( iconlayout , buttonpanel )
+		if IsValid( buttonpanel ) then
+			buttonpanel:Remove()
+		end
 	end
 	
-	function ENT:HandleContextMenuButton()
-		
+	function ENT:GetContextMenuLayout()
 		if not IsValid( g_ContextMenu ) then
 			return
 		end
 		
-		local buttonpanel = self:GetContextMenuButton()
+		local iconlayout = nil
 		
-		if IsValid( buttonpanel ) and not self:IsCarriedByLocalPlayer() then
-			self:RemoveContextMenuButton()
+		for i = 0 , g_ContextMenu:ChildCount() do
+			
+			local child = g_ContextMenu:GetChild( i )
+			
+			if IsValid( child ) and child:GetName() == "DIconLayout" then
+				iconlayout = child
+				break
+			end
+			
+		end
+		
+		return iconlayout
+	end
+	
+	function ENT:HandleContextMenuButton( docleanup )
+	
+		local iconlayout = self:GetContextMenuLayout()
+		
+		if not IsValid( iconlayout ) then
+			return
+		end
+		
+		local buttonpanel = self:GetContextMenuButton( iconlayout )
+		
+		if IsValid( buttonpanel ) and ( not self:IsCarriedByLocalPlayer() or docleanup )then
+			self:RemoveContextMenuButton( iconlayout , buttonpanel )
+			iconlayout:InvalidateLayout()
 		end
 		
 		if not IsValid( buttonpanel ) and self:IsCarriedByLocalPlayer() then
-			self:CreateContextMenuButton()
+			self:CreateContextMenuButton( iconlayout )
+			iconlayout:InvalidateLayout()
 		end
 		
 	end
@@ -1328,7 +1375,13 @@ function ENT:OnRemove()
 		self:Drop( true )
 	end
 	
+	if CLIENT then
+		self:HandleContextMenuButton( true )
+	end
+	
 	self:HandleHooks( true ) --remove the hooks immediately instead of relying on garry's "remove if called again"
+	
+
 end
 
 --stuff that should be in an autorun file but that I can't be arsed to split up to
@@ -1448,7 +1501,7 @@ else
 	
 	AccessorFunc( DPredEnt, "m_MaxBorder", "MaxBorder" )
 	AccessorFunc( DPredEnt, "m_MaterialName", "MaterialName" )
-	
+	AccessorFunc( DPredEnt, "m_PredEnt", "PredEnt" )
 	AccessorFunc( DPredEnt, "m_Border", "Border" )
 	AccessorFunc( DPredEnt, "m_Color", "Color" )
 	AccessorFunc( DPredEnt, "m_Type", "ContentType" )
@@ -1495,11 +1548,11 @@ else
 	end
 	
 	
-	function DPredEnt:SetName( name )
+	function DPredEnt:SetClassName( name , class )
 
 		self:SetTooltip( name )
 		self:GetLabel():SetText( name )
-
+		self:SetSpawnName( class )
 	end
 
 	function DPredEnt:SetMaterial( name )
@@ -1525,15 +1578,25 @@ else
 		self:GetImage():SetMaterial( mat )
 
 	end
-
+	
+	function DPredEnt:Think()
+		if not IsValid( self:GetPredEnt() ) or not self:GetPredEnt().IsPredictedEnt  then
+			self:Remove()
+		end
+	end
+	
 	function DPredEnt:DoRightClick()
 		self:OpenMenu()
 	end
 
 	function DPredEnt:DoClick()
+		RunConsoleCommand( "pe_drop" , self:GetSpawnName() or ""  )
 	end
 
 	function DPredEnt:OpenMenu()
+		if IsValid( self:GetPredEnt() ) then
+			properties.OpenEntityMenu( self:GetPredEnt() )
+		end
 	end
 
 	function DPredEnt:OnDepressionChanged( b )
